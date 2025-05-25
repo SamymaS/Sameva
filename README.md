@@ -65,7 +65,7 @@ assets/
 
 **Samy Boudaoud**  
 📧 samyboudaoud95@gmail.com  
-🔗 [LinkedIn](https://www.linkedin.com/in/samyboudaoud)
+🔗 [LinkedIn](www.linkedin.com/in/samy-boudaoud/)
 
 ---
 
