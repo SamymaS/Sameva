@@ -43,3 +43,12 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# VS Code
+.vscode/
+
+# macOS
+*.DS_Store
+
+# Windows
+Thumbs.db
