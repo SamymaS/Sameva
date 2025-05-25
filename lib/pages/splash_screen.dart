@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
+import '../widgets/app_logo.dart';
 import 'loading_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -12,6 +14,7 @@ class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
+  late Animation<double> _slideAnimation;
 
   @override
   void initState() {
@@ -25,6 +28,10 @@ class _SplashScreenState extends State<SplashScreen>
     _fadeAnimation = CurvedAnimation(
       parent: _controller,
       curve: Curves.easeInOut,
+    );
+
+    _slideAnimation = Tween<double>(begin: 50, end: 0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutQuart),
     );
 
     _controller.forward();
@@ -52,50 +59,74 @@ class _SplashScreenState extends State<SplashScreen>
     final size = MediaQuery.of(context).size;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFEEE4FF),
+      backgroundColor: AppColors.background,
       body: Stack(
-        alignment: Alignment.center,
         children: [
-          // Étoiles
-          ...List.generate(25, (index) => _buildStar(size, index)),
+          // Fond avec motif de points
+          ...List.generate(40, (index) => _buildDot(size, index)),
 
-          // Logo + titre
-          FadeTransition(
-            opacity: _fadeAnimation,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0.9, end: 1.1),
-                  duration: const Duration(seconds: 2),
-                  curve: Curves.easeInOut,
-                  builder: (context, value, child) => Transform.scale(
-                    scale: value,
-                    child: child,
-                  ),
-                  child: Image.asset(
-                    'assets/images/sameva_logo.png',
-                    width: 100,
-                  ),
+          // Contenu principal
+          Center(
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: AnimatedBuilder(
+                animation: _slideAnimation,
+                builder: (context, child) => Transform.translate(
+                  offset: Offset(0, _slideAnimation.value),
+                  child: child,
                 ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Sameva',
-                  style: TextStyle(
-                    fontSize: 30,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF3B3B3B),
-                  ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Logo animé
+                    const AppLogo(
+                      size: 120,
+                      withBackground: true,
+                      withShadow: true,
+                    ),
+                    const SizedBox(height: 40),
+                    
+                    // Titre
+                    Text(
+                      'Sameva',
+                      style: TextStyle(
+                        fontSize: 42,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                        shadows: [
+                          Shadow(
+                            color: AppColors.primary.withOpacity(0.2),
+                            offset: const Offset(0, 4),
+                            blurRadius: 8,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Slogan
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: AppStyles.radius,
+                        boxShadow: [AppStyles.softShadow],
+                      ),
+                      child: Text(
+                        'Ta vie. Tes quêtes. Ton aventure.',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: AppColors.textSecondary,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 10),
-                const Text(
-                  'Ta vie. Tes quêtes. Ton aventure.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF6E6E6E),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ],
@@ -103,19 +134,20 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 
-  Widget _buildStar(Size size, int index) {
-    final top = (index * 91) % size.height;
-    final left = (index * 47) % size.width;
-    final sizeStar = 1.5 + (index % 3);
+  Widget _buildDot(Size size, int index) {
+    final random = index * 7;
+    final top = (random * 13) % size.height;
+    final left = (random * 17) % size.width;
+    final dotSize = 4 + (index % 4);
 
     return Positioned(
-      top: top.toDouble(),
-      left: left.toDouble(),
+      top: top,
+      left: left,
       child: Container(
-        width: sizeStar,
-        height: sizeStar,
+        width: dotSize.toDouble(),
+        height: dotSize.toDouble(),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.4),
+          color: AppColors.primary.withOpacity(0.1),
           shape: BoxShape.circle,
         ),
       ),
