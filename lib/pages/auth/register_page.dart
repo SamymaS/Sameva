@@ -37,7 +37,7 @@ class _RegisterPageState extends State<RegisterPage> {
       );
       
       if (mounted) {
-        Navigator.pop(context);
+        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
       }
     } catch (e) {
       if (mounted) {

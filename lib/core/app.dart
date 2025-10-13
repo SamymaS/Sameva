@@ -16,16 +16,10 @@ class SamevaApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Sameva',
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
       themeMode: themeProvider.themeMode,
       home: const SplashScreen(),
-      // TODO: Ajouter les routes nommées ici
-      // routes: {
-      //   '/home': (context) => const HomePage(),
-      //   '/profile': (context) => const ProfilePage(),
-      //   // etc...
-      // },
     );
   }
 } 

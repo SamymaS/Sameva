@@ -5,11 +5,13 @@ import '../../../theme/app_theme.dart';
 class QuestList extends StatelessWidget {
   final List<Quest> quests;
   final Function(String) onQuestCompleted;
+  final void Function(Quest)? onQuestTap;
 
   const QuestList({
     super.key,
     required this.quests,
     required this.onQuestCompleted,
+    this.onQuestTap,
   });
 
   Color _getRarityColor(QuestRarity rarity) {
@@ -99,9 +101,7 @@ class QuestList extends StatelessWidget {
           child: Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: () {
-                // TODO: Naviguer vers les détails de la quête
-              },
+              onTap: () => onQuestTap?.call(quest),
               borderRadius: BorderRadius.circular(16),
               child: Padding(
                 padding: const EdgeInsets.all(16),
