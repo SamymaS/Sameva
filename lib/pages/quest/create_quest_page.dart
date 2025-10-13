@@ -4,6 +4,7 @@ import 'package:dart_openai/dart_openai.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/quest_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/app_styles.dart';
 
 class CreateQuestPage extends StatefulWidget {
   const CreateQuestPage({super.key});

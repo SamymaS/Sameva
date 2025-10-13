@@ -1,6 +1,7 @@
 // lib/pages/create_quest_page.dart
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_styles.dart';
 
 class CreateQuestPage extends StatefulWidget {
   const CreateQuestPage({super.key});
