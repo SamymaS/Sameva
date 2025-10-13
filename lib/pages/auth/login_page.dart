@@ -34,6 +34,9 @@ class _LoginPageState extends State<LoginPage> {
         _emailController.text.trim(),
         _passwordController.text.trim(),
       );
+      if (mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -162,10 +165,12 @@ class _LoginPageState extends State<LoginPage> {
                     const SizedBox(height: 16),
                     TextButton(
                       onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const RegisterPage(),
+                        Navigator.of(context).push(
+                          PageRouteBuilder(
+                            pageBuilder: (_, __, ___) => const RegisterPage(),
+                            transitionsBuilder: (_, animation, __, child) =>
+                                FadeTransition(opacity: animation, child: child),
+                            transitionDuration: const Duration(milliseconds: 250),
                           ),
                         );
                       },
@@ -178,6 +183,9 @@ class _LoginPageState extends State<LoginPage> {
                       onPressed: () async {
                         try {
                           await context.read<AuthProvider>().signInAnonymously();
+                          if (mounted) {
+                            Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                          }
                         } catch (e) {
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
