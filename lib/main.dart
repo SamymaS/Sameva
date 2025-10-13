@@ -3,6 +3,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'firebase_options.dart';
+import 'config/env_config.dart';
+import 'services/openai_service.dart';
 import 'core/providers/auth_provider.dart';
 import 'core/providers/quest_provider.dart';
 import 'core/providers/player_provider.dart';
@@ -12,6 +14,9 @@ import 'app.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Charger les variables d'environnement (.env)
+  await EnvConfig.initialize();
+
   // Initialiser Firebase avec la configuration par défaut
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
@@ -20,8 +25,10 @@ void main() async {
   // Initialiser Hive
   await Hive.initFlutter();
 
-  // OpenAI sera configuré plus tard
-  // await OpenAIService.initialize('VOTRE_CLE_API');
+  // Initialiser OpenAI si la clé est disponible
+  if (EnvConfig.openAIApiKey.isNotEmpty) {
+    OpenAIService.initialize(EnvConfig.openAIApiKey);
+  }
 
   runApp(
     MultiProvider(
