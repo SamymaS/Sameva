@@ -20,10 +20,7 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _navigateToHome() async {
     await Future.delayed(const Duration(seconds: 3));
     if (mounted) {
-      // TODO: Remplacer par la page d'accueil ou d'onboarding selon le cas
-      // Navigator.of(context).pushReplacement(
-      //   MaterialPageRoute(builder: (_) => const HomePage()),
-      // );
+      Navigator.of(context).pushReplacementNamed('/onboarding');
     }
   }
 

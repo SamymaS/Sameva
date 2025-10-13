@@ -4,14 +4,14 @@ import '../theme/app_styles.dart';
 import '../widgets/app_logo.dart';
 import 'create_quest_page.dart';
 
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+class LegacyHomePage extends StatefulWidget {
+  const LegacyHomePage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<LegacyHomePage> createState() => _LegacyHomePageState();
 }
 
-class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
+class _LegacyHomePageState extends State<LegacyHomePage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final double _xpProgress = 0.6; // À remplacer par la vraie progression
   final int _level = 5; // À remplacer par le vrai niveau

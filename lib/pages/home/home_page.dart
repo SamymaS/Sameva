@@ -84,7 +84,7 @@ class _HomePageState extends State<HomePage> {
                     IconButton(
                       icon: const Icon(Icons.settings),
                       onPressed: () {
-                        // TODO: Naviguer vers les paramètres
+                        Navigator.of(context).pushNamed('/settings');
                       },
                     ),
                   ],
@@ -125,9 +125,11 @@ class _HomePageState extends State<HomePage> {
                     if (userId == null) return;
 
                     await questProvider.completeQuest(userId, questId);
-                    // Ajouter de l'expérience et de l'or au joueur
                     await playerProvider.addExperience(userId, 50);
                     await playerProvider.addGold(userId, 100);
+                  },
+                  onQuestTap: (quest) {
+                    Navigator.of(context).pushNamed('/quest/details', arguments: quest);
                   },
                 ),
               ),
