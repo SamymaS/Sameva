@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_styles.dart';
 import '../widgets/app_logo.dart';
 import 'loading_screen.dart';
 

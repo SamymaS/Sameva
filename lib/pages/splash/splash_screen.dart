@@ -37,7 +37,7 @@ class _SplashScreenState extends State<SplashScreen> {
           children: [
             // TODO: Remplacer par votre animation Lottie
             Lottie.asset(
-              'assets/animations/rpg-loading.json',
+              'assets/animations/rpg_loading.json',
               width: 200,
               height: 200,
             ),

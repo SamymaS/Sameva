@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_styles.dart';
 
 class AppLogo extends StatelessWidget {
   final double size;
@@ -29,15 +30,7 @@ class AppLogo extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: Colors.white,
-          boxShadow: withShadow
-              ? [
-                  BoxShadow(
-                    color: AppColors.primary.withOpacity(0.2),
-                    blurRadius: 20,
-                    spreadRadius: 5,
-                  ),
-                ]
-              : null,
+          boxShadow: withShadow ? const [AppStyles.softShadow] : null,
         ),
         child: Center(child: logo),
       );

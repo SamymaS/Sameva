@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_styles.dart';
 import '../widgets/app_logo.dart';
-import 'home_page.dart';
+import 'home/home_page.dart';
 
 class LoadingScreen extends StatefulWidget {
   const LoadingScreen({super.key});
