@@ -1,203 +1,102 @@
-# Sameva - Votre vie en mode RPG 🎮
+# Sameva
 
-Sameva est une application mobile gamifiée d'organisation personnelle qui transforme vos tâches quotidiennes en quêtes inspirées des jeux de rôle (RPG).
+Sameva est une application mobile Flutter en cours de développement qui transforme l'organisation personnelle en expérience RPG. Le projet mise sur une atmosphère pastel, des animations fluides et une progression de personnage pour rendre le suivi des objectifs quotidiens plus engageant.
 
-## 🚀 Fonctionnalités
+## Aperçu du produit
+- **Onboarding animé** : parcours introductif en trois étapes basé sur des animations Lottie avec persistance de l'état dans `SharedPreferences` pour éviter de le rejouer une fois terminé.
+- **Authentification Firebase** : connexion par email/mot de passe, anonymat et suivi automatique de session via `FirebaseAuth`.
+- **Gestion des quêtes** : création locale, listing et marquage comme terminées avec synchronisation Firestore (collection `users/<uid>/quests`). Un écran de détail affiche rareté, fréquence et sous-quêtes.
+- **Progression du joueur** : statistiques RPG (niveau, XP, or, PV, crédibilité) chargées/sauvegardées dans Firestore et présentées via une carte dédiée, avec gains d'XP et d'or lors de la validation d'une quête.
+- **Cœur de navigation** : une `RootShell` à 4 onglets (Accueil, Récompenses, Profil, Paramètres) animés avec `AnimatedSwitcher` et un bouton d'action flottant pour créer une quête.
+- **Personnalisation visuelle** : thèmes clair/sombre basés sur une palette pastel, polices médiévales et stockage du mode choisi via Hive.
+- **Pages complémentaires** : boutique de récompenses statique, profil joueur (statistiques réutilisées) et paramètres de compte/déconnexion.
 
-- Système de quêtes et sous-quêtes personnalisables
-- Avatar personnalisable avec progression RPG
-- Système de récompenses et de progression
-- Interface immersive avec animations et effets sonores
-- Intégration IA pour la décomposition des tâches
-- Mode sombre/clair adaptatif
+> ℹ️ Le projet est encore en phase de prototypage : plusieurs écrans affichent des données factices ou n'écrivent pas encore dans Firestore, et certaines intégrations (OpenAI, boutique, succès…) restent à implémenter.
 
-## 📋 Prérequis
+## Feuille de route
+- Génération assistée par IA des sous-quêtes via le service OpenAI déjà configuré (mais non raccordé à l'UI).
+- Persistance complète de la création de quêtes (formulaire `CreateQuestPage`) et édition en temps réel.
+- Récompenses dynamiques et boutique avec dépenses d'or.
+- Profil enrichi (succès, historique, personnalisation d'avatar).
+- Notifications, widgets/animations supplémentaires et polissage des transitions.
 
-- Flutter SDK (^3.7.2)
-- Dart SDK (^3.0.0)
-- Un compte Firebase
-- Une clé API OpenAI (pour la génération de sous-tâches)
-
-## 🛠️ Installation
-
-1. Clonez le dépôt :
-```bash
-git clone https://github.com/votre-username/sameva.git
-cd sameva
+## Architecture du code
+```
+lib/
+├── app.dart               # Configuration MaterialApp et routes principales
+├── main.dart              # Initialisation Firebase, Hive, Provider et OpenAI
+├── config/                # Chargement des variables d'environnement (.env)
+├── core/
+│   ├── providers/         # Auth, quêtes, joueur, thème (state management Provider)
+│   └── ...
+├── pages/                 # Vues : onboarding, auth, home, rewards, profile, settings…
+│   ├── home/widgets/      # Composants spécifiques (liste de quêtes, carte de stats)
+│   └── quest/             # Détails et création des quêtes
+├── services/              # Intégrations Firebase & OpenAI
+├── theme/                 # Thèmes, styles et palette de couleurs
+└── widgets/               # Composants transverses (à étendre)
 ```
 
-2. Installez les dépendances :
+### Navigation & transitions
+- `App` choisit la page de lancement selon l'onboarding (`SharedPreferences`) puis l'état d'authentification (`AuthProvider`).
+- La navigation nommée expose : `/`, `/login`, `/rewards`, `/profile`, `/settings`, `/onboarding`, `/quest/details` avec transitions personnalisées (fondu + léger slide).
+- `RootShell` orchestre les onglets bas et le bouton d'ajout de quête avec animations Material 3.
+
+## Stack technique
+- **Flutter** (SDK ≥ 3.3) & **Dart**.
+- **Firebase** : `firebase_core`, `firebase_auth`, `cloud_firestore` pour l'authentification et la persistance des quêtes/statistiques.
+- **State management** : `provider`.
+- **Stockage local** : `hive`/`hive_flutter` (préférences thème) et `shared_preferences` (onboarding).
+- **UI & animations** : `google_fonts`, `lottie`, `flutter_animate`, `flutter_svg`.
+- **Intégrations externes** : `dart_openai` pour la génération de contenu ; `uuid` pour les identifiants de quêtes.
+
+## Prise en main
+### Prérequis
+- Flutter SDK 3.3 ou plus récent et Dart 3.3+.
+- Un projet Firebase configuré (Authentication + Firestore).
+- (Optionnel) Une clé API OpenAI pour activer les suggestions de sous-quêtes.
+
+### Installation
 ```bash
+git clone https://github.com/<votre-utilisateur>/sameva.git
+cd sameva
 flutter pub get
 ```
 
-3. Créez un fichier `.env` à la racine du projet avec les variables suivantes :
+### Variables d'environnement
+Créez un fichier `.env` à la racine (chargé par `EnvConfig`) :
 ```
-# Firebase Configuration
-FIREBASE_API_KEY=your_firebase_api_key
-FIREBASE_APP_ID=your_firebase_app_id
-FIREBASE_MESSAGING_SENDER_ID=your_firebase_sender_id
-FIREBASE_PROJECT_ID=your_firebase_project_id
-FIREBASE_STORAGE_BUCKET=your_firebase_storage_bucket
-
-# OpenAI Configuration
-OPENAI_API_KEY=your_openai_api_key
-
-# App Configuration
-APP_NAME=Sameva
-APP_VERSION=1.0.0
-APP_ENV=development
+FIREBASE_API_KEY=...
+FIREBASE_AUTH_DOMAIN=...
+FIREBASE_PROJECT_ID=...
+FIREBASE_STORAGE_BUCKET=...
+FIREBASE_MESSAGING_SENDER_ID=...
+FIREBASE_APP_ID=...
+OPENAI_API_KEY=... # Optionnel mais recommandé
 ```
 
-4. Configurez Firebase :
-   - Créez un projet sur la console Firebase
-   - Ajoutez une application Android/iOS
-   - Téléchargez les fichiers de configuration
-   - Placez-les dans les dossiers appropriés :
-     - Android: `android/app/google-services.json`
-     - iOS: `ios/Runner/GoogleService-Info.plist`
+### Configuration Firebase
+1. Activez Authentication (email/mot de passe + anonyme) et Cloud Firestore.
+2. Générez et placez les fichiers de configuration :
+   - `android/app/google-services.json`
+   - `ios/Runner/GoogleService-Info.plist`
+3. Vérifiez que les règles Firestore autorisent l'accès aux collections `users/<uid>/quests` et `users/<uid>/stats`.
 
-## 🎨 Structure du projet
-
-```
-lib/
-├── core/
-│   ├── app.dart
-│   ├── models/
-│   ├── providers/
-│   └── services/
-├── pages/
-│   ├── splash/
-│   ├── home/
-│   ├── quest/
-│   └── profile/
-├── theme/
-│   └── app_theme.dart
-└── widgets/
-    ├── common/
-    └── quest/
-```
-
-## 🔧 Configuration
-
-### Thème
-
-Le thème de l'application est configurable dans `lib/theme/app_theme.dart`. Vous pouvez modifier :
-- Les couleurs principales
-- Les styles de texte
-- Les animations
-- Les effets visuels
-
-### Firebase
-
-1. Activez les services Firebase nécessaires :
-   - Authentication
-   - Cloud Firestore
-   - Cloud Storage
-   - Cloud Functions (optionnel)
-
-2. Configurez les règles de sécurité pour Firestore et Storage
-
-### Notifications
-
-Les notifications sont configurées pour être :
-- Non intrusives
-- Personnalisées selon les habitudes de l'utilisateur
-- Adaptées au fuseau horaire
-
-## 📱 Lancement
-
+### Lancer l'application
 ```bash
 flutter run
 ```
 
-## 🤝 Contribution
+## Développement
+- Les préférences (thème, onboarding) sont stockées localement ; pensez à nettoyer Hive/SharedPreferences lors de tests d'intégration.
+- Les quêtes et statistiques reposent sur la structure Firestore suivante :
+  - `users/{uid}/quests/{questId}` → `Quest.toJson()`.
+  - `users/{uid}` (document) → champ `stats` mappé depuis `PlayerStats`.
+- Pour ajuster la palette ou les styles, modifiez `lib/theme/app_theme.dart` et `lib/theme/app_styles.dart`.
+- Les routes supplémentaires doivent être enregistrées dans `App.onGenerateRoute` pour bénéficier des transitions animées.
 
-Les contributions sont les bienvenues ! N'hésitez pas à :
-1. Fork le projet
-2. Créer une branche (`git checkout -b feature/AmazingFeature`)
-3. Commit vos changements (`git commit -m 'Add some AmazingFeature'`)
-4. Push sur la branche (`git push origin feature/AmazingFeature`)
-5. Ouvrir une Pull Request
-
-## 📄 Licence
-
-Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
-
-## 🙏 Remerciements
-
-- L'équipe Flutter pour ce framework incroyable
-- La communauté open source pour les packages utilisés
-- Tous les contributeurs du projet
-
-# 🧭 Sameva – L'application de quête personnelle
-
-**Sameva** est une application mobile gamifiée développée avec **Flutter**, conçue pour transformer vos tâches quotidiennes en aventures RPG. 🧙‍♂️
+## Contribution
+Les retours et contributions sont bienvenus : créez une issue ou une Pull Request après avoir synchronisé votre branche et respecté la structure existante.
 
 ---
-
-## ✨ Fonctionnalités principales
-
-- 🎯 Création de **quêtes journalières ou hebdomadaires**
-- 🧩 Décomposition automatique des quêtes en sous-tâches
-- ⚔️ Gagnez des **XP**, de l'**or**, et montez de **niveau**
-- 💀 Système de **malus** (perte de vie si oubli)
-- 🛡️ Boutique avec objets, familiers, personnalisations
-- 👥 Système de **groupes & événements multijoueur**
-- 💬 Tchat communautaire, leaderboard, avatar évolutif
-
----
-
-## 🛠️ Stack technique
-
-- **Flutter** & **Dart**
-- Gestion d'état : `Provider` (ou `Riverpod`)
-- Backend à venir (Firebase, Supabase ou Node.js)
-- Animations & SFX immersifs (orbe, particules, splashs)
-- Compatible Android & iOS
-
----
-
-## 📁 Structure du projet
-
-```bash
-lib/
-├── pages/          # Écrans (Splash, Loading, Home)
-├── models/         # Données (Quêtes, User, Shop, etc.)
-├── services/       # Gestion logique (auth, quêtes)
-├── widgets/        # Composants UI réutilisables
-assets/
-├── images/
-├── sounds/
-```
-
----
-
-## 🎨 Design system
-
-- Couleurs pastel douces
-- UI flat & épurée
-- Icônes RPG (plume, parchemin, orbe)
-- Navigation fluide avec animations
-
----
-
-## 📌 À venir
-
-- 🔐 Authentification Google
-- ☁️ Backend Cloud
-- 🗓️ Notifications & rappels intelligents
-- 🎁 Système de récompenses
-- Création d'IA ?
-
----
-
-## 📬 Auteur
-
-**Samy Boudaoud**  
-📧 samyboudaoud95@gmail.com  
-🔗 [LinkedIn](https://www.linkedin.com/in/samy-boudaoud/)
-
----
-
-> _"Héros de ta vie. Tes quêtes. Ton aventure."_ ⚔️  
+> « Héros de ta vie. Tes quêtes. Ton aventure. »
