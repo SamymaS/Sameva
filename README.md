@@ -1,203 +1,70 @@
-# Sameva - Votre vie en mode RPG 🎮
+# Sameva
 
-Sameva est une application mobile gamifiée d'organisation personnelle qui transforme vos tâches quotidiennes en quêtes inspirées des jeux de rôle (RPG).
+> Transforme ta to-do list en aventure épique.
 
-## 🚀 Fonctionnalités
+Sameva est une application mobile en cours de création qui réinvente le suivi d'objectifs avec une mise en scène RPG, des tons pastels réconfortants et une narration motivante. Pensé comme un compagnon ludique pour étudiants, jeunes actifs et créatifs débordés, Sameva transforme chaque petite victoire en quête héroïque.
 
-- Système de quêtes et sous-quêtes personnalisables
-- Avatar personnalisable avec progression RPG
-- Système de récompenses et de progression
-- Interface immersive avec animations et effets sonores
-- Intégration IA pour la décomposition des tâches
-- Mode sombre/clair adaptatif
+**Créé et imaginé par Samy Boudaoud.**
 
-## 📋 Prérequis
+---
 
-- Flutter SDK (^3.7.2)
-- Dart SDK (^3.0.0)
-- Un compte Firebase
-- Une clé API OpenAI (pour la génération de sous-tâches)
+## Pourquoi Sameva donne envie de jouer sérieux
+- **Motivation par le jeu** : chaque tâche devient une quête, avec des niveaux à gravir, de l'or à gagner et des statistiques de personnage qui s'envolent lorsque tu restes concentré.
+- **Univers doux et accessible** : typographies féeriques, palette pastel et animations soignées pour se sentir instantanément dans un cocon d'inspiration.
+- **Routine guidée** : onboarding scénarisé en trois tableaux animés qui te plonge dans l'aventure sans prise de tête.
+- **Connexion instantanée** : authentification simple pour retrouver ta progression sur tous tes appareils en un clin d'œil.
+- **Quêtes sur mesure** : classe tes objectifs par rareté, fréquence ou sous-quêtes et ressens la satisfaction de cocher chaque étape dans une interface intuitive.
+- **Tableau de bord héroïque** : visualise ton niveau, ton expérience, ton or et ta crédibilité comme un véritable personnage de RPG.
+- **Navigation fluide** : une coque principale à quatre onglets (Accueil, Récompenses, Profil, Paramètres) pensée pour alterner entre planification, récompenses et suivi personnel.
 
-## 🛠️ Installation
+---
 
-1. Clonez le dépôt :
+## Ce qui t'attend aujourd'hui
+| Expérience | Ce que tu vas vivre |
+| --- | --- |
+| **Accueil vivant** | Liste tes quêtes du jour et regarde tes récompenses d'XP et d'or tomber au fur et à mesure. |
+| **Boutique de rêves** | Imagine les récompenses que tu t'offriras avec l'or accumulé et commence à projeter ta prochaine victoire. |
+| **Profil légendaire** | Découvre tes statistiques globales et prépare ton prochain palier de progression. |
+| **Paramètres soignés** | Choisis ton ambiance claire ou sombre et gère ton compte sans quitter ton univers. |
+
+Chaque écran est conçu pour déclencher un sourire et rappeler que ta productivité peut être belle et inspirante.
+
+---
+
+## Une vision ambitieuse
+Sameva est encore en pleine gestation, mais la feuille de route promet une montée en puissance continue :
+
+1. **Création de quêtes enrichie** – finaliser l'enregistrement complet et l'édition en direct pour offrir une flexibilité totale aux joueurs organisés.
+2. **Récompenses dynamiques** – transformer la boutique en véritable marché d'objets virtuels afin de renforcer le sentiment de progression tangible.
+3. **Profil évolutif** – ajouter succès, badges et personnalisation d'avatar pour célébrer chaque style d'aventurier.
+4. **Moments communautaires** – ouvrir la voie à des classements amicaux et à des défis de groupe pour maintenir la motivation sur la durée.
+5. **Événements saisonniers** – proposer des séries de quêtes thématiques pour renouveler l'expérience et accompagner les grands moments de l'année.
+
+Chaque étape renforce l'idée d'un monde persistant où l'organisation quotidienne devient un jeu qu'on a envie de relancer encore et encore.
+
+---
+
+## Architecture & technologie (en un coup d'œil)
+- **Flutter & Dart** pour une expérience mobile souple et performante sur iOS, Android, web et desktop.
+- **Provider, Hive, SharedPreferences** pour un état maîtrisé et des préférences qui te suivent.
+- **Firebase Auth & Cloud Firestore** pour sécuriser tes données et les synchroniser avec fiabilité.
+- **Animations & design system maison** pour maintenir l'immersion du premier au dernier écran.
+
+---
+
+## Tu veux tester l'aventure ?
 ```bash
-git clone https://github.com/votre-username/sameva.git
+git clone https://github.com/<votre-utilisateur>/sameva.git
 cd sameva
-```
-
-2. Installez les dépendances :
-```bash
 flutter pub get
-```
-
-3. Créez un fichier `.env` à la racine du projet avec les variables suivantes :
-```
-# Firebase Configuration
-FIREBASE_API_KEY=your_firebase_api_key
-FIREBASE_APP_ID=your_firebase_app_id
-FIREBASE_MESSAGING_SENDER_ID=your_firebase_sender_id
-FIREBASE_PROJECT_ID=your_firebase_project_id
-FIREBASE_STORAGE_BUCKET=your_firebase_storage_bucket
-
-# OpenAI Configuration
-OPENAI_API_KEY=your_openai_api_key
-
-# App Configuration
-APP_NAME=Sameva
-APP_VERSION=1.0.0
-APP_ENV=development
-```
-
-4. Configurez Firebase :
-   - Créez un projet sur la console Firebase
-   - Ajoutez une application Android/iOS
-   - Téléchargez les fichiers de configuration
-   - Placez-les dans les dossiers appropriés :
-     - Android: `android/app/google-services.json`
-     - iOS: `ios/Runner/GoogleService-Info.plist`
-
-## 🎨 Structure du projet
-
-```
-lib/
-├── core/
-│   ├── app.dart
-│   ├── models/
-│   ├── providers/
-│   └── services/
-├── pages/
-│   ├── splash/
-│   ├── home/
-│   ├── quest/
-│   └── profile/
-├── theme/
-│   └── app_theme.dart
-└── widgets/
-    ├── common/
-    └── quest/
-```
-
-## 🔧 Configuration
-
-### Thème
-
-Le thème de l'application est configurable dans `lib/theme/app_theme.dart`. Vous pouvez modifier :
-- Les couleurs principales
-- Les styles de texte
-- Les animations
-- Les effets visuels
-
-### Firebase
-
-1. Activez les services Firebase nécessaires :
-   - Authentication
-   - Cloud Firestore
-   - Cloud Storage
-   - Cloud Functions (optionnel)
-
-2. Configurez les règles de sécurité pour Firestore et Storage
-
-### Notifications
-
-Les notifications sont configurées pour être :
-- Non intrusives
-- Personnalisées selon les habitudes de l'utilisateur
-- Adaptées au fuseau horaire
-
-## 📱 Lancement
-
-```bash
 flutter run
 ```
 
-## 🤝 Contribution
-
-Les contributions sont les bienvenues ! N'hésitez pas à :
-1. Fork le projet
-2. Créer une branche (`git checkout -b feature/AmazingFeature`)
-3. Commit vos changements (`git commit -m 'Add some AmazingFeature'`)
-4. Push sur la branche (`git push origin feature/AmazingFeature`)
-5. Ouvrir une Pull Request
-
-## 📄 Licence
-
-Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
-
-## 🙏 Remerciements
-
-- L'équipe Flutter pour ce framework incroyable
-- La communauté open source pour les packages utilisés
-- Tous les contributeurs du projet
-
-# 🧭 Sameva – L'application de quête personnelle
-
-**Sameva** est une application mobile gamifiée développée avec **Flutter**, conçue pour transformer vos tâches quotidiennes en aventures RPG. 🧙‍♂️
+Pense à configurer un projet Firebase avec Authentication (email/mot de passe + anonyme) et Cloud Firestore, puis à ajouter les fichiers `google-services.json` et `GoogleService-Info.plist` dans les dossiers natifs correspondants.
 
 ---
 
-## ✨ Fonctionnalités principales
+### Rejoins la quête
+Sameva n'en est qu'au début de son épopée. Que tu sois joueur nostalgique de RPG, créatif à l'agenda chargé ou professionnel en quête d'une méthode de productivité motivante, cette application est conçue pour toi.
 
-- 🎯 Création de **quêtes journalières ou hebdomadaires**
-- 🧩 Décomposition automatique des quêtes en sous-tâches
-- ⚔️ Gagnez des **XP**, de l'**or**, et montez de **niveau**
-- 💀 Système de **malus** (perte de vie si oubli)
-- 🛡️ Boutique avec objets, familiers, personnalisations
-- 👥 Système de **groupes & événements multijoueur**
-- 💬 Tchat communautaire, leaderboard, avatar évolutif
-
----
-
-## 🛠️ Stack technique
-
-- **Flutter** & **Dart**
-- Gestion d'état : `Provider` (ou `Riverpod`)
-- Backend à venir (Firebase, Supabase ou Node.js)
-- Animations & SFX immersifs (orbe, particules, splashs)
-- Compatible Android & iOS
-
----
-
-## 📁 Structure du projet
-
-```bash
-lib/
-├── pages/          # Écrans (Splash, Loading, Home)
-├── models/         # Données (Quêtes, User, Shop, etc.)
-├── services/       # Gestion logique (auth, quêtes)
-├── widgets/        # Composants UI réutilisables
-assets/
-├── images/
-├── sounds/
-```
-
----
-
-## 🎨 Design system
-
-- Couleurs pastel douces
-- UI flat & épurée
-- Icônes RPG (plume, parchemin, orbe)
-- Navigation fluide avec animations
-
----
-
-## 📌 À venir
-
-- 🔐 Authentification Google
-- ☁️ Backend Cloud
-- 🗓️ Notifications & rappels intelligents
-- 🎁 Système de récompenses
-- Création d'IA ?
-
----
-
-## 📬 Auteur
-
-**Samy Boudaoud**  
-📧 samyboudaoud95@gmail.com  
-🔗 [LinkedIn](https://www.linkedin.com/in/samy-boudaoud/)
-
----
-
-> _"Héros de ta vie. Tes quêtes. Ton aventure."_ ⚔️  
+Reste à l'écoute pour les prochaines versions et prépare-toi à vivre ta productivité comme une véritable aventure. L'histoire ne fait que commencer.
