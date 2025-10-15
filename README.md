@@ -52,6 +52,23 @@ Chaque étape renforce l'idée d'un monde persistant où l'organisation quotidie
 
 ---
 
+## Architecture du code détaillé
+```
+lib/
+├── app.dart               # Configuration MaterialApp et routes principales
+├── main.dart              # Initialisation Firebase, Hive, Provider et OpenAI
+├── config/                # Chargement des variables d'environnement (.env)
+├── core/
+│   ├── providers/         # Auth, quêtes, joueur, thème (state management Provider)
+│   └── ...
+├── pages/                 # Vues : onboarding, auth, home, rewards, profile, settings…
+│   ├── home/widgets/      # Composants spécifiques (liste de quêtes, carte de stats)
+│   └── quest/             # Détails et création des quêtes
+├── services/              # Intégrations Firebase & OpenAI
+├── theme/                 # Thèmes, styles et palette de couleurs
+└── widgets/               # Composants transverses (à étendre)
+```
+
 ## Tu veux tester l'aventure ?
 ```bash
 git clone https://github.com/<votre-utilisateur>/sameva.git
