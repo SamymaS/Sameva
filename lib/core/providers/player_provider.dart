@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 class PlayerStats {
   final int level;
@@ -62,7 +62,7 @@ class PlayerStats {
 }
 
 class PlayerProvider with ChangeNotifier {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  Box get _statsBox => Hive.box('playerStats');
   PlayerStats? _stats;
 
   PlayerStats? get stats => _stats;
@@ -71,40 +71,38 @@ class PlayerProvider with ChangeNotifier {
   // Expérience nécessaire pour chaque niveau
   int experienceForLevel(int level) => (100 * (level * 1.5)).round();
 
-  Future<void> loadPlayerStats(String userId) async {
+  void _loadStatsFromBox() {
     try {
-      final doc = await _firestore
-          .collection('users')
-          .doc(userId)
-          .get();
-
-      if (doc.exists && doc.data()!.containsKey('stats')) {
-        _stats = PlayerStats.fromJson(doc.data()!['stats'] as Map<String, dynamic>);
+      final statsJson = _statsBox.get('stats');
+      if (statsJson != null) {
+        _stats = PlayerStats.fromJson(Map<String, dynamic>.from(statsJson as Map));
       } else {
         _stats = PlayerStats();
-        await savePlayerStats(userId);
       }
       notifyListeners();
     } catch (e) {
       print('Erreur lors du chargement des stats: $e');
-      _stats = PlayerStats(); // Utiliser des stats par défaut en cas d'erreur
+      _stats = PlayerStats();
       notifyListeners();
     }
   }
 
-  Future<void> savePlayerStats(String userId) async {
+  Future<void> _saveStatsToBox() async {
     if (_stats == null) return;
-
     try {
-      await _firestore
-          .collection('users')
-          .doc(userId)
-          .set({
-            'stats': _stats!.toJson()
-          }, SetOptions(merge: true));
+      await _statsBox.put('stats', _stats!.toJson());
     } catch (e) {
       print('Erreur lors de la sauvegarde des stats: $e');
     }
+  }
+
+  Future<void> loadPlayerStats(String userId) async {
+    // Pas besoin de userId pour le stockage local
+    _loadStatsFromBox();
+  }
+
+  Future<void> savePlayerStats(String userId) async {
+    await _saveStatsToBox();
   }
 
   Future<void> addExperience(String userId, int amount) async {

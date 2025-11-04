@@ -24,25 +24,17 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> signInWithEmailAndPassword(String email, String password) async {
-    try {
-      await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-    } catch (e) {
-      rethrow;
-    }
+    // MODE TEST : Bypass de l'authentification réelle
+    // Pour les tests, on se connecte automatiquement en mode anonyme
+    // Peu importe les identifiants fournis, on passe en mode anonyme
+    await _auth.signInAnonymously();
   }
 
   Future<void> createUserWithEmailAndPassword(String email, String password) async {
-    try {
-      await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-    } catch (e) {
-      rethrow;
-    }
+    // MODE TEST : Bypass de l'authentification réelle
+    // Pour les tests, on se connecte automatiquement en mode anonyme
+    // Peu importe les identifiants fournis, on passe en mode anonyme
+    await _auth.signInAnonymously();
   }
 
   Future<void> signOut() async {

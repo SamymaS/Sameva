@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:dart_openai/dart_openai.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/quest_provider.dart';
 import '../../theme/app_theme.dart';
@@ -24,7 +23,6 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
   String _category = 'Personnel';
   List<String> _subQuests = [];
   bool _isLoading = false;
-  bool _isGeneratingSubQuests = false;
 
   final List<String> _categories = [
     'Personnel',
@@ -45,74 +43,40 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
     super.dispose();
   }
 
-  Future<void> _generateSubQuests() async {
-    if (_titleController.text.isEmpty || _descriptionController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez remplir le titre et la description'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-      return;
-    }
-
-    setState(() => _isGeneratingSubQuests = true);
-
-    try {
-      final prompt = '''
-Décompose la quête suivante en sous-tâches concrètes et réalisables :
-
-Titre : ${_titleController.text}
-Description : ${_descriptionController.text}
-Catégorie : $_category
-Fréquence : ${_frequency.toString().split('.').last}
-Difficulté : $_difficulty/5
-
-Format de réponse souhaité : Une liste de sous-tâches, une par ligne.
-''';
-
-      final completion = await OpenAI.instance.chat.create(
-        model: 'gpt-3.5-turbo',
-        messages: [
-          OpenAIChatCompletionChoiceMessageModel(
-            role: OpenAIChatMessageRole.user,
-            content: [
-              OpenAIChatCompletionChoiceMessageContentItemModel.text(prompt),
-            ],
+  void _addSubQuest() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        final controller = TextEditingController();
+        return AlertDialog(
+          title: const Text('Ajouter une sous-quête'),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(
+              hintText: 'Titre de la sous-quête',
+            ),
+            autofocus: true,
           ),
-        ],
-      );
-
-      if (completion.choices.isNotEmpty) {
-        final content = completion.choices.first.message.content;
-        if (content != null && content.isNotEmpty) {
-          final textContent = content.first.text;
-          if (textContent != null) {
-            final subQuests = textContent
-                .split('\n')
-                .where((line) => line.trim().isNotEmpty)
-                .toList();
-
-            setState(() {
-              _subQuests = subQuests;
-            });
-          }
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur lors de la génération : ${e.toString()}'),
-            backgroundColor: AppColors.error,
-          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Annuler'),
+            ),
+            TextButton(
+              onPressed: () {
+                if (controller.text.trim().isNotEmpty) {
+                  setState(() {
+                    _subQuests.add(controller.text.trim());
+                  });
+                  Navigator.pop(context);
+                }
+              },
+              child: const Text('Ajouter'),
+            ),
+          ],
         );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isGeneratingSubQuests = false);
-      }
-    }
+      },
+    );
   }
 
   QuestRarity _calculateRarity() {
@@ -281,22 +245,9 @@ Format de réponse souhaité : Une liste de sous-tâches, une par ligne.
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
-              onPressed: _isGeneratingSubQuests ? null : _generateSubQuests,
-              icon: _isGeneratingSubQuests
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Icon(Icons.auto_awesome),
-              label: Text(
-                _isGeneratingSubQuests
-                    ? 'Génération en cours...'
-                    : 'Générer les sous-quêtes',
-              ),
+              onPressed: _addSubQuest,
+              icon: const Icon(Icons.add),
+              label: const Text('Ajouter une sous-quête'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 padding: const EdgeInsets.symmetric(vertical: 12),
@@ -305,7 +256,7 @@ Format de réponse souhaité : Une liste de sous-tâches, une par ligne.
             if (_subQuests.isNotEmpty) ...[
               const SizedBox(height: 16),
               Text(
-                'Sous-quêtes générées',
+                'Sous-quêtes',
                 style: Theme.of(context).textTheme.titleSmall,
               ),
               const SizedBox(height: 8),

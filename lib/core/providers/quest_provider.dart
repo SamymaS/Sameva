@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 enum QuestRarity {
@@ -88,41 +88,45 @@ class Quest {
 }
 
 class QuestProvider with ChangeNotifier {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  Box get _questsBox => Hive.box('quests');
+  
   List<Quest> _quests = [];
   
   List<Quest> get quests => _quests;
   List<Quest> get activeQuests => _quests.where((q) => !q.isCompleted).toList();
   List<Quest> get completedQuests => _quests.where((q) => q.isCompleted).toList();
-
-  Future<void> loadQuests(String userId) async {
+  
+  void _loadQuestsFromBox() {
     try {
-      final snapshot = await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('quests')
-          .get();
-
-      _quests = snapshot.docs
-          .map((doc) => Quest.fromJson(doc.data()))
+      final questsList = _questsBox.get('quests', defaultValue: <Map>[]);
+      _quests = (questsList as List)
+          .map((json) => Quest.fromJson(Map<String, dynamic>.from(json)))
           .toList();
-      
       notifyListeners();
     } catch (e) {
-      rethrow;
+      print('Erreur lors du chargement des quêtes: $e');
+      _quests = [];
     }
+  }
+  
+  Future<void> _saveQuestsToBox() async {
+    try {
+      final questsJson = _quests.map((q) => q.toJson()).toList();
+      await _questsBox.put('quests', questsJson);
+    } catch (e) {
+      print('Erreur lors de la sauvegarde des quêtes: $e');
+    }
+  }
+
+  Future<void> loadQuests(String userId) async {
+    // Pas besoin de userId pour le stockage local
+    _loadQuestsFromBox();
   }
 
   Future<void> addQuest(String userId, Quest quest) async {
     try {
-      await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('quests')
-          .doc(quest.id)
-          .set(quest.toJson());
-
       _quests.add(quest);
+      await _saveQuestsToBox();
       notifyListeners();
     } catch (e) {
       rethrow;
@@ -131,16 +135,10 @@ class QuestProvider with ChangeNotifier {
 
   Future<void> updateQuest(String userId, Quest quest) async {
     try {
-      await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('quests')
-          .doc(quest.id)
-          .update(quest.toJson());
-
       final index = _quests.indexWhere((q) => q.id == quest.id);
       if (index != -1) {
         _quests[index] = quest;
+        await _saveQuestsToBox();
         notifyListeners();
       }
     } catch (e) {
@@ -150,14 +148,8 @@ class QuestProvider with ChangeNotifier {
 
   Future<void> deleteQuest(String userId, String questId) async {
     try {
-      await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('quests')
-          .doc(questId)
-          .delete();
-
       _quests.removeWhere((q) => q.id == questId);
+      await _saveQuestsToBox();
       notifyListeners();
     } catch (e) {
       rethrow;
