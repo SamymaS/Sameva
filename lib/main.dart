@@ -7,7 +7,7 @@ import 'core/providers/auth_provider.dart';
 import 'core/providers/quest_provider.dart';
 import 'core/providers/player_provider.dart';
 import 'core/providers/theme_provider.dart';
-import 'app.dart';
+import 'app_new.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,7 +39,7 @@ void main() async {
         ChangeNotifierProvider.value(value: questProvider),
         ChangeNotifierProvider.value(value: playerProvider),
       ],
-      child: const App(),
+      child: const SamevaApp(),
     ),
   );
 } 
