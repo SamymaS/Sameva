@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
+import '../../utils/quest_rewards_calculator.dart';
 
 enum QuestRarity {
   common,
@@ -178,5 +179,15 @@ class QuestProvider with ChangeNotifier {
     } catch (e) {
       rethrow;
     }
+  }
+
+  /// Retourne les récompenses calculées pour une quête
+  /// Utilise QuestRewardsCalculator pour calculer les récompenses
+  QuestRewards calculateRewards(Quest quest, DateTime completedAt, {bool hasStreakBonus = false}) {
+    return QuestRewardsCalculator.calculateRewardsWithTiming(
+      quest,
+      completedAt,
+      hasStreakBonus: hasStreakBonus,
+    );
   }
 } 

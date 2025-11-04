@@ -124,9 +124,39 @@ class _HomePageState extends State<HomePage> {
                     final userId = context.read<AuthProvider>().user?.uid;
                     if (userId == null) return;
 
+                    // Trouver la quête
+                    final quest = questProvider.quests.firstWhere((q) => q.id == questId);
+                    
+                    // Compléter la quête
                     await questProvider.completeQuest(userId, questId);
-                    await playerProvider.addExperience(userId, 50);
-                    await playerProvider.addGold(userId, 100);
+                    
+                    // Calculer les récompenses avec bonus/malus
+                    final completedAt = DateTime.now();
+                    final hasStreakBonus = playerProvider.hasStreakBonus;
+                    final rewards = questProvider.calculateRewards(
+                      quest,
+                      completedAt,
+                      hasStreakBonus: hasStreakBonus,
+                    );
+                    
+                    // Appliquer les récompenses
+                    if (rewards.experience > 0) {
+                      await playerProvider.addExperience(userId, rewards.experience);
+                    }
+                    if (rewards.gold > 0) {
+                      await playerProvider.addGold(userId, rewards.gold);
+                    }
+                    if (rewards.crystals > 0) {
+                      await playerProvider.addCrystals(userId, rewards.crystals);
+                    }
+                    
+                    // Mettre à jour le streak
+                    await playerProvider.updateStreak(userId);
+                    
+                    // Appliquer les pénalités de moral si nécessaire
+                    if (rewards.moralPenalty != null) {
+                      await playerProvider.updateMoral(userId, rewards.moralPenalty!);
+                    }
                   },
                   onQuestTap: (quest) {
                     Navigator.of(context).pushNamed('/quest/details', arguments: quest);
