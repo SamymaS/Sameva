@@ -12,7 +12,6 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
@@ -25,31 +24,23 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _login() async {
-    if (!_formKey.currentState!.validate()) return;
-
+    // MODE TEST : Pas de validation, on passe directement
     setState(() => _isLoading = true);
 
     try {
+      // MODE TEST : Bypass - on passe directement avec n'importe quels identifiants
       await context.read<AuthProvider>().signInWithEmailAndPassword(
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
+        _emailController.text.trim().isEmpty ? 'test@test.com' : _emailController.text.trim(),
+        _passwordController.text.trim().isEmpty ? 'password' : _passwordController.text.trim(),
       );
-      if (mounted) {
-        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-      }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur de connexion: ${e.toString()}'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      // En mode test, même en cas d'erreur, on passe quand même
+      await context.read<AuthProvider>().signInAnonymously();
+    }
+    
+    if (mounted) {
+      setState(() => _isLoading = false);
+      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
     }
   }
 
@@ -71,8 +62,6 @@ class _LoginPageState extends State<LoginPage> {
           child: Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
-              child: Form(
-                key: _formKey,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -91,7 +80,7 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ),
                     const SizedBox(height: 48),
-                    TextFormField(
+                    TextField(
                       controller: _emailController,
                       decoration: InputDecoration(
                         labelText: 'Email',
@@ -104,18 +93,9 @@ class _LoginPageState extends State<LoginPage> {
                         labelStyle: const TextStyle(color: Colors.white70),
                       ),
                       style: const TextStyle(color: Colors.white),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Veuillez entrer votre email';
-                        }
-                        if (!value.contains('@')) {
-                          return 'Veuillez entrer un email valide';
-                        }
-                        return null;
-                      },
                     ),
                     const SizedBox(height: 16),
-                    TextFormField(
+                    TextField(
                       controller: _passwordController,
                       obscureText: true,
                       decoration: InputDecoration(
@@ -129,15 +109,6 @@ class _LoginPageState extends State<LoginPage> {
                         labelStyle: const TextStyle(color: Colors.white70),
                       ),
                       style: const TextStyle(color: Colors.white),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Veuillez entrer votre mot de passe';
-                        }
-                        if (value.length < 6) {
-                          return 'Le mot de passe doit contenir au moins 6 caractères';
-                        }
-                        return null;
-                      },
                     ),
                     const SizedBox(height: 24),
                     SizedBox(
@@ -208,7 +179,6 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
         ),
-      ),
     );
   }
 } 
