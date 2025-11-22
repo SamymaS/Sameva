@@ -105,3 +105,5 @@ Tous les mini-jeux utilisent :
 - Le code est modulaire et facile à étendre
 - Chaque jeu gère son propre état avec `StatefulWidget`
 
+
+

@@ -7,6 +7,8 @@ import 'core/providers/auth_provider.dart';
 import 'core/providers/quest_provider.dart';
 import 'core/providers/player_provider.dart';
 import 'core/providers/theme_provider.dart';
+import 'core/providers/inventory_provider.dart';
+import 'core/providers/equipment_provider.dart';
 import 'app_new.dart';
 
 void main() async {
@@ -23,6 +25,8 @@ void main() async {
   // Ouvrir les boxes Hive
   await Hive.openBox('quests');
   await Hive.openBox('playerStats');
+  await Hive.openBox('inventory');
+  await Hive.openBox('equipment');
 
   final questProvider = QuestProvider();
   final playerProvider = PlayerProvider();
@@ -38,6 +42,8 @@ void main() async {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider.value(value: questProvider),
         ChangeNotifierProvider.value(value: playerProvider),
+        ChangeNotifierProvider(create: (_) => InventoryProvider()..loadInventory('')),
+        ChangeNotifierProvider(create: (_) => EquipmentProvider()..loadEquipment('')),
       ],
       child: const SamevaApp(),
     ),
