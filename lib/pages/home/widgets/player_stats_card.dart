@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/providers/player_provider.dart';
 import '../../../theme/app_theme.dart';
+import '../../../theme/app_colors.dart';
 
 class PlayerStatsCard extends StatelessWidget {
   const PlayerStatsCard({super.key});

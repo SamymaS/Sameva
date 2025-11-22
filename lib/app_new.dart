@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'pages/home/new_home_page.dart';
 import 'pages/market/market_page.dart';
 import 'pages/invocation/invocation_page.dart';
 import 'pages/avatar/avatar_page.dart';
+import 'pages/minigame/minigame_page.dart';
+import 'pages/quest/quests_list_page.dart';
+import 'pages/profile/profile_page.dart';
+import 'pages/settings/settings_page.dart';
 import 'widgets/transitions/custom_transitions.dart';
 import 'widgets/logo/sameva_logo.dart';
 
@@ -26,12 +31,13 @@ class SamevaApp extends StatefulWidget {
 
 class _SamevaAppState extends State<SamevaApp> {
   int index = 0;
-  final pages = const [
-    NewHomePage(),
-    MarketPage(),
-    InvocationPage(),
-    AvatarPage(),
-    // MiniGamePage(), // à activer quand prêt
+  
+  List<Widget> get pages => [
+    const NewHomePage(),
+    const MarketPage(),
+    const InvocationPage(),
+    const AvatarPage(),
+    const MiniGamePage(),
   ];
 
   @override
@@ -40,6 +46,11 @@ class _SamevaAppState extends State<SamevaApp> {
       title: 'Sameva',
       theme: theme,
       debugShowCheckedModeBanner: false,
+      routes: {
+        '/profile': (context) => const ProfilePage(),
+        '/settings': (context) => const SettingsPage(),
+        '/quests': (context) => const QuestsListPage(),
+      },
       home: Scaffold(
         body: SafeArea(
           child: AnimatedSwitcher(
@@ -78,6 +89,7 @@ class _SamevaAppState extends State<SamevaApp> {
             NavigationDestination(icon: Icon(Icons.store), label: 'Marché'),
             NavigationDestination(icon: Icon(Icons.auto_awesome), label: 'Invocation'),
             NavigationDestination(icon: Icon(Icons.face_retouching_natural), label: 'Avatar'),
+            NavigationDestination(icon: Icon(Icons.sports_esports), label: 'Mini-Jeux'),
           ],
         ),
       ),

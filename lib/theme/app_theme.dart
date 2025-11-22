@@ -1,34 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
-class AppColors {
-  // Couleurs principales (Pastels)
-  static const primary = Color(0xFFB5A8E3);      // Violet pastel
-  static const secondary = Color(0xFFA8E3D9);    // Turquoise pastel
-  static const accent = Color(0xFFFFB5D5);       // Rose pastel
-  static const background = Color(0xFFF8F7FF);   // Blanc légèrement violet
-  static const backgroundDark = Color(0xFF2A2438);// Violet foncé
-
-  // Couleurs de rareté (Version pastel)
-  static const common = Color(0xFFD4D4D4);       // Gris pastel
-  static const uncommon = Color(0xFFA8E3B8);     // Vert pastel
-  static const rare = Color(0xFFA8D1E3);         // Bleu pastel
-  static const veryRare = Color(0xFFD3A8E3);     // Violet pastel
-  static const epic = Color(0xFFE3C7A8);         // Orange pastel
-  static const legendary = Color(0xFFE3E3A8);     // Jaune pastel
-  static const mythic = Color(0xFFE3A8A8);       // Rouge pastel
-
-  // Couleurs d'état (Version pastel)
-  static const success = Color(0xFFB8E3B5);      // Vert pastel
-  static const error = Color(0xFFE3B5B5);        // Rouge pastel
-  static const warning = Color(0xFFE3D9B5);      // Jaune pastel
-  static const info = Color(0xFFB5C7E3);         // Bleu pastel
-
-  // Couleurs de texte
-  static const textPrimary = Color(0xFF2A2438);  // Violet très foncé
-  static const textSecondary = Color(0xFF635985); // Violet moyen
-  static const textMuted = Color(0xFF9A91B6);    // Violet clair
-}
+import 'app_colors.dart';
 
 class AppTheme {
   static final _defaultBorderRadius = BorderRadius.circular(16.0);
