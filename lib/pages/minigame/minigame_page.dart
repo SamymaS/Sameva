@@ -5,6 +5,9 @@ import '../../theme/app_colors.dart';
 import 'games/memory_quest_game.dart';
 import 'games/speed_challenge_game.dart';
 import 'games/puzzle_quest_game.dart';
+import 'games/platformer_game.dart';
+import 'games/runner_game.dart';
+import 'games/match3_game.dart';
 
 /// Page de mini-jeux
 class MiniGamePage extends StatelessWidget {
@@ -13,10 +16,34 @@ class MiniGamePage extends StatelessWidget {
   // Liste des mini-jeux disponibles
   static const List<Map<String, dynamic>> _minigames = [
     {
+      'name': 'Plateformer',
+      'description': '3 niveaux à compléter',
+      'icon': Icons.gamepad,
+      'color': Color(0xFF60A5FA),
+      'unlocked': true,
+      'game': 'platformer',
+    },
+    {
+      'name': 'Runner Endless',
+      'description': 'Course infinie',
+      'icon': Icons.directions_run,
+      'color': Color(0xFF22C55E),
+      'unlocked': true,
+      'game': 'runner',
+    },
+    {
+      'name': 'Match-3',
+      'description': 'Alignez les gemmes',
+      'icon': Icons.grid_view,
+      'color': Color(0xFFA855F7),
+      'unlocked': true,
+      'game': 'match3',
+    },
+    {
       'name': 'Memory Quest',
       'description': 'Testez votre mémoire',
       'icon': Icons.memory,
-      'color': Color(0xFF60A5FA),
+      'color': Color(0xFFFF9800),
       'unlocked': true,
       'game': 'memory',
     },
@@ -24,7 +51,7 @@ class MiniGamePage extends StatelessWidget {
       'name': 'Speed Challenge',
       'description': 'Complétez rapidement',
       'icon': Icons.speed,
-      'color': Color(0xFF22C55E),
+      'color': Color(0xFFE91E63),
       'unlocked': true,
       'game': 'speed',
     },
@@ -32,16 +59,9 @@ class MiniGamePage extends StatelessWidget {
       'name': 'Puzzle Quest',
       'description': 'Résolvez des puzzles',
       'icon': Icons.extension,
-      'color': Color(0xFFA855F7),
+      'color': Color(0xFF00BCD4),
       'unlocked': true,
       'game': 'puzzle',
-    },
-    {
-      'name': 'Battle Arena',
-      'description': 'Arène épique',
-      'icon': Icons.sports_mma,
-      'color': Color(0xFFEF4444),
-      'unlocked': false,
     },
   ];
 
@@ -129,6 +149,15 @@ class MiniGamePage extends StatelessWidget {
     Widget gamePage;
     
     switch (gameType) {
+      case 'platformer':
+        gamePage = const PlatformerGame();
+        break;
+      case 'runner':
+        gamePage = const RunnerGame();
+        break;
+      case 'match3':
+        gamePage = const Match3Game();
+        break;
       case 'memory':
         gamePage = const MemoryQuestGame();
         break;

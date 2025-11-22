@@ -157,6 +157,44 @@ class QuestProvider with ChangeNotifier {
     }
   }
 
+  /// Obtient les quêtes complétées aujourd'hui
+  List<Quest> getCompletedQuestsToday() {
+    final today = DateTime.now();
+    final todayStart = DateTime(today.year, today.month, today.day);
+    final todayEnd = todayStart.add(const Duration(days: 1));
+    
+    return _quests.where((q) {
+      if (!q.isCompleted || q.completedAt == null) return false;
+      return q.completedAt!.isAfter(todayStart) && q.completedAt!.isBefore(todayEnd);
+    }).toList();
+  }
+
+  /// Obtient les quêtes actives aujourd'hui
+  List<Quest> getActiveQuestsToday() {
+    final today = DateTime.now();
+    final todayStart = DateTime(today.year, today.month, today.day);
+    
+    return _quests.where((q) {
+      if (q.isCompleted) return false;
+      // Quêtes quotidiennes créées aujourd'hui ou avant
+      if (q.frequency == QuestFrequency.daily) {
+        return q.createdAt.isBefore(todayStart.add(const Duration(days: 1)));
+      }
+      // Autres quêtes actives
+      return true;
+    }).toList();
+  }
+
+  /// Obtient les quêtes manquées (actives mais non complétées après leur échéance)
+  List<Quest> getMissedQuests() {
+    final now = DateTime.now();
+    return _quests.where((q) {
+      if (q.isCompleted) return false;
+      final deadline = q.createdAt.add(q.estimatedDuration);
+      return now.isAfter(deadline);
+    }).toList();
+  }
+
   Future<void> completeQuest(String userId, String questId) async {
     try {
       final quest = _quests.firstWhere((q) => q.id == questId);

@@ -4,6 +4,10 @@ import '../../theme/app_theme.dart';
 import '../../theme/app_colors.dart';
 import '../../core/providers/quest_provider.dart';
 import '../../core/providers/auth_provider.dart';
+import '../../core/providers/player_provider.dart';
+import '../../core/providers/inventory_provider.dart';
+import '../../services/bonus_malus_service.dart';
+import '../../services/item_factory.dart';
 
 class QuestDetailPage extends StatefulWidget {
   final Quest quest;
@@ -35,12 +39,92 @@ class _QuestDetailPageState extends State<QuestDetailPage> {
   }
 
   Future<void> _completeQuest() async {
-    final userId = context.read<AuthProvider>().user?.uid;
-    if (userId == null) return;
-    await context.read<QuestProvider>().completeQuest(userId, widget.quest.id);
+    final userId = context.read<AuthProvider>().user?.uid ?? '';
+    if (userId.isEmpty) return;
+
+    final questProvider = context.read<QuestProvider>();
+    final playerProvider = context.read<PlayerProvider>();
+    final inventoryProvider = context.read<InventoryProvider>();
+
+    // Compléter la quête
+    await questProvider.completeQuest(userId, widget.quest.id);
+
+    // Calculer les récompenses avec bonus/malus
+    final completedAt = DateTime.now();
+    final hasStreakBonus = playerProvider.hasStreakBonus;
+    final baseRewards = questProvider.calculateRewards(
+      widget.quest,
+      completedAt,
+      hasStreakBonus: hasStreakBonus,
+    );
+
+    // Calculer le bonus/malus total
+    final completedQuestsToday = questProvider.getCompletedQuestsToday();
+    final activeQuestsToday = questProvider.getActiveQuestsToday();
+    final missedQuests = questProvider.getMissedQuests();
+    final stats = playerProvider.stats;
+    
+    final totalBonusMalus = BonusMalusService.calculateTotalBonusMalus(
+      completedQuestsToday: completedQuestsToday,
+      activeQuestsToday: activeQuestsToday,
+      missedQuests: missedQuests,
+      streak: stats?.streak ?? 0,
+      lastActiveDate: stats?.lastActiveDate,
+    );
+
+    // Appliquer les récompenses avec bonus/malus
+    final finalExperience = BonusMalusService.calculateExperienceModifier(
+      totalBonusMalus,
+      baseRewards.experience,
+    );
+    final finalGold = BonusMalusService.calculateGoldModifier(
+      totalBonusMalus,
+      baseRewards.gold,
+    );
+
+    if (finalExperience > 0) {
+      await playerProvider.addExperience(userId, finalExperience);
+    }
+    if (finalGold > 0) {
+      await playerProvider.addGold(userId, finalGold);
+    }
+    if (baseRewards.crystals > 0) {
+      await playerProvider.addCrystals(userId, baseRewards.crystals);
+    }
+
+    // Mettre à jour le streak
+    await playerProvider.updateStreak(userId);
+
+    // Appliquer les pénalités de moral si nécessaire
+    if (baseRewards.moralPenalty != null) {
+      await playerProvider.updateMoral(userId, baseRewards.moralPenalty!);
+    }
+
+    // Régénérer les PV si la quête est complétée à temps
+    if (baseRewards.bonusType == 'on_time' || baseRewards.bonusType == 'early') {
+      final healAmount = (stats?.maxHealthPoints ?? 100) ~/ 10; // Régénérer 10% des PV max
+      await playerProvider.heal(userId, healAmount);
+    }
+
+    // Ajouter des items de récompense selon la rareté
+    final rewardItem = ItemFactory.createQuestRewardItem(widget.quest.rarity);
+    if (rewardItem != null) {
+      await inventoryProvider.addItem(userId, rewardItem);
+    }
+
     if (mounted) {
+      final bonusText = totalBonusMalus > 1.0
+          ? ' (+${((totalBonusMalus - 1.0) * 100).toStringAsFixed(0)}% bonus)'
+          : totalBonusMalus < 1.0
+              ? ' (${((1.0 - totalBonusMalus) * 100).toStringAsFixed(0)}% malus)'
+              : '';
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Quête terminée !')),
+        SnackBar(
+          content: Text('Quête terminée ! +$finalExperience XP, +$finalGold or$bonusText'),
+          backgroundColor: AppColors.success,
+          duration: const Duration(seconds: 3),
+        ),
       );
       Navigator.of(context).pop();
     }

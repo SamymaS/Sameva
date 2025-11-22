@@ -121,3 +121,5 @@ Image.asset(FigmaAssets.getAvatarPath(1))
 - Helper assets : `lib/utils/figma_assets_helper.dart`
 - Documentation Flutter Assets : https://docs.flutter.dev/development/ui/assets-and-images
 
+
+

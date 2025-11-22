@@ -9,6 +9,8 @@ import 'pages/minigame/minigame_page.dart';
 import 'pages/quest/quests_list_page.dart';
 import 'pages/profile/profile_page.dart';
 import 'pages/settings/settings_page.dart';
+import 'pages/ui_showcase_page.dart';
+import 'pages/inventory/inventory_page.dart';
 import 'widgets/transitions/custom_transitions.dart';
 import 'widgets/logo/sameva_logo.dart';
 
@@ -50,6 +52,8 @@ class _SamevaAppState extends State<SamevaApp> {
         '/profile': (context) => const ProfilePage(),
         '/settings': (context) => const SettingsPage(),
         '/quests': (context) => const QuestsListPage(),
+        '/ui-showcase': (context) => const UIShowcasePage(),
+        '/inventory': (context) => const InventoryPage(),
       },
       home: Scaffold(
         body: SafeArea(

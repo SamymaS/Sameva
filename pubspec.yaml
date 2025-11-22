@@ -97,9 +97,11 @@ flutter:
     - assets/images/companions/
     - assets/images/auras/
     - assets/images/icons/
-    - assets/images/minigames/
+    - assets/minigames/
     - assets/animations/
     - assets/audio/
+    - assets/icons/
+    - assets/icons/items/
 
   # To add assets to your application, add an assets section, like this:
   # assets:
