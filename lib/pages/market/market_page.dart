@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../widgets/animations/market_item_animation.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import '../../widgets/figma/fantasy_card.dart';
+import '../../widgets/figma/fantasy_badge.dart';
+import '../../theme/app_colors.dart';
 
-/// MARCHÉ — grille avec animations programmatiques
+/// MARCHÉ — Page du marché
 class MarketPage extends StatelessWidget {
   const MarketPage({super.key});
 
@@ -18,37 +19,63 @@ class MarketPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.85,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // En-tête avec titre
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Marché',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
+                  ),
+                  FantasyBadge(
+                    label: '${_items.length} items',
+                    variant: BadgeVariant.secondary,
+                  ),
+                ],
+              ),
+            ),
+            // Grille d'items
+            Expanded(
+              child: GridView.builder(
+                padding: const EdgeInsets.all(16),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 0.75, // Ajusté pour mieux afficher les items
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                ),
+                itemCount: _items.length,
+                itemBuilder: (context, index) {
+                  final item = _items[index];
+                  return _MarketItemCard(
+                    name: item['name'] as String,
+                    rarity: item['rarity'] as String,
+                    price: item['price'] as String,
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('${item['name']} - ${item['price']} pièces'),
+                          backgroundColor: AppColors.primary,
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
-      itemCount: _items.length,
-      itemBuilder: (context, index) {
-        final item = _items[index];
-        final card = _MarketItemCard(
-          name: item['name'] as String,
-          rarity: item['rarity'] as String,
-          price: item['price'] as String,
-        );
-        
-        return AnimatedMarketItem(
-          rarity: item['rarity'] as String,
-          onTap: () {
-            // TODO: Navigation vers détails de l'item
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('${item['name']} - ${item['price']} pièces')),
-            );
-          },
-          child: card,
-        )
-            .animate()
-            .fadeIn(duration: 300.ms, delay: (index * 50).ms)
-            .slideY(begin: 0.1, end: 0, duration: 400.ms, delay: (index * 50).ms);
-      },
     );
   }
 }
@@ -57,11 +84,13 @@ class _MarketItemCard extends StatelessWidget {
   final String name;
   final String rarity;
   final String price;
+  final VoidCallback onTap;
 
   const _MarketItemCard({
     required this.name,
     required this.rarity,
     required this.price,
+    required this.onTap,
   });
 
   Color get _rarityColor {
@@ -85,64 +114,46 @@ class _MarketItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isRare = ['epic', 'legendary', 'mythic'].contains(rarity.toLowerCase());
-
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF111827),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: _rarityColor.withOpacity(0.5),
-          width: 2,
-        ),
+    return FantasyCard(
+      backgroundColor: AppColors.card,
+      border: Border.all(
+        color: _rarityColor.withOpacity(0.5),
+        width: 2,
       ),
-      child: Stack(
-        children: [
-          // Particules pour les items rares
-          if (isRare)
-            Positioned.fill(
-              child: RarityParticles(
-                rarity: rarity,
-                size: 200,
-              ),
-            ),
-          // Contenu
-          Column(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(height: 12),
+              // Zone image avec badge
               Expanded(
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    // Icône de l'item
+                    // Image de l'item
                     Image.asset(
-                      'assets/icons/app_icon.png',
+                      'assets/images/items/${name.toLowerCase().replaceAll(' ', '_')}.png',
                       errorBuilder: (context, error, stackTrace) => Icon(
                         Icons.inventory_2,
-                        size: 64,
+                        size: 48,
                         color: _rarityColor.withOpacity(0.7),
                       ),
                     ),
                     // Badge de rareté
                     Positioned(
                       top: 0,
-                      right: 8,
-                      child: Container(
+                      right: 0,
+                      child: FantasyBadge(
+                        label: rarity.toUpperCase(),
+                        variant: BadgeVariant.default_,
+                        backgroundColor: _rarityColor,
+                        textColor: Colors.white,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 6,
                           vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _rarityColor,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          rarity.toUpperCase(),
-                          style: const TextStyle(
-                            fontSize: 8,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
                         ),
                       ),
                     ),
@@ -150,21 +161,20 @@ class _MarketItemCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Text(
-                  name,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: _rarityColor,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+              // Nom
+              Text(
+                name,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: _rarityColor,
+                  fontWeight: FontWeight.w600,
                 ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
+              // Prix
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -177,19 +187,17 @@ class _MarketItemCard extends StatelessWidget {
                   Text(
                     price,
                     style: const TextStyle(
-                      fontSize: 11,
+                      fontSize: 12,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFFF59E0B),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
 }
-
