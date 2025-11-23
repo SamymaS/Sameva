@@ -187,3 +187,4 @@ Le système calcule automatiquement les bonus/malus basés sur :
 - Compagnons avec IA
 - Système de trading entre joueurs
 
+
