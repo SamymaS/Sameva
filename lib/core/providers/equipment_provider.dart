@@ -185,3 +185,4 @@ class EquipmentProvider with ChangeNotifier {
 }
 
 
+
