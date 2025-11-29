@@ -367,3 +367,4 @@ Loading → Vérification Auth →
 - [Firebase Auth Documentation](https://firebase.google.com/docs/auth)
 - [Flutter Firebase Auth](https://firebase.flutter.dev/docs/auth/overview)
 
+
