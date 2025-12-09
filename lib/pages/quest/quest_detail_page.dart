@@ -39,7 +39,7 @@ class _QuestDetailPageState extends State<QuestDetailPage> {
   }
 
   Future<void> _completeQuest() async {
-    final userId = context.read<AuthProvider>().user?.uid ?? '';
+    final userId = context.read<AuthProvider>().userId ?? '';
     if (userId.isEmpty) return;
 
     final questProvider = context.read<QuestProvider>();

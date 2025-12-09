@@ -1,45 +1,73 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthProvider with ChangeNotifier {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final SupabaseClient _supabase = Supabase.instance.client;
   User? _user;
 
   AuthProvider() {
-    _auth.authStateChanges().listen((user) {
-      _user = user;
+    // Écouter les changements d'état d'authentification
+    _supabase.auth.onAuthStateChange.listen((data) {
+      final AuthChangeEvent event = data.event;
+      final Session? session = data.session;
+      
+      if (event == AuthChangeEvent.signedIn && session != null) {
+        _user = session.user;
+      } else if (event == AuthChangeEvent.signedOut) {
+        _user = null;
+      }
       notifyListeners();
     });
+
+    // Vérifier l'utilisateur actuel au démarrage
+    _user = _supabase.auth.currentUser;
   }
 
   User? get user => _user;
   bool get isAuthenticated => _user != null;
+  String? get userId => _user?.id;
 
   Future<void> signInAnonymously() async {
     try {
-      await _auth.signInAnonymously();
+      final response = await _supabase.auth.signInAnonymously();
+      _user = response.user;
+      notifyListeners();
     } catch (e) {
       rethrow;
     }
   }
 
   Future<void> signInWithEmailAndPassword(String email, String password) async {
-    // MODE TEST : Bypass de l'authentification réelle
-    // Pour les tests, on se connecte automatiquement en mode anonyme
-    // Peu importe les identifiants fournis, on passe en mode anonyme
-    await _auth.signInAnonymously();
+    try {
+      final response = await _supabase.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+      _user = response.user;
+      notifyListeners();
+    } catch (e) {
+      rethrow;
+    }
   }
 
   Future<void> createUserWithEmailAndPassword(String email, String password) async {
-    // MODE TEST : Bypass de l'authentification réelle
-    // Pour les tests, on se connecte automatiquement en mode anonyme
-    // Peu importe les identifiants fournis, on passe en mode anonyme
-    await _auth.signInAnonymously();
+    try {
+      final response = await _supabase.auth.signUp(
+        email: email,
+        password: password,
+      );
+      _user = response.user;
+      notifyListeners();
+    } catch (e) {
+      rethrow;
+    }
   }
 
   Future<void> signOut() async {
     try {
-      await _auth.signOut();
+      await _supabase.auth.signOut();
+      _user = null;
+      notifyListeners();
     } catch (e) {
       rethrow;
     }

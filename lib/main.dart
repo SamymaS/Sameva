@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'firebase_options.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'config/supabase_config.dart';
 import 'core/providers/auth_provider.dart';
 import 'core/providers/quest_provider.dart';
 import 'core/providers/player_provider.dart';
@@ -14,9 +15,19 @@ import 'app_new.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialiser Firebase avec la configuration par défaut (pour Auth uniquement)
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
+  // Charger les variables d'environnement depuis .env
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (e) {
+    print('⚠️ Erreur lors du chargement du fichier .env: $e');
+    print('💡 Assurez-vous que le fichier .env existe à la racine du projet.');
+    print('💡 Vous pouvez copier .env.example en .env et y ajouter vos clés.');
+  }
+
+  // Initialiser Supabase
+  await Supabase.initialize(
+    url: SupabaseConfig.supabaseUrl,
+    anonKey: SupabaseConfig.supabaseAnonKey,
   );
 
   // Initialiser Hive
