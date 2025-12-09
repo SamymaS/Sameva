@@ -33,7 +33,7 @@ class _QuestsListPageState extends State<QuestsListPage> with SingleTickerProvid
   }
 
   Future<void> _loadQuests() async {
-    final userId = context.read<AuthProvider>().user?.uid;
+    final userId = context.read<AuthProvider>().userId;
     if (userId != null) {
       await context.read<QuestProvider>().loadQuests(userId);
     }

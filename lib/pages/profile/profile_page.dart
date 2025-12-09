@@ -13,7 +13,10 @@ class ProfilePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final playerProvider = context.watch<PlayerProvider>();
     final authUser = context.watch<AuthProvider>().user;
-    final username = authUser?.displayName ?? (authUser?.email?.split('@').first ?? 'Héros');
+    // Supabase User n'a pas displayName, on utilise userMetadata ou email
+    final username = authUser?.userMetadata?['display_name'] as String? ?? 
+                     authUser?.userMetadata?['name'] as String? ?? 
+                     (authUser?.email?.split('@').first ?? 'Héros');
 
     return Scaffold(
       appBar: AppBar(title: const Text('Profil')),

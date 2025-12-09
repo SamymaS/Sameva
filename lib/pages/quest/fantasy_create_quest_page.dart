@@ -162,7 +162,7 @@ class _FantasyCreateQuestPageState extends State<FantasyCreateQuestPage>
     setState(() => _isLoading = true);
 
     try {
-      final userId = context.read<AuthProvider>().user?.uid ?? '';
+      final userId = context.read<AuthProvider>().userId ?? '';
       final rarity = _calculateRarity();
 
       final quest = Quest(

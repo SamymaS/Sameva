@@ -97,7 +97,7 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
     setState(() => _isLoading = true);
 
     try {
-      final userId = context.read<AuthProvider>().user?.uid;
+      final userId = context.read<AuthProvider>().userId;
       if (userId == null) throw Exception('Utilisateur non connecté');
 
       final quest = Quest(

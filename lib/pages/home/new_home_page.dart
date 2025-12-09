@@ -19,8 +19,10 @@ class NewHomePage extends StatelessWidget {
           ),
           // Contenu
           SafeArea(
-            child: Column(
-              children: [
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
                 // En-tête avec boutons d'accès rapide
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -106,7 +108,8 @@ class NewHomePage extends StatelessWidget {
                     ],
                   ),
                 ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
@@ -140,6 +143,7 @@ class _QuestCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 Icons.auto_awesome,
@@ -147,7 +151,7 @@ class _QuestCard extends StatelessWidget {
                 color: color,
               ),
               const SizedBox(width: 8),
-              Expanded(
+              Flexible(
                 child: Text(
                   title,
                   style: const TextStyle(
