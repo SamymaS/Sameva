@@ -1,28 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'pages/home/new_home_page.dart';
-import 'pages/market/market_page.dart';
-import 'pages/invocation/invocation_page.dart';
-import 'pages/avatar/avatar_page.dart';
-import 'pages/minigame/minigame_page.dart';
-import 'pages/quest/quests_list_page.dart';
-import 'pages/profile/profile_page.dart';
-import 'pages/settings/settings_page.dart';
-import 'pages/ui_showcase_page.dart';
-import 'pages/inventory/inventory_page.dart';
-import 'widgets/transitions/custom_transitions.dart';
-import 'widgets/logo/sameva_logo.dart';
+import 'presentation/providers/auth_provider.dart';
+import 'ui/pages/auth/login_page.dart';
+import 'ui/pages/home/sanctuary_page.dart';
+import 'ui/pages/quest/quests_list_page.dart';
+import 'ui/pages/inventory/inventory_page.dart';
+import 'ui/pages/profile/profile_page.dart';
+import 'ui/pages/settings/settings_page.dart';
+import 'ui/pages/quest/fantasy_create_quest_page.dart';
+import 'ui/pages/profile/profile_page.dart';
+import 'ui/pages/settings/settings_page.dart';
+import 'ui/theme/app_theme.dart';
+import 'ui/theme/app_colors.dart';
 
-final theme = ThemeData(
-  brightness: Brightness.dark,
-  scaffoldBackgroundColor: const Color(0xFF0B0F18),
-  textTheme: GoogleFonts.poppinsTextTheme().apply(bodyColor: Colors.white),
-  colorScheme: ColorScheme.fromSeed(
-    seedColor: const Color(0xFFF59E0B), // accent doré
-    brightness: Brightness.dark,
-  ),
-);
+final theme = AppTheme.dark();
 
 class SamevaApp extends StatefulWidget {
   const SamevaApp({super.key});
@@ -32,14 +24,43 @@ class SamevaApp extends StatefulWidget {
 }
 
 class _SamevaAppState extends State<SamevaApp> {
-  int index = 0;
+  int _currentIndex = 0;
   
-  List<Widget> get pages => [
-    const NewHomePage(),
-    const MarketPage(),
-    const InvocationPage(),
-    const AvatarPage(),
-    const MiniGamePage(),
+  // Pages selon le design Figma : Accueil, Quêtes, Sac, Cercle, Réglages
+  final List<Widget> _pages = [
+    const SanctuaryPage(), // Nouvelle page Sanctuary améliorée
+    const QuestsListPage(),
+    const InventoryPage(),
+    const ProfilePage(), // Cercle/Social (temporairement Profile)
+    const SettingsPage(),
+  ];
+  
+  final List<NavigationDestination> _destinations = const [
+    NavigationDestination(
+      icon: Icon(Icons.home_outlined),
+      selectedIcon: Icon(Icons.home),
+      label: 'Accueil',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.assignment_outlined),
+      selectedIcon: Icon(Icons.assignment),
+      label: 'Quêtes',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.inventory_2_outlined),
+      selectedIcon: Icon(Icons.inventory_2),
+      label: 'Sac',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.people_outline),
+      selectedIcon: Icon(Icons.people),
+      label: 'Cercle',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.settings_outlined),
+      selectedIcon: Icon(Icons.settings),
+      label: 'Réglages',
+    ),
   ];
 
   @override
@@ -52,50 +73,77 @@ class _SamevaAppState extends State<SamevaApp> {
         '/profile': (context) => const ProfilePage(),
         '/settings': (context) => const SettingsPage(),
         '/quests': (context) => const QuestsListPage(),
-        '/ui-showcase': (context) => const UIShowcasePage(),
         '/inventory': (context) => const InventoryPage(),
+        '/create-quest': (context) => const FantasyCreateQuestPage(),
       },
-      home: Scaffold(
-        body: SafeArea(
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 300),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
-            transitionBuilder: (child, animation) {
-              final curvedAnimation = CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOutCubic,
-              );
-              return FadeTransition(
-                opacity: curvedAnimation,
-                child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0.0, 0.03),
-                    end: Offset.zero,
-                  ).animate(curvedAnimation),
-                  child: child,
-                ),
-              );
-            },
-            child: KeyedSubtree(
-              key: ValueKey<int>(index),
-              child: pages[index],
+      home: Consumer<AuthProvider>(
+        builder: (context, authProvider, _) {
+          // Rediriger vers la page de login si l'utilisateur n'est pas connecté
+          if (!authProvider.isAuthenticated) {
+            return const LoginPage();
+          }
+          
+          // Afficher l'application principale si l'utilisateur est connecté
+          return Scaffold(
+            body: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 400),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) {
+                final curvedAnimation = CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeOutCubic,
+                );
+                return FadeTransition(
+                  opacity: curvedAnimation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0.0, 0.03),
+                      end: Offset.zero,
+                    ).animate(curvedAnimation),
+                    child: child,
+                  ),
+                );
+              },
+              child: KeyedSubtree(
+                key: ValueKey<int>(_currentIndex),
+                child: _pages[_currentIndex],
+              ),
             ),
-          ),
-        ),
-        bottomNavigationBar: NavigationBar(
-          backgroundColor: const Color(0xFF111624),
-          indicatorColor: const Color(0x33569CF6),
-          selectedIndex: index,
-          onDestinationSelected: (i) => setState(() => index = i),
-          destinations: const [
-            NavigationDestination(icon: Icon(Icons.home), label: 'Accueil'),
-            NavigationDestination(icon: Icon(Icons.store), label: 'Marché'),
-            NavigationDestination(icon: Icon(Icons.auto_awesome), label: 'Invocation'),
-            NavigationDestination(icon: Icon(Icons.face_retouching_natural), label: 'Avatar'),
-            NavigationDestination(icon: Icon(Icons.sports_esports), label: 'Mini-Jeux'),
-          ],
-        ),
+            bottomNavigationBar: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    AppColors.backgroundDeepViolet.withOpacity(0.95),
+                    AppColors.backgroundDeepViolet.withOpacity(0.98),
+                  ],
+                ),
+                border: Border(
+                  top: BorderSide(
+                    color: AppColors.secondaryViolet.withOpacity(0.2),
+                    width: 1,
+                  ),
+                ),
+              ),
+              child: NavigationBar(
+                backgroundColor: Colors.transparent,
+                indicatorColor: AppColors.secondaryViolet.withOpacity(0.2),
+                selectedIndex: _currentIndex,
+                onDestinationSelected: (index) {
+                  setState(() {
+                    _currentIndex = index;
+                  });
+                },
+                labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+                destinations: _destinations,
+                elevation: 0,
+              ),
+            ),
+          );
+        },
       ),
     );
   }

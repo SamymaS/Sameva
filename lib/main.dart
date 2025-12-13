@@ -4,12 +4,12 @@ import 'package:provider/provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'config/supabase_config.dart';
-import 'core/providers/auth_provider.dart';
-import 'core/providers/quest_provider.dart';
-import 'core/providers/player_provider.dart';
-import 'core/providers/theme_provider.dart';
-import 'core/providers/inventory_provider.dart';
-import 'core/providers/equipment_provider.dart';
+import 'presentation/providers/auth_provider.dart';
+import 'presentation/providers/quest_provider.dart';
+import 'presentation/providers/player_provider.dart';
+import 'presentation/providers/theme_provider.dart';
+import 'presentation/providers/inventory_provider.dart';
+import 'presentation/providers/equipment_provider.dart';
 import 'app_new.dart';
 
 void main() async {
