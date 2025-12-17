@@ -59,12 +59,9 @@ class SanctuaryPage extends StatelessWidget {
             ),
           ),
 
-          // Main content
+          // Main content (Header global géré par app_new.dart)
           Column(
             children: [
-              // Header Bar
-              const HeaderBar(),
-
               // Central Scene - Avatar with magical effects
               Expanded(
                 child: SingleChildScrollView(
