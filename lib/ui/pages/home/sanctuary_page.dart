@@ -6,6 +6,8 @@ import '../../widgets/common/glassmorphic_card.dart';
 import '../../theme/app_colors.dart';
 import '../../../presentation/providers/quest_provider.dart';
 import '../../../presentation/providers/auth_provider.dart';
+import '../../../presentation/providers/player_provider.dart';
+import '../../../presentation/providers/equipment_provider.dart';
 import '../quest/quest_detail_page.dart';
 import 'dart:math' as math;
 
@@ -59,25 +61,82 @@ class SanctuaryPage extends StatelessWidget {
             ),
           ),
 
-          // Main content (Header global géré par app_new.dart)
+          // Main content
           Column(
             children: [
+              // Barre d'XP et Niveau en haut (selon pages.md)
+              Consumer<PlayerProvider>(
+                builder: (context, playerProvider, _) {
+                  final stats = playerProvider.stats;
+                  final level = stats?.level ?? 1;
+                  final xp = stats?.experience ?? 0;
+                  final maxXp = playerProvider.experienceForLevel(level);
+                  final xpProgress = maxXp > 0 ? (xp / maxXp).clamp(0.0, 1.0) : 0.0;
+                  
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Niveau $level',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              '$xp / $maxXp XP',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.8),
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: LinearProgressIndicator(
+                            value: xpProgress,
+                            minHeight: 10,
+                            backgroundColor: Colors.white.withOpacity(0.2),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              AppColors.primaryTurquoise,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+
               // Central Scene - Avatar with magical effects
               Expanded(
                 child: SingleChildScrollView(
                   child: Column(
                     children: [
-                      const SizedBox(height: 40),
+                      const SizedBox(height: 20),
                       
-                      // Magical Avatar
-                      const MagicalAvatar(
-                        emoji: '🧙‍♀️',
-                        size: 120,
-                        companionEmoji: '🦊',
-                        showMagicCircle: true,
+                      // Magical Avatar (Avatar au centre avec familier)
+                      // Utilise de vrais assets au lieu d'emojis
+                      Consumer<EquipmentProvider>(
+                        builder: (context, equipmentProvider, _) {
+                          final equipment = equipmentProvider.playerEquipment;
+                          return MagicalAvatar(
+                            avatarId: equipment?.outfitId ?? 'hero_base',
+                            companionId: equipment?.companionId ?? 'companion_1',
+                            size: 140,
+                            showMagicCircle: true,
+                          );
+                        },
                       ),
 
-                      const SizedBox(height: 60),
+                      const SizedBox(height: 40),
 
                       // Active Quests Section
                       Padding(
@@ -86,7 +145,7 @@ class SanctuaryPage extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             const Text(
-                              'Quêtes Actives',
+                              'Quêtes du Jour',
                               style: TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
@@ -206,6 +265,22 @@ class SanctuaryPage extends StatelessWidget {
             ],
           ),
         ],
+      ),
+      // FAB pour créer une quête (selon pages.md : "Bouton Action (FAB) : Un gros bouton '+' magique")
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.of(context).pushNamed('/create-quest');
+        },
+        backgroundColor: AppColors.primaryTurquoise,
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text(
+          'Nouvelle Quête',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        elevation: 8,
       ),
     );
   }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
-import 'app_colors.dart';
+import '../../../theme/app_colors.dart';
 
 /// Mini-jeu runner/endless
 class RunnerGame extends StatefulWidget {

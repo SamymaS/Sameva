@@ -39,7 +39,7 @@ class _InventoryPageState extends State<InventoryPage> with SingleTickerProvider
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: const Text(
-          'Inventaire',
+          'Le Coffre Astral', // Selon pages.md
           style: TextStyle(
             color: AppColors.textPrimary,
             fontWeight: FontWeight.bold,
@@ -210,6 +210,8 @@ class _InventoryPageState extends State<InventoryPage> with SingleTickerProvider
   Widget _buildItemCard(InventorySlot slot, {bool showEquipButton = false, bool showUseButton = false}) {
     final item = slot.item;
     final isEquipped = _isItemEquipped(item);
+    final rarityColor = _getRarityColor(item.rarity);
+    final shouldGlow = _shouldGlow(item.rarity);
     
     return GestureDetector(
       onTap: () => _showItemDetails(item, slot.quantity),
@@ -218,9 +220,22 @@ class _InventoryPageState extends State<InventoryPage> with SingleTickerProvider
           color: AppColors.backgroundDarkPanel.withOpacity(0.3),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isEquipped ? AppColors.primaryTurquoise : AppColors.inputBorder,
-            width: isEquipped ? 2 : 1,
+            // Bordure colorée selon la rareté (selon pages.md)
+            color: isEquipped 
+                ? AppColors.primaryTurquoise 
+                : rarityColor.withOpacity(shouldGlow ? 0.8 : 0.5),
+            width: isEquipped ? 2.5 : (shouldGlow ? 2 : 1.5),
           ),
+          // Effet glow pour les raretés élevées
+          boxShadow: shouldGlow
+              ? [
+                  BoxShadow(
+                    color: rarityColor.withOpacity(0.3),
+                    blurRadius: 8,
+                    spreadRadius: 1,
+                  ),
+                ]
+              : null,
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -384,6 +399,32 @@ class _InventoryPageState extends State<InventoryPage> with SingleTickerProvider
       case ItemRarity.mythic:
         return BadgeVariant.default_;
     }
+  }
+
+  // Retourne la couleur selon la rareté (selon pages.md)
+  Color _getRarityColor(ItemRarity rarity) {
+    switch (rarity) {
+      case ItemRarity.common:
+        return AppColors.rarityCommon; // Gris
+      case ItemRarity.uncommon:
+        return AppColors.rarityUncommon; // Vert
+      case ItemRarity.rare:
+        return AppColors.rarityRare; // Bleu
+      case ItemRarity.veryRare:
+      case ItemRarity.epic:
+        return AppColors.rarityEpic; // Violet
+      case ItemRarity.legendary:
+        return AppColors.rarityLegendary; // Or
+      case ItemRarity.mythic:
+        return AppColors.rarityMythic; // Rouge/Corail
+    }
+  }
+
+  // Vérifie si la rareté doit avoir un effet glow (selon pages.md)
+  bool _shouldGlow(ItemRarity rarity) {
+    return rarity == ItemRarity.epic || 
+           rarity == ItemRarity.legendary || 
+           rarity == ItemRarity.mythic;
   }
 
   void _showItemDetails(Item item, int quantity) {

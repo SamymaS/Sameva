@@ -22,7 +22,7 @@ class AvatarPage extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: const Text(
-          'Personnalisation',
+          'Le Miroir des Âmes', // Selon pages.md
           style: TextStyle(
             color: AppColors.textPrimary,
             fontWeight: FontWeight.bold,
