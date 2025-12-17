@@ -6,11 +6,13 @@ import 'ui/pages/auth/login_page.dart';
 import 'ui/pages/home/sanctuary_page.dart';
 import 'ui/pages/quest/quests_list_page.dart';
 import 'ui/pages/inventory/inventory_page.dart';
+import 'ui/pages/avatar/avatar_page.dart';
+import 'ui/pages/market/market_page.dart';
+import 'ui/pages/minigame/minigame_page.dart';
 import 'ui/pages/profile/profile_page.dart';
 import 'ui/pages/settings/settings_page.dart';
 import 'ui/pages/quest/fantasy_create_quest_page.dart';
-import 'ui/pages/profile/profile_page.dart';
-import 'ui/pages/settings/settings_page.dart';
+import 'ui/widgets/common/global_header.dart';
 import 'ui/theme/app_theme.dart';
 import 'ui/theme/app_colors.dart';
 
@@ -26,13 +28,16 @@ class SamevaApp extends StatefulWidget {
 class _SamevaAppState extends State<SamevaApp> {
   int _currentIndex = 0;
   
-  // Pages selon le design Figma : Accueil, Quêtes, Sac, Cercle, Réglages
+  // Pages selon pages.md : [Maison] Home, [Parchemin] Quêtes, [Sac] Inventaire, 
+  // [Épée] Customisation, [Boutique] Marché, [Manette] Mini-Jeux, [Tête] Profil
   final List<Widget> _pages = [
-    const SanctuaryPage(), // Nouvelle page Sanctuary améliorée
-    const QuestsListPage(),
-    const InventoryPage(),
-    const ProfilePage(), // Cercle/Social (temporairement Profile)
-    const SettingsPage(),
+    const SanctuaryPage(), // [Maison] Home
+    const QuestsListPage(), // [Parchemin] Quêtes
+    const InventoryPage(), // [Sac] Inventaire
+    const AvatarPage(), // [Épée] Customisation (Miroir des Âmes)
+    const MarketPage(), // [Boutique] Marché
+    const MiniGamePage(), // [Manette] Mini-Jeux
+    const ProfilePage(), // [Tête] Profil (Hall des Héros)
   ];
   
   final List<NavigationDestination> _destinations = const [
@@ -42,8 +47,8 @@ class _SamevaAppState extends State<SamevaApp> {
       label: 'Accueil',
     ),
     NavigationDestination(
-      icon: Icon(Icons.assignment_outlined),
-      selectedIcon: Icon(Icons.assignment),
+      icon: Icon(Icons.description_outlined),
+      selectedIcon: Icon(Icons.description),
       label: 'Quêtes',
     ),
     NavigationDestination(
@@ -52,14 +57,24 @@ class _SamevaAppState extends State<SamevaApp> {
       label: 'Sac',
     ),
     NavigationDestination(
-      icon: Icon(Icons.people_outline),
-      selectedIcon: Icon(Icons.people),
-      label: 'Cercle',
+      icon: Icon(Icons.sports_martial_arts_outlined),
+      selectedIcon: Icon(Icons.sports_martial_arts),
+      label: 'Custom',
     ),
     NavigationDestination(
-      icon: Icon(Icons.settings_outlined),
-      selectedIcon: Icon(Icons.settings),
-      label: 'Réglages',
+      icon: Icon(Icons.store_outlined),
+      selectedIcon: Icon(Icons.store),
+      label: 'Marché',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.sports_esports_outlined),
+      selectedIcon: Icon(Icons.sports_esports),
+      label: 'Jeux',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.person_outline),
+      selectedIcon: Icon(Icons.person),
+      label: 'Profil',
     ),
   ];
 
@@ -85,30 +100,39 @@ class _SamevaAppState extends State<SamevaApp> {
           
           // Afficher l'application principale si l'utilisateur est connecté
           return Scaffold(
-            body: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 400),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
-              transitionBuilder: (child, animation) {
-                final curvedAnimation = CurvedAnimation(
-                  parent: animation,
-                  curve: Curves.easeOutCubic,
-                );
-                return FadeTransition(
-                  opacity: curvedAnimation,
-                  child: SlideTransition(
-                    position: Tween<Offset>(
-                      begin: const Offset(0.0, 0.03),
-                      end: Offset.zero,
-                    ).animate(curvedAnimation),
-                    child: child,
+            body: Column(
+              children: [
+                // Header global avec Or, Cristaux et Paramètres
+                const GlobalHeader(),
+                // Contenu des pages avec animations
+                Expanded(
+          child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 400),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, animation) {
+              final curvedAnimation = CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+              );
+              return FadeTransition(
+                opacity: curvedAnimation,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0.0, 0.03),
+                    end: Offset.zero,
+                  ).animate(curvedAnimation),
+                  child: child,
+                ),
+              );
+            },
+            child: KeyedSubtree(
+                      key: ValueKey<int>(_currentIndex),
+                      child: _pages[_currentIndex],
+                    ),
                   ),
-                );
-              },
-              child: KeyedSubtree(
-                key: ValueKey<int>(_currentIndex),
-                child: _pages[_currentIndex],
-              ),
+                ),
+              ],
             ),
             bottomNavigationBar: Container(
               decoration: BoxDecoration(
@@ -125,9 +149,9 @@ class _SamevaAppState extends State<SamevaApp> {
                   top: BorderSide(
                     color: AppColors.secondaryViolet.withOpacity(0.2),
                     width: 1,
-                  ),
-                ),
-              ),
+            ),
+          ),
+        ),
               child: NavigationBar(
                 backgroundColor: Colors.transparent,
                 indicatorColor: AppColors.secondaryViolet.withOpacity(0.2),
