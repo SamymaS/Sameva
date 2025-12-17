@@ -8,6 +8,17 @@ Cette documentation complète décrit toutes les pages, fonctionnalités, design
 
 ## 📖 Fichiers de Documentation
 
+### 0. [RECAPITULATIF_COMPLET.md](./RECAPITULATIF_COMPLET.md) ⭐
+**Récapitulatif complet de l'application (Fonctionnel, UX, Conception)**
+- Vision et concept général
+- Identité visuelle et système artistique
+- Pages principales et fonctionnalités
+- Structure de navigation
+- Systèmes de gameplay
+- Expérience utilisateur (UX)
+- Architecture technique (aperçu)
+- Roadmap et évolutions futures
+
 ### 1. [DOCUMENTATION_APPLICATION.md](./DOCUMENTATION_APPLICATION.md)
 **Vue d'ensemble générale de l'application**
 - Architecture
@@ -113,8 +124,11 @@ Cette documentation complète décrit toutes les pages, fonctionnalités, design
 
 ## 🗺️ Guide de Navigation
 
+### Pour une vue d'ensemble complète
+→ Commencez par **[RECAPITULATIF_COMPLET.md](./RECAPITULATIF_COMPLET.md)** ⭐
+
 ### Pour comprendre l'architecture globale
-→ Commencez par **[DOCUMENTATION_APPLICATION.md](./DOCUMENTATION_APPLICATION.md)**
+→ Consultez **[DOCUMENTATION_APPLICATION.md](./DOCUMENTATION_APPLICATION.md)**
 
 ### Pour comprendre l'authentification
 → Consultez **[DOCUMENTATION_AUTHENTIFICATION.md](./DOCUMENTATION_AUTHENTIFICATION.md)**
@@ -149,21 +163,24 @@ Cette documentation complète décrit toutes les pages, fonctionnalités, design
 
 ### Pour les Développeurs
 
-1. **[DOCUMENTATION_APPLICATION.md](./DOCUMENTATION_APPLICATION.md)** - Vue d'ensemble
+1. **[RECAPITULATIF_COMPLET.md](./RECAPITULATIF_COMPLET.md)** - Vue d'ensemble complète ⭐
+2. **[DOCUMENTATION_APPLICATION.md](./DOCUMENTATION_APPLICATION.md)** - Architecture détaillée
 2. **[DOCUMENTATION_NAVIGATION.md](./DOCUMENTATION_NAVIGATION.md)** - Structure de navigation
 3. **[DOCUMENTATION_DESIGN_SYSTEM.md](./DOCUMENTATION_DESIGN_SYSTEM.md)** - Composants UI
 4. **[DOCUMENTATION_FONCTIONNALITES.md](./DOCUMENTATION_FONCTIONNALITES.md)** - Logique métier
 
 ### Pour les Designers
 
-1. **[DOCUMENTATION_DESIGN_SYSTEM.md](./DOCUMENTATION_DESIGN_SYSTEM.md)** - Design system
+1. **[RECAPITULATIF_COMPLET.md](./RECAPITULATIF_COMPLET.md)** - Vision et identité visuelle ⭐
+2. **[DOCUMENTATION_DESIGN_SYSTEM.md](./DOCUMENTATION_DESIGN_SYSTEM.md)** - Design system
 2. **[DOCUMENTATION_PAGES_PRINCIPALES.md](./DOCUMENTATION_PAGES_PRINCIPALES.md)** - Pages principales
 3. **[DOCUMENTATION_QUETES.md](./DOCUMENTATION_QUETES.md)** - Système de quêtes
 4. **[DOCUMENTATION_PERSONNALISATION.md](./DOCUMENTATION_PERSONNALISATION.md)** - Personnalisation
 
 ### Pour les Product Managers
 
-1. **[DOCUMENTATION_APPLICATION.md](./DOCUMENTATION_APPLICATION.md)** - Vue d'ensemble
+1. **[RECAPITULATIF_COMPLET.md](./RECAPITULATIF_COMPLET.md)** - Vision complète et fonctionnalités ⭐
+2. **[DOCUMENTATION_APPLICATION.md](./DOCUMENTATION_APPLICATION.md)** - Architecture
 2. **[DOCUMENTATION_QUETES.md](./DOCUMENTATION_QUETES.md)** - Fonctionnalité principale
 3. **[DOCUMENTATION_FONCTIONNALITES.md](./DOCUMENTATION_FONCTIONNALITES.md)** - Systèmes de gameplay
 4. **[DOCUMENTATION_MINI_JEUX.md](./DOCUMENTATION_MINI_JEUX.md)** - Mini-jeux

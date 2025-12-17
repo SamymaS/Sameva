@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/figma/fantasy_card.dart';
 import '../home/widgets/player_stats_card.dart';
 import '../../../presentation/providers/player_provider.dart';
 import '../../../presentation/providers/auth_provider.dart';
@@ -19,7 +20,12 @@ class ProfilePage extends StatelessWidget {
                      (authUser?.email?.split('@').first ?? 'Héros');
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Profil')),
+      appBar: AppBar(
+        title: const Text('Le Hall des Héros'), // Selon pages.md
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      backgroundColor: AppColors.backgroundNightBlue,
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -57,9 +63,53 @@ class ProfilePage extends StatelessWidget {
           const SizedBox(height: 16),
           const PlayerStatsCard(),
           const SizedBox(height: 16),
-          _ProfileTile(icon: Icons.emoji_events_outlined, title: 'Succès', subtitle: 'Bientôt disponible'),
-          _ProfileTile(icon: Icons.history_outlined, title: 'Historique', subtitle: 'Bientôt disponible'),
-          _ProfileTile(icon: Icons.palette_outlined, title: 'Personnalisation', subtitle: 'Bientôt disponible'),
+          // Section Succès/Hauts-Faits (selon pages.md)
+          FantasyCard(
+            title: 'Succès et Hauts-Faits',
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Text(
+                    'Médailles à débloquer',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // TODO: Afficher les succès débloqués
+                  Text(
+                    'Bientôt disponible',
+                    style: TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Section Historique (selon pages.md)
+          FantasyCard(
+            title: 'Historique des Activités',
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  // TODO: Afficher l'historique des activités
+                  Text(
+                    'Bientôt disponible',
+                    style: TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );

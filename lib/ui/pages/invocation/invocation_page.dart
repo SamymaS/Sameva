@@ -9,6 +9,7 @@ import '../../../domain/entities/item.dart';
 import '../../../domain/services/item_factory.dart';
 
 /// INVOCATION — Système d'invocation avec vraies récompenses
+/// Selon pages.md : "Le Portail" avec animation de vortex magique
 class InvocationPage extends StatefulWidget {
   const InvocationPage({super.key});
 
@@ -175,7 +176,7 @@ class _InvocationPageState extends State<InvocationPage> {
       backgroundColor: AppColors.backgroundNightBlue,
       appBar: AppBar(
         backgroundColor: AppColors.backgroundDarkPanel.withOpacity(0.3),
-        title: const Text('Invocation'),
+        title: const Text('Le Portail'), // Selon pages.md
         elevation: 0,
       ),
       body: SafeArea(

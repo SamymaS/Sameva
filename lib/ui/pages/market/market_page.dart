@@ -9,11 +9,37 @@ import '../../../domain/entities/item.dart';
 import '../../../domain/services/item_factory.dart';
 
 /// MARCHÉ — Page du marché avec achat réel
-class MarketPage extends StatelessWidget {
+/// Selon pages.md : "Le Marché Astral" avec timer de rafraîchissement
+class MarketPage extends StatefulWidget {
   const MarketPage({super.key});
 
+  @override
+  State<MarketPage> createState() => _MarketPageState();
+}
+
+class _MarketPageState extends State<MarketPage> {
+  // Timer de rafraîchissement (selon pages.md)
+  DateTime? _lastRefresh;
+  Duration _refreshCooldown = const Duration(hours: 24); // Rafraîchissement quotidien
+
   // Items disponibles à l'achat
-  static List<Item> get availableItems => ItemFactory.createDefaultItems();
+  List<Item> get availableItems => ItemFactory.createDefaultItems();
+
+  @override
+  void initState() {
+    super.initState();
+    _lastRefresh = DateTime.now();
+  }
+
+  bool get canRefresh => _lastRefresh == null || 
+      DateTime.now().difference(_lastRefresh!) >= _refreshCooldown;
+
+  Duration get timeUntilRefresh {
+    if (_lastRefresh == null) return Duration.zero;
+    final elapsed = DateTime.now().difference(_lastRefresh!);
+    if (elapsed >= _refreshCooldown) return Duration.zero;
+    return _refreshCooldown - elapsed;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,40 +48,47 @@ class MarketPage extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            // En-tête avec titre et or du joueur
+            // En-tête avec titre, or du joueur et timer de rafraîchissement
             Consumer<PlayerProvider>(
               builder: (context, playerProvider, child) {
                 final stats = playerProvider.stats;
                 return Padding(
                   padding: const EdgeInsets.all(16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  child: Column(
                     children: [
-                      Text(
-                        'Marché',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textPrimary,
-                            ),
-                      ),
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Icon(
-                            Icons.monetization_on,
-                            color: Color(0xFFF59E0B),
-                            size: 20,
-                          ),
-                          const SizedBox(width: 4),
                           Text(
-                            '${stats?.gold ?? 0}',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFFF59E0B),
-                            ),
+                            'Le Marché Astral', // Selon pages.md
+                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textPrimary,
+                                ),
+                          ),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.monetization_on,
+                                color: Color(0xFFF59E0B),
+                                size: 20,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${stats?.gold ?? 0}',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFFF59E0B),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
+                      const SizedBox(height: 8),
+                      // Timer de rafraîchissement (selon pages.md)
+                      _buildRefreshTimer(),
                     ],
                   ),
                 );
@@ -145,6 +178,62 @@ class MarketPage extends StatelessWidget {
         );
       }
     }
+  }
+
+  Widget _buildRefreshTimer() {
+    if (canRefresh) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppColors.success.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.success.withOpacity(0.5)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.refresh, size: 16, color: AppColors.success),
+            const SizedBox(width: 6),
+            Text(
+              'Marché rafraîchi',
+              style: TextStyle(
+                color: AppColors.success,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final remaining = timeUntilRefresh;
+    final hours = remaining.inHours;
+    final minutes = remaining.inMinutes.remainder(60);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.warning.withOpacity(0.5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.access_time, size: 16, color: AppColors.warning),
+          const SizedBox(width: 6),
+          Text(
+            'Rafraîchissement dans ${hours}h ${minutes}m',
+            style: TextStyle(
+              color: AppColors.warning,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

@@ -18,11 +18,26 @@ class QuestsListPage extends StatefulWidget {
 
 class _QuestsListPageState extends State<QuestsListPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  String? _selectedCategory; // Filtre par catégorie selon pages.md
+
+  // Catégories disponibles selon pages.md : Travail, Sport, Maison, Personnel...
+  final List<String> _categories = [
+    'Tous',
+    'Travail',
+    'Sport',
+    'Maison',
+    'Personnel',
+    'Étude',
+    'Bien-être',
+    'Créativité',
+    'Social',
+  ];
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _selectedCategory = 'Tous';
     _loadQuests();
   }
 
@@ -37,6 +52,17 @@ class _QuestsListPageState extends State<QuestsListPage> with SingleTickerProvid
     if (userId != null) {
       await context.read<QuestProvider>().loadQuests(userId);
     }
+  }
+
+  // Filtre les quêtes par catégorie sélectionnée
+  List<dynamic> _filterQuestsByCategory(List<dynamic> quests) {
+    if (_selectedCategory == null || _selectedCategory == 'Tous') {
+      return quests;
+    }
+    return quests.where((quest) {
+      final questCategory = quest.category?.toString() ?? '';
+      return questCategory.toLowerCase() == _selectedCategory!.toLowerCase();
+    }).toList();
   }
 
   @override
@@ -94,6 +120,42 @@ class _QuestsListPageState extends State<QuestsListPage> with SingleTickerProvid
                   ],
                 ),
               ),
+              // Filtres par catégorie (selon pages.md)
+              SizedBox(
+                height: 50,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: _categories.length,
+                  itemBuilder: (context, index) {
+                    final category = _categories[index];
+                    final isSelected = _selectedCategory == category;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: FilterChip(
+                        label: Text(category),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          setState(() {
+                            _selectedCategory = selected ? category : 'Tous';
+                          });
+                        },
+                        backgroundColor: AppColors.backgroundDarkPanel.withOpacity(0.3),
+                        selectedColor: AppColors.primaryTurquoise.withOpacity(0.3),
+                        labelStyle: TextStyle(
+                          color: isSelected ? AppColors.primaryTurquoise : AppColors.textSecondary,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                        side: BorderSide(
+                          color: isSelected ? AppColors.primaryTurquoise : Colors.transparent,
+                          width: 1.5,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
               // Tabs
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -117,13 +179,13 @@ class _QuestsListPageState extends State<QuestsListPage> with SingleTickerProvid
                 ),
               ),
               const SizedBox(height: 16),
-              // Liste des quêtes
+              // Liste des quêtes (filtrées par catégorie)
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    _buildQuestsList(questProvider.activeQuests),
-                    _buildQuestsList(questProvider.completedQuests),
+                    _buildQuestsList(_filterQuestsByCategory(questProvider.activeQuests)),
+                    _buildQuestsList(_filterQuestsByCategory(questProvider.completedQuests)),
                     _buildQuestsList([]), // Archived quests - à implémenter
                   ],
                 ),

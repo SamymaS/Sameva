@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
-import 'app_colors.dart';
+import '../../../theme/app_colors.dart';
 
 /// Memory Quest - Jeu de mémoire
 class MemoryQuestGame extends StatefulWidget {
