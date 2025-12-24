@@ -1,14 +1,18 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../widgets/figma/fantasy_card.dart';
-import '../../widgets/figma/fantasy_badge.dart';
+import '../../widgets/minimalist/minimalist_card.dart';
+import '../../widgets/minimalist/minimalist_button.dart';
+import '../../widgets/minimalist/fade_in_animation.dart';
+import '../../widgets/magical/animated_background.dart';
+import '../../widgets/magical/glowing_card.dart';
 import '../../theme/app_colors.dart';
+import '../../../data/models/quest_model.dart';
 import '../../../presentation/providers/quest_provider.dart';
 import '../../../presentation/providers/auth_provider.dart';
 import 'quest_detail_page.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 
-/// Page pour voir toutes les quêtes
+/// Page pour voir toutes les quêtes - Refactorée "Magie Minimaliste"
 class QuestsListPage extends StatefulWidget {
   const QuestsListPage({super.key});
 
@@ -16,21 +20,18 @@ class QuestsListPage extends StatefulWidget {
   State<QuestsListPage> createState() => _QuestsListPageState();
 }
 
-class _QuestsListPageState extends State<QuestsListPage> with SingleTickerProviderStateMixin {
+class _QuestsListPageState extends State<QuestsListPage>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  String? _selectedCategory; // Filtre par catégorie selon pages.md
+  String? _selectedCategory;
 
-  // Catégories disponibles selon pages.md : Travail, Sport, Maison, Personnel...
   final List<String> _categories = [
     'Tous',
-    'Travail',
-    'Sport',
     'Maison',
-    'Personnel',
-    'Étude',
-    'Bien-être',
-    'Créativité',
-    'Social',
+    'Sport',
+    'Santé',
+    'Études',
+    'Créatif',
   ];
 
   @override
@@ -54,15 +55,13 @@ class _QuestsListPageState extends State<QuestsListPage> with SingleTickerProvid
     }
   }
 
-  // Filtre les quêtes par catégorie sélectionnée
-  List<dynamic> _filterQuestsByCategory(List<dynamic> quests) {
+  List<Quest> _filterQuestsByCategory(List<Quest> quests) {
     if (_selectedCategory == null || _selectedCategory == 'Tous') {
       return quests;
     }
-    return quests.where((quest) {
-      final questCategory = quest.category?.toString() ?? '';
-      return questCategory.toLowerCase() == _selectedCategory!.toLowerCase();
-    }).toList();
+    return quests
+        .where((quest) => quest.category.toLowerCase() == _selectedCategory!.toLowerCase())
+        .toList();
   }
 
   @override
@@ -70,123 +69,31 @@ class _QuestsListPageState extends State<QuestsListPage> with SingleTickerProvid
     final questProvider = context.watch<QuestProvider>();
 
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              AppColors.backgroundDeepViolet,
-              AppColors.backgroundNightBlue,
-            ],
-          ),
-        ),
+      body: AnimatedMagicalBackground(
         child: SafeArea(
           child: Column(
             children: [
-              // En-tête
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Mes Quêtes',
-                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textPrimary,
-                              ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${questProvider.quests.length} quêtes au total',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: AppColors.textSecondary,
-                              ),
-                        ),
-                      ],
-                    ),
-                    // Bouton pour créer une quête
-                    IconButton(
-                      icon: const Icon(Icons.add_circle_outline),
-                      color: AppColors.primaryTurquoise,
-                      onPressed: () {
-                        Navigator.of(context).pushNamed('/create-quest');
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              // Filtres par catégorie (selon pages.md)
-              SizedBox(
-                height: 50,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: _categories.length,
-                  itemBuilder: (context, index) {
-                    final category = _categories[index];
-                    final isSelected = _selectedCategory == category;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: FilterChip(
-                        label: Text(category),
-                        selected: isSelected,
-                        onSelected: (selected) {
-                          setState(() {
-                            _selectedCategory = selected ? category : 'Tous';
-                          });
-                        },
-                        backgroundColor: AppColors.backgroundDarkPanel.withOpacity(0.3),
-                        selectedColor: AppColors.primaryTurquoise.withOpacity(0.3),
-                        labelStyle: TextStyle(
-                          color: isSelected ? AppColors.primaryTurquoise : AppColors.textSecondary,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        ),
-                        side: BorderSide(
-                          color: isSelected ? AppColors.primaryTurquoise : Colors.transparent,
-                          width: 1.5,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Tabs
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  color: AppColors.backgroundDarkPanel.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: TabBar(
-                  controller: _tabController,
-                  indicator: BoxDecoration(
-                    color: AppColors.primaryTurquoise.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  labelColor: AppColors.primaryTurquoise,
-                  unselectedLabelColor: AppColors.textSecondary,
-                  tabs: const [
-                    Tab(text: 'Actives'),
-                    Tab(text: 'Terminées'),
-                    Tab(text: 'Archivées'),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Liste des quêtes (filtrées par catégorie)
+              // Header minimaliste
+              _buildHeader(questProvider.quests.length),
+
+              // Filtres par catégorie
+              _buildCategoryFilters(),
+
+              const SizedBox(height: 12),
+
+              // Tabs minimalistes
+              _buildTabs(),
+
+              const SizedBox(height: 12),
+
+              // Liste des quêtes
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
                   children: [
                     _buildQuestsList(_filterQuestsByCategory(questProvider.activeQuests)),
                     _buildQuestsList(_filterQuestsByCategory(questProvider.completedQuests)),
-                    _buildQuestsList([]), // Archived quests - à implémenter
+                    _buildQuestsList([]), // Archivées
                   ],
                 ),
               ),
@@ -197,7 +104,124 @@ class _QuestsListPageState extends State<QuestsListPage> with SingleTickerProvid
     );
   }
 
-  Widget _buildQuestsList(List<dynamic> quests) {
+  Widget _buildHeader(int totalQuests) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Mes Quêtes',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '$totalQuests quêtes au total',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.6),
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+          Flexible(
+            child: MinimalistButton(
+              label: 'Nouvelle',
+              icon: Icons.add,
+              onPressed: () {
+                Navigator.of(context).pushNamed('/create-quest');
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryFilters() {
+    return SizedBox(
+      height: 40,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        itemCount: _categories.length,
+        itemBuilder: (context, index) {
+          final category = _categories[index];
+          final isSelected = _selectedCategory == category;
+
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  _selectedCategory = category;
+                });
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppColors.primaryTurquoise.withOpacity(0.2)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isSelected
+                        ? AppColors.primaryTurquoise
+                        : Colors.white.withOpacity(0.2),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  category,
+                  style: TextStyle(
+                    color: isSelected ? AppColors.primaryTurquoise : Colors.white.withOpacity(0.7),
+                    fontSize: 13,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildTabs() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundDarkPanel.withOpacity(0.4),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: TabBar(
+        controller: _tabController,
+        indicator: BoxDecoration(
+          color: AppColors.primaryTurquoise.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        labelColor: AppColors.primaryTurquoise,
+        unselectedLabelColor: Colors.white.withOpacity(0.6),
+        indicatorSize: TabBarIndicatorSize.tab,
+        tabs: const [
+          Tab(text: 'Actives'),
+          Tab(text: 'Terminées'),
+          Tab(text: 'Archivées'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuestsList(List<Quest> quests) {
     if (quests.isEmpty) {
       return Center(
         child: Column(
@@ -206,21 +230,24 @@ class _QuestsListPageState extends State<QuestsListPage> with SingleTickerProvid
             Icon(
               Icons.inbox_outlined,
               size: 64,
-              color: AppColors.textMuted,
+              color: Colors.white.withOpacity(0.3),
             ),
             const SizedBox(height: 16),
             Text(
               'Aucune quête',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppColors.textMuted,
-                  ),
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.7),
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Créez votre première quête pour commencer !',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textMuted,
-                  ),
+              'Créez votre première quête pour commencer',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.5),
+                fontSize: 14,
+              ),
             ),
           ],
         ),
@@ -228,143 +255,222 @@ class _QuestsListPageState extends State<QuestsListPage> with SingleTickerProvid
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20), // Padding en bas pour éviter le dock
       itemCount: quests.length,
       itemBuilder: (context, index) {
         final quest = quests[index];
-        return _QuestCard(quest: quest)
-            .animate()
-            .fadeIn(duration: 300.ms, delay: (index * 50).ms)
-            .slideX(begin: -0.1, end: 0, duration: 400.ms, delay: (index * 50).ms);
+        return FadeInAnimation(
+          delay: Duration(milliseconds: index * 50),
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _MinimalistQuestListCard(quest: quest),
+          ),
+        );
       },
     );
   }
+
 }
 
-class _QuestCard extends StatelessWidget {
-  final dynamic quest;
+/// Carte de quête pour la liste - Style minimaliste
+class _MinimalistQuestListCard extends StatelessWidget {
+  final Quest quest;
 
-  const _QuestCard({required this.quest});
+  const _MinimalistQuestListCard({required this.quest});
 
-  Color _getCategoryColor(String? category) {
+  Color _getRarityColor(QuestRarity rarity) {
+    switch (rarity) {
+      case QuestRarity.common:
+        return AppColors.rarityCommon;
+      case QuestRarity.uncommon:
+        return AppColors.rarityUncommon;
+      case QuestRarity.rare:
+        return AppColors.rarityRare;
+      case QuestRarity.epic:
+        return AppColors.rarityEpic;
+      case QuestRarity.legendary:
+        return AppColors.rarityLegendary;
+      case QuestRarity.mythic:
+        return AppColors.rarityMythic;
+    }
+  }
+
+  IconData _getCategoryIcon(String? category) {
     switch (category?.toLowerCase()) {
-      case 'quotidienne':
-        return const Color(0xFF22C55E);
-      case 'hebdomadaire':
-        return AppColors.primaryTurquoise;
-      case 'spéciale':
-        return AppColors.accent;
+      case 'maison':
+        return Icons.home_outlined;
+      case 'sport':
+        return Icons.fitness_center_outlined;
+      case 'santé':
+        return Icons.favorite_outline;
+      case 'études':
+        return Icons.menu_book_outlined;
+      case 'créatif':
+        return Icons.palette_outlined;
       default:
-        return AppColors.primaryTurquoise;
+        return Icons.auto_awesome_outlined;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final categoryColor = _getCategoryColor(quest.category);
+    final rarityColor = _getRarityColor(quest.rarity);
+    final categoryIcon = _getCategoryIcon(quest.category);
 
-    return FantasyCard(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => QuestDetailPage(quest: quest),
-            ),
-          );
-        },
-        borderRadius: BorderRadius.circular(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                // Badge de catégorie
-                FantasyBadge(
-                  label: quest.category ?? 'Quête',
-                  variant: BadgeVariant.default_,
-                  backgroundColor: categoryColor,
-                  textColor: Colors.white,
+    return GlowingCard(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => QuestDetailPage(quest: quest),
+          ),
+        );
+      },
+      glowColor: rarityColor,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              // Icône de catégorie
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: rarityColor.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: rarityColor.withOpacity(0.3),
+                    width: 1,
+                  ),
                 ),
-                const Spacer(),
-                // XP (calculé approximativement)
-                Row(
+                child: Icon(
+                  categoryIcon,
+                  color: rarityColor,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Titre et catégorie
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      Icons.star,
-                      size: 16,
-                      color: AppColors.rarityLegendary,
-                    ),
-                    const SizedBox(width: 4),
                     Text(
-                      '${quest.difficulty * 10} XP',
-                      style: TextStyle(
-                        color: AppColors.rarityLegendary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                      quest.title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.2,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Text(
+                          quest.category,
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.6),
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          width: 3,
+                          height: 3,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.4),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.star_outline,
+                          size: 12,
+                          color: AppColors.gold,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '+${quest.xpReward ?? 0} XP',
+                          style: TextStyle(
+                            color: AppColors.gold,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            // Titre
-            Text(
-              quest.title ?? 'Quête sans titre',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
-                  ),
-            ),
-            if (quest.description != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                quest.description!,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
+              ),
+              // Indicateur de rareté
+              Container(
+                width: 3,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: rarityColor,
+                  borderRadius: BorderRadius.circular(2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: rarityColor.withOpacity(0.5),
+                      blurRadius: 8,
+                      spreadRadius: 1,
                     ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+                  ],
+                ),
               ),
             ],
+          ),
+          if (quest.description != null) ...[
             const SizedBox(height: 12),
-            // Informations supplémentaires
-            Row(
-              children: [
-                Icon(
-                  Icons.access_time,
-                  size: 16,
-                  color: AppColors.textSecondary,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  '${quest.estimatedDuration.inHours}h',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Icon(
-                  Icons.trending_up,
-                  size: 16,
-                  color: AppColors.textSecondary,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  'Difficulté: ${quest.difficulty}/5',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
+            Text(
+              quest.description!,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.6),
+                fontSize: 13,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
-        ),
+          const SizedBox(height: 12),
+          // Informations supplémentaires
+          Row(
+            children: [
+              Icon(
+                Icons.access_time_outlined,
+                size: 14,
+                color: Colors.white.withOpacity(0.5),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                '${quest.estimatedDurationMinutes ~/ 60}h',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.5),
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Icon(
+                Icons.trending_up_outlined,
+                size: 14,
+                color: Colors.white.withOpacity(0.5),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'Difficulté: ${quest.difficulty}/5',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.5),
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 }
-

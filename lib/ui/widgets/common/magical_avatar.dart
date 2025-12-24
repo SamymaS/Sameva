@@ -1,25 +1,19 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../theme/app_colors.dart';
-import '../../../utils/assets_manager.dart';
 
 /// Widget Avatar avec effets magiques - Inspiré du design Figma Sanctuary
-/// Utilise de vrais assets au lieu d'emojis
 class MagicalAvatar extends StatefulWidget {
-  final String? avatarPath; // Chemin de l'image de l'avatar
+  final String? emoji;
   final double size;
-  final String? companionPath; // Chemin de l'image du familier
+  final String? companionEmoji;
   final bool showMagicCircle;
-  final String? avatarId; // ID de l'avatar (utilisé pour obtenir le chemin)
-  final String? companionId; // ID du familier (utilisé pour obtenir le chemin)
 
   const MagicalAvatar({
     super.key,
-    this.avatarPath,
-    this.avatarId,
+    this.emoji = '🧙‍♀️',
     this.size = 120,
-    this.companionPath,
-    this.companionId,
+    this.companionEmoji = '🦊',
     this.showMagicCircle = true,
   });
 
@@ -161,13 +155,10 @@ class _MagicalAvatarState extends State<MagicalAvatar>
                       },
                     ),
                     const SizedBox(height: 8),
-                    // Character image (avatar)
-                    _AssetImageWidget(
-                      imagePath: widget.avatarPath ?? 
-                          AssetsManager.getAvatarPath(widget.avatarId),
-                      size: widget.size * 0.6,
-                      fallbackIcon: Icons.person,
-                      fallbackColor: AppColors.primaryTurquoise,
+                    // Character emoji
+                    Text(
+                      widget.emoji ?? '🧙‍♀️',
+                      style: TextStyle(fontSize: widget.size * 0.6),
                     ),
                   ],
                 ),
@@ -175,8 +166,8 @@ class _MagicalAvatarState extends State<MagicalAvatar>
             },
           ),
 
-          // Companion (Familiar) - Image au lieu d'emoji
-          if (widget.companionPath != null || widget.companionId != null)
+          // Companion (Familiar)
+          if (widget.companionEmoji != null)
             AnimatedBuilder(
               animation: _companionController,
               builder: (context, child) {
@@ -212,12 +203,9 @@ class _MagicalAvatarState extends State<MagicalAvatar>
                             );
                           },
                         ),
-                        _AssetImageWidget(
-                          imagePath: widget.companionPath ?? 
-                              AssetsManager.getCompanionPath(widget.companionId),
-                          size: widget.size * 0.4,
-                          fallbackIcon: Icons.pets,
-                          fallbackColor: AppColors.gold,
+                        Text(
+                          widget.companionEmoji!,
+                          style: TextStyle(fontSize: widget.size * 0.3),
                         ),
                       ],
                     ),
@@ -322,50 +310,5 @@ class _MagicCirclePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-/// Widget pour afficher un asset avec fallback
-class _AssetImageWidget extends StatelessWidget {
-  final String imagePath;
-  final double size;
-  final IconData fallbackIcon;
-  final Color fallbackColor;
-
-  const _AssetImageWidget({
-    required this.imagePath,
-    required this.size,
-    required this.fallbackIcon,
-    required this.fallbackColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Image.asset(
-      imagePath,
-      width: size,
-      height: size,
-      fit: BoxFit.contain,
-      errorBuilder: (context, error, stackTrace) {
-        // Fallback vers une icône si l'image n'existe pas
-        return Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            color: fallbackColor.withOpacity(0.2),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: fallbackColor.withOpacity(0.5),
-              width: 2,
-            ),
-          ),
-          child: Icon(
-            fallbackIcon,
-            size: size * 0.6,
-            color: fallbackColor,
-          ),
-        );
-      },
-    );
-  }
 }
 

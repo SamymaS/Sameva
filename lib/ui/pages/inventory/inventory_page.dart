@@ -1,13 +1,18 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../presentation/providers/inventory_provider.dart';
 import '../../../presentation/providers/equipment_provider.dart';
 import '../../../presentation/providers/player_provider.dart';
 import '../../../domain/entities/item.dart';
-import '../../widgets/figma/fantasy_card.dart';
-import '../../widgets/figma/fantasy_badge.dart';
+import '../../widgets/minimalist/minimalist_card.dart';
+import '../../widgets/minimalist/minimalist_button.dart';
+import '../../widgets/minimalist/fade_in_animation.dart';
+import '../../widgets/magical/animated_background.dart';
+import '../../widgets/magical/glowing_card.dart';
 import '../../theme/app_colors.dart';
 
+/// Page Inventaire - "Le Coffre Astral" - Refactorée "Magie Minimaliste"
 class InventoryPage extends StatefulWidget {
   const InventoryPage({super.key});
 
@@ -15,7 +20,8 @@ class InventoryPage extends StatefulWidget {
   State<InventoryPage> createState() => _InventoryPageState();
 }
 
-class _InventoryPageState extends State<InventoryPage> with SingleTickerProviderStateMixin {
+class _InventoryPageState extends State<InventoryPage>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   ItemType? _selectedFilter;
 
@@ -34,35 +40,93 @@ class _InventoryPageState extends State<InventoryPage> with SingleTickerProvider
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.backgroundNightBlue,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const Text(
-          'Le Coffre Astral', // Selon pages.md
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.bold,
+      body: AnimatedMagicalBackground(
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Header minimaliste
+              _buildHeader(),
+
+              // Tabs minimalistes
+              _buildTabs(),
+
+              const SizedBox(height: 12),
+
+              // Grille d'items (avec padding en bas pour éviter le dock)
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildAllItemsTab(),
+                    _buildEquippableItemsTab(),
+                    _buildConsumableItemsTab(),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: AppColors.primaryTurquoise,
-          unselectedLabelColor: AppColors.textSecondary,
-          indicatorColor: AppColors.primaryTurquoise,
-          tabs: const [
-            Tab(text: 'Tous'),
-            Tab(text: 'Équipement'),
-            Tab(text: 'Consommables'),
-          ],
-        ),
       ),
-      body: TabBarView(
-        controller: _tabController,
+    );
+  }
+
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _buildAllItemsTab(),
-          _buildEquippableItemsTab(),
-          _buildConsumableItemsTab(),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Le Coffre Astral',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Consumer<InventoryProvider>(
+                builder: (context, inventoryProvider, _) {
+                  return Text(
+                    '${inventoryProvider.items.length} objets',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.6),
+                      fontSize: 14,
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabs() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundDarkPanel.withOpacity(0.4),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: TabBar(
+        controller: _tabController,
+        indicator: BoxDecoration(
+          color: AppColors.primaryTurquoise.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        labelColor: AppColors.primaryTurquoise,
+        unselectedLabelColor: Colors.white.withOpacity(0.6),
+        indicatorSize: TabBarIndicatorSize.tab,
+        tabs: const [
+          Tab(text: 'Tous'),
+          Tab(text: 'Équipement'),
+          Tab(text: 'Consommables'),
         ],
       ),
     );
@@ -72,32 +136,17 @@ class _InventoryPageState extends State<InventoryPage> with SingleTickerProvider
     return Consumer<InventoryProvider>(
       builder: (context, inventoryProvider, child) {
         final items = inventoryProvider.items;
-        
+
         if (items.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.inventory_2_outlined,
-                  size: 64,
-                  color: AppColors.textSecondary,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Votre inventaire est vide',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 16,
-                  ),
-                ),
-              ],
-            ),
+          return _buildEmptyState(
+            icon: Icons.inventory_2_outlined,
+            message: 'Votre inventaire est vide',
+            subtitle: 'Obtenez des objets en complétant des quêtes',
           );
         }
 
         return GridView.builder(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 100), // Padding en bas pour éviter le dock
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 3,
             crossAxisSpacing: 12,
@@ -107,7 +156,13 @@ class _InventoryPageState extends State<InventoryPage> with SingleTickerProvider
           itemCount: items.length,
           itemBuilder: (context, index) {
             final slot = items[index];
-            return _buildItemCard(slot);
+            return FadeInAnimation(
+              delay: Duration(milliseconds: index * 30),
+              child: _MinimalistItemCard(
+                slot: slot,
+                onTap: () => _showItemDetails(slot.item, slot.quantity),
+              ),
+            );
           },
         );
       },
@@ -118,32 +173,17 @@ class _InventoryPageState extends State<InventoryPage> with SingleTickerProvider
     return Consumer<InventoryProvider>(
       builder: (context, inventoryProvider, child) {
         final items = inventoryProvider.getEquippableItems();
-        
+
         if (items.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.checkroom_outlined,
-                  size: 64,
-                  color: AppColors.textSecondary,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Aucun équipement disponible',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 16,
-                  ),
-                ),
-              ],
-            ),
+          return _buildEmptyState(
+            icon: Icons.checkroom_outlined,
+            message: 'Aucun équipement disponible',
+            subtitle: 'Équipez-vous pour améliorer vos stats',
           );
         }
 
         return GridView.builder(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 100), // Padding en bas pour éviter le dock
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 3,
             crossAxisSpacing: 12,
@@ -153,7 +193,16 @@ class _InventoryPageState extends State<InventoryPage> with SingleTickerProvider
           itemCount: items.length,
           itemBuilder: (context, index) {
             final slot = items[index];
-            return _buildItemCard(slot, showEquipButton: true);
+            return FadeInAnimation(
+              delay: Duration(milliseconds: index * 30),
+              child: _MinimalistItemCard(
+                slot: slot,
+                showEquipButton: true,
+                onTap: () => _showItemDetails(slot.item, slot.quantity),
+                onEquip: () => _equipItem(slot.item),
+                onUnequip: () => _unequipItem(slot.item),
+              ),
+            );
           },
         );
       },
@@ -165,32 +214,17 @@ class _InventoryPageState extends State<InventoryPage> with SingleTickerProvider
       builder: (context, inventoryProvider, child) {
         final items = inventoryProvider.getItemsByType(ItemType.potion) +
             inventoryProvider.getItemsByType(ItemType.consumable);
-        
+
         if (items.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.local_drink_outlined,
-                  size: 64,
-                  color: AppColors.textSecondary,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Aucun consommable disponible',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 16,
-                  ),
-                ),
-              ],
-            ),
+          return _buildEmptyState(
+            icon: Icons.local_drink_outlined,
+            message: 'Aucun consommable disponible',
+            subtitle: 'Utilisez des potions pour restaurer vos stats',
           );
         }
 
         return GridView.builder(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 100), // Padding en bas pour éviter le dock
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 3,
             crossAxisSpacing: 12,
@@ -200,273 +234,130 @@ class _InventoryPageState extends State<InventoryPage> with SingleTickerProvider
           itemCount: items.length,
           itemBuilder: (context, index) {
             final slot = items[index];
-            return _buildItemCard(slot, showUseButton: true);
+            return FadeInAnimation(
+              delay: Duration(milliseconds: index * 30),
+              child: _MinimalistItemCard(
+                slot: slot,
+                showUseButton: true,
+                onTap: () => _showItemDetails(slot.item, slot.quantity),
+                onUse: () => _useItem(slot.item),
+              ),
+            );
           },
         );
       },
     );
   }
 
-  Widget _buildItemCard(InventorySlot slot, {bool showEquipButton = false, bool showUseButton = false}) {
-    final item = slot.item;
-    final isEquipped = _isItemEquipped(item);
-    final rarityColor = _getRarityColor(item.rarity);
-    final shouldGlow = _shouldGlow(item.rarity);
-    
-    return GestureDetector(
-      onTap: () => _showItemDetails(item, slot.quantity),
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.backgroundDarkPanel.withOpacity(0.3),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            // Bordure colorée selon la rareté (selon pages.md)
-            color: isEquipped 
-                ? AppColors.primaryTurquoise 
-                : rarityColor.withOpacity(shouldGlow ? 0.8 : 0.5),
-            width: isEquipped ? 2.5 : (shouldGlow ? 2 : 1.5),
+  Widget _buildEmptyState({
+    required IconData icon,
+    required String message,
+    required String subtitle,
+  }) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            size: 64,
+            color: Colors.white.withOpacity(0.3),
           ),
-          // Effet glow pour les raretés élevées
-          boxShadow: shouldGlow
-              ? [
-                  BoxShadow(
-                    color: rarityColor.withOpacity(0.3),
-                    blurRadius: 8,
-                    spreadRadius: 1,
-                  ),
-                ]
-              : null,
-        ),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.7),
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.5),
+              fontSize: 14,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showItemDetails(Item item, int quantity) {
+    showDialog(
+      context: context,
+      builder: (context) => MinimalistCard(
+        padding: const EdgeInsets.all(24),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image de l'item
-            if (item.imagePath != null)
-              Image.asset(
-                item.imagePath!,
-                width: 48,
-                height: 48,
-                errorBuilder: (context, error, stackTrace) {
-                  return Icon(
-                    _getItemIcon(item.type),
-                    size: 48,
-                    color: AppColors.primary,
-                  );
-                },
-              )
-            else
-              Icon(
-                _getItemIcon(item.type),
-                size: 48,
-                color: AppColors.primary,
-              ),
-            const SizedBox(height: 8),
-            // Nom de l'item
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Text(
-                item.name,
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            // Quantité
-            if (slot.quantity > 1)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: FantasyBadge(
-                  label: 'x${slot.quantity}',
-                  variant: BadgeVariant.secondary,
-                ),
-              ),
-            // Badge de rareté
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: FantasyBadge(
-                label: _getRarityLabel(item.rarity),
-                variant: _getRarityBadgeVariant(item.rarity),
-              ),
-            ),
-            // Bouton équiper/utiliser
-            if (showEquipButton && item.isEquippable)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: ElevatedButton(
-                  onPressed: isEquipped
-                      ? () => _unequipItem(item)
-                      : () => _equipItem(item),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isEquipped ? AppColors.success : AppColors.primary,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    minimumSize: const Size(0, 24),
-                  ),
+            Row(
+              children: [
+                Expanded(
                   child: Text(
-                    isEquipped ? 'Équipé' : 'Équiper',
-                    style: const TextStyle(fontSize: 10),
+                    item.name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-              ),
-            if (showUseButton && item.isConsumable)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: ElevatedButton(
-                  onPressed: () => _useItem(item),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.accent,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    minimumSize: const Size(0, 24),
-                  ),
-                  child: const Text(
-                    'Utiliser',
-                    style: TextStyle(fontSize: 10),
-                  ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white70),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (item.description.isNotEmpty)
+              Text(
+                item.description,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.7),
+                  fontSize: 14,
                 ),
               ),
+            const SizedBox(height: 16),
+            if (item.attackBonus != null || item.defenseBonus != null || item.healthBonus != null)
+              _buildStatRow('Stats', [
+                if (item.attackBonus != null) '+${item.attackBonus} Attaque',
+                if (item.defenseBonus != null) '+${item.defenseBonus} Défense',
+                if (item.healthBonus != null) '+${item.healthBonus} PV',
+              ]),
+            const SizedBox(height: 12),
+            _buildStatRow('Quantité', ['$quantity']),
+            _buildStatRow('Valeur', ['${item.value} pièces d\'or']),
           ],
         ),
       ),
     );
   }
 
-  bool _isItemEquipped(Item item) {
-    final equipmentProvider = Provider.of<EquipmentProvider>(context, listen: false);
-    final equippedId = equipmentProvider.getEquippedItemId(item.type);
-    return equippedId == item.id;
-  }
-
-  IconData _getItemIcon(ItemType type) {
-    switch (type) {
-      case ItemType.weapon:
-        return Icons.sports_martial_arts;
-      case ItemType.armor:
-        return Icons.shield;
-      case ItemType.helmet:
-        return Icons.construction;
-      case ItemType.shield:
-        return Icons.shield_outlined;
-      case ItemType.potion:
-        return Icons.local_drink;
-      case ItemType.consumable:
-        return Icons.fastfood;
-      case ItemType.cosmetic:
-        return Icons.checkroom;
-      case ItemType.companion:
-        return Icons.pets;
-      default:
-        return Icons.inventory_2;
-    }
-  }
-
-  String _getRarityLabel(ItemRarity rarity) {
-    switch (rarity) {
-      case ItemRarity.common:
-        return 'Commun';
-      case ItemRarity.uncommon:
-        return 'Peu commun';
-      case ItemRarity.rare:
-        return 'Rare';
-      case ItemRarity.veryRare:
-        return 'Très rare';
-      case ItemRarity.epic:
-        return 'Épique';
-      case ItemRarity.legendary:
-        return 'Légendaire';
-      case ItemRarity.mythic:
-        return 'Mythique';
-    }
-  }
-
-  BadgeVariant _getRarityBadgeVariant(ItemRarity rarity) {
-    switch (rarity) {
-      case ItemRarity.common:
-        return BadgeVariant.secondary;
-      case ItemRarity.uncommon:
-        return BadgeVariant.default_;
-      case ItemRarity.rare:
-        return BadgeVariant.default_;
-      case ItemRarity.veryRare:
-        return BadgeVariant.default_;
-      case ItemRarity.epic:
-        return BadgeVariant.default_;
-      case ItemRarity.legendary:
-        return BadgeVariant.default_;
-      case ItemRarity.mythic:
-        return BadgeVariant.default_;
-    }
-  }
-
-  // Retourne la couleur selon la rareté (selon pages.md)
-  Color _getRarityColor(ItemRarity rarity) {
-    switch (rarity) {
-      case ItemRarity.common:
-        return AppColors.rarityCommon; // Gris
-      case ItemRarity.uncommon:
-        return AppColors.rarityUncommon; // Vert
-      case ItemRarity.rare:
-        return AppColors.rarityRare; // Bleu
-      case ItemRarity.veryRare:
-      case ItemRarity.epic:
-        return AppColors.rarityEpic; // Violet
-      case ItemRarity.legendary:
-        return AppColors.rarityLegendary; // Or
-      case ItemRarity.mythic:
-        return AppColors.rarityMythic; // Rouge/Corail
-    }
-  }
-
-  // Vérifie si la rareté doit avoir un effet glow (selon pages.md)
-  bool _shouldGlow(ItemRarity rarity) {
-    return rarity == ItemRarity.epic || 
-           rarity == ItemRarity.legendary || 
-           rarity == ItemRarity.mythic;
-  }
-
-  void _showItemDetails(Item item, int quantity) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.backgroundDarkPanel.withOpacity(0.3),
-        title: Text(
-          item.name,
-          style: const TextStyle(color: AppColors.textPrimary),
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                item.description,
-                style: const TextStyle(color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 16),
-              if (item.attackBonus != null)
-                Text('Attaque: +${item.attackBonus}'),
-              if (item.defenseBonus != null)
-                Text('Défense: +${item.defenseBonus}'),
-              if (item.healthBonus != null)
-                Text('PV: +${item.healthBonus}'),
-              if (item.experienceBonus != null)
-                Text('XP: +${item.experienceBonus}'),
-              if (item.goldBonus != null)
-                Text('Or: +${item.goldBonus}'),
-              const SizedBox(height: 8),
-              Text('Quantité: $quantity'),
-              Text('Valeur: ${item.value} pièces d\'or'),
-            ],
+  Widget _buildStatRow(String label, List<String> values) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Text(
+            '$label: ',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.6),
+              fontSize: 13,
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Fermer'),
-          ),
+          ...values.map((value) => Text(
+                value,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              )),
         ],
       ),
     );
@@ -475,49 +366,38 @@ class _InventoryPageState extends State<InventoryPage> with SingleTickerProvider
   void _equipItem(Item item) async {
     final equipmentProvider = Provider.of<EquipmentProvider>(context, listen: false);
     final success = await equipmentProvider.equipItem('', item);
-    
-    if (success) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${item.name} équipé'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-      }
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Impossible d\'équiper cet item'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
+
+    if (success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${item.name} équipé'),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
   void _unequipItem(Item item) async {
     final equipmentProvider = Provider.of<EquipmentProvider>(context, listen: false);
     final success = await equipmentProvider.unequipItem('', item.type);
-    
-    if (success) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${item.name} déséquipé'),
-            backgroundColor: AppColors.info,
-          ),
-        );
-      }
+
+    if (success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${item.name} déséquipé'),
+          backgroundColor: AppColors.info,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
   void _useItem(Item item) async {
     final inventoryProvider = Provider.of<InventoryProvider>(context, listen: false);
     final playerProvider = Provider.of<PlayerProvider>(context, listen: false);
-    
-    // Appliquer les effets de l'item
+
+    // Appliquer les effets
     if (item.healthBonus != null && item.healthBonus! > 0) {
       await playerProvider.heal('', item.healthBonus!);
     }
@@ -527,18 +407,197 @@ class _InventoryPageState extends State<InventoryPage> with SingleTickerProvider
     if (item.goldBonus != null && item.goldBonus! > 0) {
       await playerProvider.addGold('', item.goldBonus!);
     }
-    
-    // Retirer l'item de l'inventaire
+
     await inventoryProvider.removeItem('', item.id, quantity: 1);
-    
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('${item.name} utilisé'),
           backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
         ),
       );
     }
   }
 }
 
+/// Carte d'item minimaliste
+class _MinimalistItemCard extends StatelessWidget {
+  final InventorySlot slot;
+  final bool showEquipButton;
+  final bool showUseButton;
+  final VoidCallback onTap;
+  final VoidCallback? onEquip;
+  final VoidCallback? onUnequip;
+  final VoidCallback? onUse;
+
+  const _MinimalistItemCard({
+    required this.slot,
+    this.showEquipButton = false,
+    this.showUseButton = false,
+    required this.onTap,
+    this.onEquip,
+    this.onUnequip,
+    this.onUse,
+  });
+
+  Color _getRarityColor(ItemRarity rarity) {
+    switch (rarity) {
+      case ItemRarity.common:
+        return AppColors.rarityCommon;
+      case ItemRarity.uncommon:
+        return AppColors.rarityUncommon;
+      case ItemRarity.rare:
+        return AppColors.rarityRare;
+      case ItemRarity.veryRare:
+      case ItemRarity.epic:
+        return AppColors.rarityEpic;
+      case ItemRarity.legendary:
+        return AppColors.rarityLegendary;
+      case ItemRarity.mythic:
+        return AppColors.rarityMythic;
+    }
+  }
+
+  bool _isItemEquipped(Item item, BuildContext context) {
+    // Vérifie si l'item est équipé via EquipmentProvider
+    try {
+      final equipmentProvider = Provider.of<EquipmentProvider>(context, listen: false);
+      final equippedId = equipmentProvider.getEquippedItemId(item.type);
+      return equippedId == item.id;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  bool _shouldGlow(ItemRarity rarity) {
+    return rarity == ItemRarity.epic ||
+        rarity == ItemRarity.legendary ||
+        rarity == ItemRarity.mythic;
+  }
+
+  IconData _getItemIcon(ItemType type) {
+    switch (type) {
+      case ItemType.weapon:
+        return Icons.sports_martial_arts_outlined;
+      case ItemType.armor:
+        return Icons.shield_outlined;
+      case ItemType.helmet:
+        return Icons.construction_outlined;
+      case ItemType.shield:
+        return Icons.shield_outlined;
+      case ItemType.potion:
+        return Icons.local_drink_outlined;
+      case ItemType.consumable:
+        return Icons.fastfood_outlined;
+      case ItemType.cosmetic:
+        return Icons.checkroom_outlined;
+      case ItemType.companion:
+        return Icons.pets_outlined;
+      default:
+        return Icons.inventory_2_outlined;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final item = slot.item;
+    final isEquipped = _isItemEquipped(item, context);
+    final rarityColor = _getRarityColor(item.rarity);
+    final shouldGlow = _shouldGlow(item.rarity);
+
+    return MinimalistCard(
+      onTap: onTap,
+      glowColor: rarityColor,
+      showGlow: shouldGlow,
+      borderColor: isEquipped
+          ? AppColors.primaryTurquoise
+          : rarityColor.withOpacity(shouldGlow ? 0.8 : 0.5),
+      borderWidth: isEquipped ? 2.5 : (shouldGlow ? 2 : 1.5),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Image ou icône
+          if (item.imagePath != null)
+            Image.asset(
+              item.imagePath!,
+              width: 40,
+              height: 40,
+              errorBuilder: (context, error, stackTrace) {
+                return Icon(
+                  _getItemIcon(item.type),
+                  size: 40,
+                  color: rarityColor,
+                );
+              },
+            )
+          else
+            Icon(
+              _getItemIcon(item.type),
+              size: 40,
+              color: rarityColor,
+            ),
+          const SizedBox(height: 8),
+          // Nom
+          Text(
+            item.name,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          // Quantité
+          if (slot.quantity > 1) ...[
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppColors.primaryTurquoise.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: AppColors.primaryTurquoise.withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
+              child: Text(
+                'x${slot.quantity}',
+                style: TextStyle(
+                  color: AppColors.primaryTurquoise,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+          // Bouton équiper/utiliser
+          if (showEquipButton && item.isEquippable) ...[
+            const SizedBox(height: 8),
+            MinimalistButton(
+              label: isEquipped ? 'Équipé' : 'Équiper',
+              onPressed: isEquipped ? onUnequip : onEquip,
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              isOutlined: !isEquipped,
+            ),
+          ],
+          if (showUseButton && item.isConsumable) ...[
+            const SizedBox(height: 8),
+            MinimalistButton(
+              label: 'Utiliser',
+              onPressed: onUse,
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              color: AppColors.accent,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}

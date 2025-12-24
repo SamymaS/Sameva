@@ -1,7 +1,10 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:math' as math;
 import '../../widgets/animations/invocation_animation.dart';
+import '../../widgets/minimalist/hud_header.dart';
+import '../../widgets/magical/animated_background.dart';
 import '../../theme/app_colors.dart';
 import '../../../presentation/providers/player_provider.dart';
 import '../../../presentation/providers/inventory_provider.dart';
@@ -173,101 +176,115 @@ class _InvocationPageState extends State<InvocationPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.backgroundNightBlue,
-      appBar: AppBar(
-        backgroundColor: AppColors.backgroundDarkPanel.withOpacity(0.3),
-        title: const Text('Le Portail'), // Selon pages.md
-        elevation: 0,
-      ),
-      body: SafeArea(
-        child: Consumer<PlayerProvider>(
-          builder: (context, playerProvider, child) {
-            final stats = playerProvider.stats;
-            
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // En-tête
-                  Text(
-                    'Invoquez des items puissants !',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+      body: AnimatedMagicalBackground(
+        child: Stack(
+          children: [
+            // Header HUD
+            Consumer<PlayerProvider>(
+              builder: (context, playerProvider, _) {
+                final stats = playerProvider.stats;
+                return HUDHeader(
+                  level: stats?.level ?? 1,
+                  experience: stats?.experience ?? 0,
+                  maxExperience: playerProvider.experienceForLevel(stats?.level ?? 1),
+                  healthPoints: stats?.healthPoints ?? 100,
+                  maxHealthPoints: stats?.maxHealthPoints ?? 100,
+                  gold: stats?.gold ?? 0,
+                  crystals: stats?.crystals ?? 0,
+                  onSettingsTap: () {
+                    // Navigation vers settings
+                  },
+                );
+              },
+            ),
+            // Contenu
+            SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 100, 20, 100), // Padding en haut pour le header, en bas pour le dock
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Titre de page
+                    Center(
+                      child: Text(
+                        'Le Portail',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 28,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
+                          fontFamily: 'Cinzel',
+                          letterSpacing: 0.5,
                         ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Choisissez votre type d\'invocation',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 32),
-                  
-                  // Ressources
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildResourceCard(
-                        context,
-                        Icons.monetization_on,
-                        'Or',
-                        '${stats?.gold ?? 0}',
-                        const Color(0xFFF59E0B),
                       ),
-                      _buildResourceCard(
-                        context,
-                        Icons.diamond,
-                        'Cristaux',
-                        '${stats?.crystals ?? 0}',
-                        Colors.cyan,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Invoquez des items puissants !',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: 16,
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
-                  
-                  // Types d'invocation
-                  _buildInvocationCard(
-                    context,
-                    'Invocation Gratuite',
-                    '1 invocation gratuite par jour',
-                    Icons.card_giftcard,
-                    AppColors.success,
-                    () => _invoke(context, InvocationType.free),
-                    _isInvoking,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildInvocationCard(
-                    context,
-                    'Invocation Standard',
-                    '100 pièces d\'or',
-                    Icons.monetization_on,
-                    const Color(0xFFF59E0B),
-                    () => _invoke(context, InvocationType.gold),
-                    _isInvoking || (stats?.gold ?? 0) < 100,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildInvocationCard(
-                    context,
-                    'Invocation Premium',
-                    '10 cristaux (meilleures chances)',
-                    Icons.diamond,
-                    Colors.cyan,
-                    () => _invoke(context, InvocationType.premium),
-                    _isInvoking || (stats?.crystals ?? 0) < 10,
-                  ),
-                  const SizedBox(height: 32),
-                  
-                  // Probabilités
-                  _buildProbabilitiesCard(context),
-                ],
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Choisissez votre type d\'invocation',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.6),
+                        fontSize: 14,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 32),
+                    
+                    // Types d'invocation
+                    Consumer<PlayerProvider>(
+                      builder: (context, playerProvider, _) {
+                        final stats = playerProvider.stats;
+                        return Column(
+                          children: [
+                            _buildInvocationCard(
+                              context,
+                              'Invocation Gratuite',
+                              '1 invocation gratuite par jour',
+                              Icons.card_giftcard,
+                              AppColors.success,
+                              () => _invoke(context, InvocationType.free),
+                              _isInvoking,
+                            ),
+                            const SizedBox(height: 16),
+                            _buildInvocationCard(
+                              context,
+                              'Invocation Standard',
+                              '100 pièces d\'or',
+                              Icons.monetization_on,
+                              const Color(0xFFF59E0B),
+                              () => _invoke(context, InvocationType.gold),
+                              _isInvoking || (stats?.gold ?? 0) < 100,
+                            ),
+                            const SizedBox(height: 16),
+                            _buildInvocationCard(
+                              context,
+                              'Invocation Premium',
+                              '10 cristaux (meilleures chances)',
+                              Icons.diamond,
+                              Colors.cyan,
+                              () => _invoke(context, InvocationType.premium),
+                              _isInvoking || (stats?.crystals ?? 0) < 10,
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 32),
+                    
+                    // Probabilités
+                    _buildProbabilitiesCard(context),
+                  ],
+                ),
               ),
-            );
-          },
+            ),
+          ],
         ),
       ),
     );

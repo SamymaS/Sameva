@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../widgets/figma/fantasy_card.dart';
 import '../../widgets/figma/fantasy_badge.dart';
+import '../../widgets/magical/animated_background.dart';
 import '../../theme/app_colors.dart';
 import 'games/memory_quest_game.dart';
 import 'games/speed_challenge_game.dart';
@@ -68,78 +69,83 @@ class MiniGamePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.backgroundNightBlue,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // En-tête
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Mini-Jeux',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textPrimary,
-                            ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Amusez-vous tout en progressant',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
-                      ),
-                    ],
-                  ),
-                  FantasyBadge(
-                    label: '${_minigames.where((g) => g['unlocked'] == true).length}/${_minigames.length}',
-                    variant: BadgeVariant.secondary,
-                  ),
-                ],
-              ),
-            ),
-            // Liste des mini-jeux
-            Expanded(
-              child: GridView.builder(
-                padding: const EdgeInsets.all(16),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 1.1, // Augmenté pour éviter le débordement
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                ),
-                itemCount: _minigames.length,
-                itemBuilder: (context, index) {
-                  final game = _minigames[index];
-                  return _MinigameCard(
-                    name: game['name'] as String,
-                    description: game['description'] as String,
-                    icon: game['icon'] as IconData,
-                    color: game['color'] as Color,
-                    isUnlocked: game['unlocked'] as bool,
-                    onTap: () {
-                      if (game['unlocked'] as bool) {
-                        _launchGame(context, game['game'] as String?);
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('${game['name']} sera bientôt disponible !'),
-                            backgroundColor: AppColors.primaryTurquoise,
+      body: AnimatedMagicalBackground(
+        child: SafeArea(
+          child: Column(
+            children: [
+              // En-tête
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Mini-Jeux',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: 'Cinzel',
+                            letterSpacing: 0.5,
                           ),
-                        );
-                      }
-                    },
-                  );
-                },
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Amusez-vous tout en progressant',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.7),
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                    FantasyBadge(
+                      label: '${_minigames.where((g) => g['unlocked'] == true).length}/${_minigames.length}',
+                      variant: BadgeVariant.secondary,
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+              // Liste des mini-jeux
+              Expanded(
+                child: GridView.builder(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 100), // Padding en bas pour le dock
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 0.85, // Réduit pour donner plus d'espace vertical
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                  ),
+                  itemCount: _minigames.length,
+                  itemBuilder: (context, index) {
+                    final game = _minigames[index];
+                    return _MinigameCard(
+                      name: game['name'] as String,
+                      description: game['description'] as String,
+                      icon: game['icon'] as IconData,
+                      color: game['color'] as Color,
+                      isUnlocked: game['unlocked'] as bool,
+                      onTap: () {
+                        if (game['unlocked'] as bool) {
+                          _launchGame(context, game['game'] as String?);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('${game['name']} sera bientôt disponible !'),
+                              backgroundColor: AppColors.primaryTurquoise,
+                            ),
+                          );
+                        }
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -219,48 +225,49 @@ class _MinigameCard extends StatelessWidget {
             children: [
               // Icône du mini-jeu
               Container(
-                width: 60,
-                height: 60,
+                width: 50,
+                height: 50,
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.2),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   icon,
-                  size: 30,
+                  size: 24,
                   color: isUnlocked ? color : AppColors.textMuted,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               // Nom du mini-jeu
               Text(
                 name,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: isUnlocked ? AppColors.textPrimary : AppColors.textMuted,
+                      fontSize: 13,
+                    ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 4),
+              // Description
+              Text(
+                description,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: isUnlocked ? AppColors.textSecondary : AppColors.textMuted,
+                      fontSize: 10,
                     ),
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 6),
-              // Description
-              Text(
-                description,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: isUnlocked ? AppColors.textSecondary : AppColors.textMuted,
-                      fontSize: 11,
-                    ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 8),
-              // Badge de statut
+              // Badge de statut (plus petit)
               FantasyBadge(
                 label: isUnlocked ? 'Disponible' : 'Verrouillé',
                 variant: isUnlocked ? BadgeVariant.secondary : BadgeVariant.outline,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               ),
             ],
           ),

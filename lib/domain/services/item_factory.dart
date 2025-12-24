@@ -1,5 +1,5 @@
 import '../entities/item.dart';
-import '../../presentation/providers/quest_provider.dart';
+import '../../data/models/quest_model.dart';
 
 /// Factory pour créer des items prédéfinis
 class ItemFactory {
@@ -388,7 +388,7 @@ class ItemFactory {
           attackBonus: 12,
           value: 200,
         );
-      case QuestRarity.veryRare:
+      case QuestRarity.epic:
         return createArmor(
           name: 'Armure rare',
           rarity: ItemRarity.rare,

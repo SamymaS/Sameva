@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/app_colors.dart';
+import '../../../data/models/quest_model.dart';
 import '../../../presentation/providers/quest_provider.dart';
 import '../../../presentation/providers/auth_provider.dart';
 import '../../../presentation/providers/player_provider.dart';
@@ -31,7 +32,6 @@ class _QuestDetailPageState extends State<QuestDetailPage> {
       case QuestRarity.common: return AppColors.rarityCommon;
       case QuestRarity.uncommon: return AppColors.rarityUncommon;
       case QuestRarity.rare: return AppColors.rarityRare;
-      case QuestRarity.veryRare: return AppColors.rarityEpic; // veryRare = epic
       case QuestRarity.epic: return AppColors.rarityEpic;
       case QuestRarity.legendary: return AppColors.rarityLegendary;
       case QuestRarity.mythic: return AppColors.rarityMythic;
@@ -47,7 +47,13 @@ class _QuestDetailPageState extends State<QuestDetailPage> {
     final inventoryProvider = context.read<InventoryProvider>();
 
     // Compléter la quête
-    await questProvider.completeQuest(userId, widget.quest.id);
+    if (widget.quest.id == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Erreur: Quête sans ID')),
+      );
+      return;
+    }
+    await questProvider.completeQuest(widget.quest.id!);
 
     // Calculer les récompenses avec bonus/malus
     final completedAt = DateTime.now();
@@ -174,7 +180,7 @@ class _QuestDetailPageState extends State<QuestDetailPage> {
                   children: [
                     const Icon(Icons.timer_outlined, size: 18, color: AppColors.textSecondary),
                     const SizedBox(width: 6),
-                    Text('Durée estimée: ${widget.quest.estimatedDuration.inHours}h ${widget.quest.estimatedDuration.inMinutes % 60}min'),
+                    Text('Durée estimée: ${widget.quest.estimatedDurationMinutes ~/ 60}h ${widget.quest.estimatedDurationMinutes % 60}min'),
                   ],
                 ),
               ],

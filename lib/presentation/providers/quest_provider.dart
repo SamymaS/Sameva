@@ -1,158 +1,109 @@
 import 'package:flutter/material.dart';
-import 'package:hive_flutter/hive_flutter.dart';
-import 'package:uuid/uuid.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../data/models/quest_model.dart';
 import '../../domain/services/quest_rewards_calculator.dart';
 
-enum QuestRarity {
-  common,
-  uncommon,
-  rare,
-  veryRare,
-  epic,
-  legendary,
-  mythic
-}
-
-enum QuestFrequency {
-  once,
-  daily,
-  weekly,
-  monthly
-}
-
-class Quest {
-  final String id;
-  final String title;
-  final String? description;
-  final Duration estimatedDuration;
-  final QuestFrequency frequency;
-  final int difficulty;
-  final String category;
-  final QuestRarity rarity;
-  final List<String> subQuests;
-  final bool isCompleted;
-  final DateTime createdAt;
-  final DateTime? completedAt;
-
-  Quest({
-    String? id,
-    required this.title,
-    this.description,
-    required this.estimatedDuration,
-    required this.frequency,
-    required this.difficulty,
-    required this.category,
-    required this.rarity,
-    List<String>? subQuests,
-    this.isCompleted = false,
-    DateTime? createdAt,
-    this.completedAt,
-  }) : id = id ?? const Uuid().v4(),
-       subQuests = subQuests ?? [],
-       createdAt = createdAt ?? DateTime.now();
-
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'title': title,
-    'description': description,
-    'estimatedDuration': estimatedDuration.inMinutes,
-    'frequency': frequency.toString(),
-    'difficulty': difficulty,
-    'category': category,
-    'rarity': rarity.toString(),
-    'subQuests': subQuests,
-    'isCompleted': isCompleted,
-    'createdAt': createdAt.toIso8601String(),
-    'completedAt': completedAt?.toIso8601String(),
-  };
-
-  factory Quest.fromJson(Map<String, dynamic> json) => Quest(
-    id: json['id'] as String,
-    title: json['title'] as String,
-    description: json['description'] as String?,
-    estimatedDuration: Duration(minutes: json['estimatedDuration'] as int),
-    frequency: QuestFrequency.values.firstWhere(
-      (e) => e.toString() == json['frequency'],
-    ),
-    difficulty: json['difficulty'] as int,
-    category: json['category'] as String,
-    rarity: QuestRarity.values.firstWhere(
-      (e) => e.toString() == json['rarity'],
-    ),
-    subQuests: (json['subQuests'] as List).cast<String>(),
-    isCompleted: json['isCompleted'] as bool,
-    createdAt: DateTime.parse(json['createdAt'] as String),
-    completedAt: json['completedAt'] != null
-        ? DateTime.parse(json['completedAt'] as String)
-        : null,
-  );
-}
-
 class QuestProvider with ChangeNotifier {
-  Box get _questsBox => Hive.box('quests');
+  final SupabaseClient _supabase = Supabase.instance.client;
   
   List<Quest> _quests = [];
+  bool _isLoading = false;
   
   List<Quest> get quests => _quests;
-  List<Quest> get activeQuests => _quests.where((q) => !q.isCompleted).toList();
-  List<Quest> get completedQuests => _quests.where((q) => q.isCompleted).toList();
+  bool get isLoading => _isLoading;
+  List<Quest> get activeQuests => _quests.where((q) => q.status == QuestStatus.active).toList();
+  List<Quest> get completedQuests => _quests.where((q) => q.status == QuestStatus.completed).toList();
   
-  void _loadQuestsFromBox() {
-    try {
-      final questsList = _questsBox.get('quests', defaultValue: <Map>[]);
-      _quests = (questsList as List)
-          .map((json) => Quest.fromJson(Map<String, dynamic>.from(json)))
-          .toList();
+  Future<void> loadQuests(String userId) async {
+    // Vérifier que userId n'est pas vide
+    if (userId.isEmpty) {
+      print('Erreur: userId est vide');
+      _quests = [];
+      _isLoading = false;
       notifyListeners();
+      return;
+    }
+    
+    _isLoading = true;
+    notifyListeners();
+    
+    try {
+      final response = await _supabase
+          .from('quests')
+          .select()
+          .eq('user_id', userId)
+          .order('created_at', ascending: false);
+      
+      _quests = (response as List)
+          .map((map) => Quest.fromSupabaseMap(Map<String, dynamic>.from(map)))
+          .toList();
     } catch (e) {
       print('Erreur lors du chargement des quêtes: $e');
       _quests = [];
-    }
-  }
-  
-  Future<void> _saveQuestsToBox() async {
-    try {
-      final questsJson = _quests.map((q) => q.toJson()).toList();
-      await _questsBox.put('quests', questsJson);
-    } catch (e) {
-      print('Erreur lors de la sauvegarde des quêtes: $e');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
-  Future<void> loadQuests(String userId) async {
-    // Pas besoin de userId pour le stockage local
-    _loadQuestsFromBox();
-  }
-
-  Future<void> addQuest(String userId, Quest quest) async {
+  Future<void> addQuest(Quest quest) async {
     try {
-      _quests.add(quest);
-      await _saveQuestsToBox();
+      final data = quest.toSupabaseMap();
+      // Retirer l'id s'il est null pour laisser Supabase le générer
+      if (quest.id == null) {
+        data.remove('id');
+      }
+      
+      final response = await _supabase
+          .from('quests')
+          .insert(data)
+          .select()
+          .single();
+      
+      final newQuest = Quest.fromSupabaseMap(response);
+      _quests.insert(0, newQuest);
       notifyListeners();
     } catch (e) {
+      print('Erreur lors de la création de la quête: $e');
       rethrow;
     }
   }
 
-  Future<void> updateQuest(String userId, Quest quest) async {
+  Future<void> updateQuest(Quest quest) async {
     try {
+      if (quest.id == null) throw Exception('Impossible de mettre à jour une quête sans ID');
+      
+      final data = quest.toSupabaseMap();
+      data.remove('id'); // Ne pas mettre à jour l'ID
+      data['updated_at'] = DateTime.now().toIso8601String();
+      
+      await _supabase
+          .from('quests')
+          .update(data)
+          .eq('id', quest.id!);
+      
       final index = _quests.indexWhere((q) => q.id == quest.id);
       if (index != -1) {
         _quests[index] = quest;
-        await _saveQuestsToBox();
         notifyListeners();
       }
     } catch (e) {
+      print('Erreur lors de la mise à jour de la quête: $e');
       rethrow;
     }
   }
 
-  Future<void> deleteQuest(String userId, String questId) async {
+  Future<void> deleteQuest(String questId) async {
     try {
+      await _supabase
+          .from('quests')
+          .delete()
+          .eq('id', questId);
+      
       _quests.removeWhere((q) => q.id == questId);
-      await _saveQuestsToBox();
       notifyListeners();
     } catch (e) {
+      print('Erreur lors de la suppression de la quête: $e');
       rethrow;
     }
   }
@@ -164,7 +115,7 @@ class QuestProvider with ChangeNotifier {
     final todayEnd = todayStart.add(const Duration(days: 1));
     
     return _quests.where((q) {
-      if (!q.isCompleted || q.completedAt == null) return false;
+      if (q.status != QuestStatus.completed || q.completedAt == null) return false;
       return q.completedAt!.isAfter(todayStart) && q.completedAt!.isBefore(todayEnd);
     }).toList();
   }
@@ -175,7 +126,7 @@ class QuestProvider with ChangeNotifier {
     final todayStart = DateTime(today.year, today.month, today.day);
     
     return _quests.where((q) {
-      if (q.isCompleted) return false;
+      if (q.status != QuestStatus.active) return false;
       // Quêtes quotidiennes créées aujourd'hui ou avant
       if (q.frequency == QuestFrequency.daily) {
         return q.createdAt.isBefore(todayStart.add(const Duration(days: 1)));
@@ -189,32 +140,29 @@ class QuestProvider with ChangeNotifier {
   List<Quest> getMissedQuests() {
     final now = DateTime.now();
     return _quests.where((q) {
-      if (q.isCompleted) return false;
-      final deadline = q.createdAt.add(q.estimatedDuration);
+      if (q.status != QuestStatus.active) return false;
+      if (q.deadline != null) {
+        return now.isAfter(q.deadline!);
+      }
+      // Fallback: utiliser estimatedDurationMinutes
+      final deadline = q.createdAt.add(Duration(minutes: q.estimatedDurationMinutes));
       return now.isAfter(deadline);
     }).toList();
   }
 
-  Future<void> completeQuest(String userId, String questId) async {
+  Future<void> completeQuest(String questId) async {
     try {
       final quest = _quests.firstWhere((q) => q.id == questId);
-      final updatedQuest = Quest(
-        id: quest.id,
-        title: quest.title,
-        description: quest.description,
-        estimatedDuration: quest.estimatedDuration,
-        frequency: quest.frequency,
-        difficulty: quest.difficulty,
-        category: quest.category,
-        rarity: quest.rarity,
-        subQuests: quest.subQuests,
+      final updatedQuest = quest.copyWith(
+        status: QuestStatus.completed,
         isCompleted: true,
-        createdAt: quest.createdAt,
         completedAt: DateTime.now(),
+        updatedAt: DateTime.now(),
       );
 
-      await updateQuest(userId, updatedQuest);
+      await updateQuest(updatedQuest);
     } catch (e) {
+      print('Erreur lors de la complétion de la quête: $e');
       rethrow;
     }
   }

@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:math' as math;
-import '../../../presentation/providers/auth_provider.dart';
+
+// Importe tes nouveaux modèles DATA (Supabase)
+import '../../../data/models/quest_model.dart';
+// Importe ton Provider DATA
 import '../../../presentation/providers/quest_provider.dart';
+
+// Importe tes widgets UI existants (Design System)
 import '../../widgets/fantasy/fantasy_button.dart';
 import '../../widgets/fantasy/fantasy_card.dart';
 import '../../widgets/fantasy/fantasy_text_field.dart';
-import '../../widgets/animations/particles_halo.dart';
 
 class FantasyCreateQuestPage extends StatefulWidget {
   const FantasyCreateQuestPage({super.key});
@@ -21,20 +26,22 @@ class _FantasyCreateQuestPageState extends State<FantasyCreateQuestPage>
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
 
-  QuestFrequency _frequency = QuestFrequency.once;
+  // --- VARIABLES D'ÉTAT (Compatibles Supabase) ---
+  QuestFrequency _frequency = QuestFrequency.oneOff;
   int _difficulty = 1;
-  String _category = 'Quotidienne';
+  String _category = 'Maison'; // Valeur par défaut
   List<String> _subQuests = [];
   bool _isLoading = false;
+  
+  // NOUVEAU : Anti-triche (Phase 2)
+  bool _isPhotoValidation = false;
 
   late AnimationController _backgroundController;
   late AnimationController _particleController;
 
+  // Catégories (UI String -> Sera stocké en String dans la DB)
   final List<String> _categories = [
-    'Quotidienne',
-    'Hebdomadaire',
-    'Mensuelle',
-    'Spéciale',
+    'Maison', 'Sport', 'Santé', 'Études', 'Créatif'
   ];
 
   @override
@@ -60,6 +67,107 @@ class _FantasyCreateQuestPageState extends State<FantasyCreateQuestPage>
     super.dispose();
   }
 
+  // --- LOGIQUE METIER (Calculs) ---
+
+  // Calcul dynamique de la rareté basé sur la difficulté + anti-triche
+  QuestRarity _calculateRarity() {
+    int score = _difficulty;
+    if (_isPhotoValidation) score += 2; // Bonus rareté si anti-triche activé !
+    if (_subQuests.isNotEmpty) score += 1;
+
+    if (score <= 1) return QuestRarity.common;
+    if (score <= 2) return QuestRarity.uncommon;
+    if (score <= 3) return QuestRarity.rare;
+    if (score <= 4) return QuestRarity.epic;
+    if (score <= 5) return QuestRarity.legendary;
+    return QuestRarity.mythic;
+  }
+  
+  // Calcul des récompenses (Affichage uniquement)
+  int get _estimatedXp => (_difficulty * 10) + (_isPhotoValidation ? 20 : 0);
+  int get _estimatedGold => (_difficulty * 5);
+
+  Color _getRarityColor(QuestRarity rarity) {
+    switch (rarity) {
+      case QuestRarity.common: return const Color(0xFF9CA3AF);
+      case QuestRarity.uncommon: return const Color(0xFF22C55E);
+      case QuestRarity.rare: return const Color(0xFF60A5FA);
+      case QuestRarity.epic: return const Color(0xFFA855F7);
+      case QuestRarity.legendary: return const Color(0xFFF59E0B);
+      case QuestRarity.mythic: return const Color(0xFFFFD700);
+    }
+  }
+
+  // --- SOUMISSION DU FORMULAIRE (Connecté à Supabase) ---
+  Future<void> _createQuest() async {
+    if (_titleController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Le pacte nécessite un titre...'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      // 1. Récupérer l'User ID directement depuis Supabase (Plus fiable)
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) throw Exception("Âme non identifiée (Non connecté)");
+
+      final rarity = _calculateRarity();
+
+      // 2. Créer l'objet Quest avec le NOUVEAU Modèle
+      final quest = Quest(
+        userId: user.id,
+        title: _titleController.text.trim(),
+        description: _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim(),
+        
+        // Mapping des valeurs UI -> Modèle
+        category: _category,
+        difficulty: _difficulty,
+        frequency: _frequency,
+        rarity: rarity,
+        
+        // Nouveaux champs Phase 2 & MVP
+        validationType: _isPhotoValidation ? ValidationType.photo : ValidationType.manual,
+        xpReward: _estimatedXp,
+        goldReward: _estimatedGold,
+        estimatedDurationMinutes: 30 * _difficulty, // Estimation simple pour MVP
+        
+        status: QuestStatus.active,
+      );
+
+      // 3. Envoyer via le Provider
+      await context.read<QuestProvider>().addQuest(quest);
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.auto_awesome, color: _getRarityColor(rarity)),
+                const SizedBox(width: 10),
+                Text('Pacte scellé ! (+${_estimatedXp} XP promis)'),
+              ],
+            ),
+            backgroundColor: const Color(0xFF1B2336),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur du rituel : $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+  
+  // --- HELPERS UI (Ta méthode restaurée) ---
   void _addSubQuest() {
     showDialog(
       context: context,
@@ -118,100 +226,6 @@ class _FantasyCreateQuestPageState extends State<FantasyCreateQuestPage>
     );
   }
 
-  QuestRarity _calculateRarity() {
-    final score = _difficulty + (_subQuests.length / 2).round();
-    if (score <= 2) return QuestRarity.common;
-    if (score <= 4) return QuestRarity.uncommon;
-    if (score <= 6) return QuestRarity.rare;
-    if (score <= 8) return QuestRarity.veryRare;
-    if (score <= 10) return QuestRarity.epic;
-    if (score <= 12) return QuestRarity.legendary;
-    return QuestRarity.mythic;
-  }
-
-  Color _getRarityColor(QuestRarity rarity) {
-    switch (rarity) {
-      case QuestRarity.common:
-        return const Color(0xFF9CA3AF);
-      case QuestRarity.uncommon:
-        return const Color(0xFF22C55E);
-      case QuestRarity.rare:
-        return const Color(0xFF60A5FA);
-      case QuestRarity.veryRare:
-        return const Color(0xFFA855F7);
-      case QuestRarity.epic:
-        return const Color(0xFFF59E0B);
-      case QuestRarity.legendary:
-        return const Color(0xFFFFD700);
-      case QuestRarity.mythic:
-        return const Color(0xFFEF4444);
-    }
-  }
-
-  Future<void> _createQuest() async {
-    if (_titleController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez entrer un titre'),
-          backgroundColor: Color(0xFFEF4444),
-        ),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      final userId = context.read<AuthProvider>().userId ?? '';
-      final rarity = _calculateRarity();
-
-      final quest = Quest(
-        title: _titleController.text,
-        description: _descriptionController.text.trim().isEmpty
-            ? null
-            : _descriptionController.text.trim(),
-        estimatedDuration: Duration(minutes: 30 * _difficulty),
-        frequency: _frequency,
-        difficulty: _difficulty,
-        category: _category,
-        rarity: rarity,
-        subQuests: _subQuests,
-      );
-
-      await context.read<QuestProvider>().addQuest(userId, quest);
-
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                Icon(Icons.check_circle, color: _getRarityColor(rarity)),
-                const SizedBox(width: 8),
-                Text('Quête ${rarity.toString().split('.').last} créée !'),
-              ],
-            ),
-            backgroundColor: _getRarityColor(rarity).withOpacity(0.8),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur : ${e.toString()}'),
-            backgroundColor: const Color(0xFFEF4444),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final rarity = _calculateRarity();
@@ -221,7 +235,7 @@ class _FantasyCreateQuestPageState extends State<FantasyCreateQuestPage>
       backgroundColor: const Color(0xFF0B0F18),
       body: Stack(
         children: [
-          // Fond animé avec gradient
+          // 1. FOND ANIMÉ
           AnimatedBuilder(
             animation: _backgroundController,
             builder: (context, child) {
@@ -233,31 +247,28 @@ class _FantasyCreateQuestPageState extends State<FantasyCreateQuestPage>
                       math.sin(_backgroundController.value * 2 * math.pi) * 0.3,
                     ),
                     radius: 1.5,
-                    colors: [
-                      const Color(0xFF1AA7EC).withOpacity(0.1),
-                      const Color(0xFF0B0F18),
-                    ],
+                    colors: [const Color(0xFF1AA7EC).withOpacity(0.1), const Color(0xFF0B0F18)],
                   ),
                 ),
               );
             },
           ),
-          // Particules flottantes
+          
+          // 2. PARTICULES
           Positioned.fill(
             child: IgnorePointer(
-              child: CustomPaint(
-                painter: _FloatingParticlesPainter(_particleController.value),
-              ),
+              child: CustomPaint(painter: _FloatingParticlesPainter(_particleController.value)),
             ),
           ),
-          // Contenu
+
+          // 3. CONTENU SCROLLABLE
           SafeArea(
             child: Form(
               key: _formKey,
               child: ListView(
                 padding: const EdgeInsets.all(20),
                 children: [
-                  // Header avec titre stylisé
+                  // HEADER (Retour + Titre)
                   Row(
                     children: [
                       IconButton(
@@ -267,193 +278,112 @@ class _FantasyCreateQuestPageState extends State<FantasyCreateQuestPage>
                       const Expanded(
                         child: Center(
                           child: Text(
-                            'Nouvelle Quête',
-                            style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                              letterSpacing: 1,
-                            ),
+                            'Nouveau Pacte',
+                            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white, fontFamily: 'Cinzel'),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 48),
+                      const SizedBox(width: 48), // Pour équilibrer le titre
                     ],
                   ),
-                  const SizedBox(height: 24),
-                  // Aperçu de la rareté
+                  const SizedBox(height: 20),
+
+                  // CARTE APERÇU RARETÉ (Dynamique)
                   FantasyCard(
                     glowColor: rarityColor,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.auto_awesome, color: rarityColor),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Rareté: ${rarity.toString().split('.').last.toUpperCase()}',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: rarityColor,
-                          ),
+                        Icon(Icons.shield, color: rarityColor),
+                        const SizedBox(width: 10),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Rareté : ${rarity.name.toUpperCase()}',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: rarityColor),
+                            ),
+                            Text(
+                              'Récompense : $_estimatedXp XP | $_estimatedGold Or',
+                              style: const TextStyle(fontSize: 12, color: Colors.white70),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 24),
-                  // Titre
+
+                  // CHAMPS TEXTE
                   FantasyTextField(
                     label: 'Titre de la quête',
-                    hint: 'Ex: Méditer 10 minutes',
+                    hint: 'Ex: Vaincre le boss (Faire la vaisselle)',
                     controller: _titleController,
                     glowColor: const Color(0xFF1AA7EC),
                   ),
                   const SizedBox(height: 16),
-                  // Description
+                  
                   FantasyTextField(
-                    label: 'Description',
-                    hint: 'Décris ta quête en détail...',
+                    label: 'Description (Optionnel)',
+                    hint: 'Détails du contrat...',
                     controller: _descriptionController,
-                    maxLines: 4,
+                    maxLines: 3,
                     glowColor: const Color(0xFF1AA7EC),
                   ),
-                  const SizedBox(height: 16),
-                  // Catégorie
-                  FantasyCard(
-                    glowColor: const Color(0xFF60A5FA),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Catégorie',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 8,
-                          children: _categories.map((cat) {
-                            final isSelected = _category == cat;
-                            return GestureDetector(
-                              onTap: () => setState(() => _category = cat),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? const Color(0xFF60A5FA).withOpacity(0.3)
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? const Color(0xFF60A5FA)
-                                        : const Color(0xFF60A5FA).withOpacity(0.3),
-                                    width: 2,
-                                  ),
-                                ),
-                                child: Text(
-                                  cat,
-                                  style: TextStyle(
-                                    color: isSelected ? Colors.white : Colors.white70,
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                  ),
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Difficulté
-                  FantasyCard(
-                    glowColor: const Color(0xFFF59E0B),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Difficulté',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                  const SizedBox(height: 24),
+
+                  // SÉLECTEUR CATÉGORIE
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: _categories.map((cat) {
+                        final isSelected = _category == cat;
+                        return GestureDetector(
+                          onTap: () => setState(() => _category = cat),
+                          child: Container(
+                            margin: const EdgeInsets.only(right: 10),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: isSelected ? const Color(0xFF60A5FA).withOpacity(0.3) : Colors.transparent,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: isSelected ? const Color(0xFF60A5FA) : Colors.white24,
                               ),
                             ),
-                            Row(
-                              children: List.generate(
-                                5,
-                                (index) => Icon(
-                                  Icons.star,
-                                  size: 24,
-                                  color: index < _difficulty
-                                      ? const Color(0xFFF59E0B)
-                                      : Colors.white24,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Slider(
-                          value: _difficulty.toDouble(),
-                          min: 1,
-                          max: 5,
-                          divisions: 4,
-                          activeColor: const Color(0xFFF59E0B),
-                          inactiveColor: const Color(0xFF1B2336),
-                          onChanged: (value) => setState(() => _difficulty = value.round()),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Fréquence
-                  FantasyCard(
-                    glowColor: const Color(0xFFA855F7),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Fréquence',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            child: Text(cat, style: TextStyle(color: isSelected ? Colors.white : Colors.white60)),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        DropdownButton<QuestFrequency>(
-                          value: _frequency,
-                          isExpanded: true,
-                          dropdownColor: const Color(0xFF0E1422),
-                          style: const TextStyle(color: Colors.white),
-                          items: QuestFrequency.values.map((freq) {
-                            return DropdownMenuItem(
-                              value: freq,
-                              child: Text(freq.toString().split('.').last),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            if (value != null) {
-                              setState(() => _frequency = value);
-                            }
-                          },
-                        ),
-                      ],
+                        );
+                      }).toList(),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  // Sous-quêtes
+                  const SizedBox(height: 24),
+
+                  // SLIDER DIFFICULTÉ
+                  Text("Niveau de difficulté : $_difficulty", style: const TextStyle(color: Colors.white70)),
+                  Slider(
+                    value: _difficulty.toDouble(),
+                    min: 1,
+                    max: 5,
+                    divisions: 4,
+                    activeColor: const Color(0xFFF59E0B),
+                    onChanged: (val) => setState(() => _difficulty = val.round()),
+                  ),
+
+                  // NOUVEAU : SWITCH ANTI-TRICHE (Phase 2)
+                  FantasyCard(
+                    glowColor: _isPhotoValidation ? Colors.amber : Colors.grey.withOpacity(0.3),
+                    child: SwitchListTile(
+                      title: const Text("Preuve Visuelle Requise ?", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      subtitle: const Text("Prouve ta valeur à l'Oracle.\nBonus : +20 XP", style: TextStyle(color: Colors.white60, fontSize: 12)),
+                      value: _isPhotoValidation,
+                      activeColor: Colors.amber,
+                      secondary: const Icon(Icons.camera_alt, color: Colors.white),
+                      onChanged: (val) => setState(() => _isPhotoValidation = val),
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+                  
+                  // SECTION SOUS-QUÊTES
                   FantasyButton(
                     label: 'Ajouter une sous-quête',
                     icon: Icons.add,
@@ -531,17 +461,18 @@ class _FantasyCreateQuestPageState extends State<FantasyCreateQuestPage>
                       ),
                     ),
                   ],
-                  const SizedBox(height: 32),
-                  // Bouton de création
+                  const SizedBox(height: 30),
+
+                  // BOUTON CRÉATION
                   FantasyButton(
-                    label: _isLoading ? 'Création en cours...' : 'CRÉER LA QUÊTE',
+                    label: _isLoading ? 'Invocation...' : 'SCELLER LE PACTE',
                     icon: Icons.auto_awesome,
                     glowColor: rarityColor,
                     onPressed: _isLoading ? null : _createQuest,
                     width: double.infinity,
                     pulsing: !_isLoading,
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 30),
                 ],
               ),
             ),
@@ -552,30 +483,23 @@ class _FantasyCreateQuestPageState extends State<FantasyCreateQuestPage>
   }
 }
 
+// PAINTER POUR LES PARTICULES
 class _FloatingParticlesPainter extends CustomPainter {
   final double animationValue;
-
   _FloatingParticlesPainter(this.animationValue);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final random = math.Random(42); // Seed fixe pour la cohérence
-
+     final random = math.Random(42); 
     for (int i = 0; i < 20; i++) {
       final x = (random.nextDouble() * size.width + animationValue * 100) % size.width;
       final y = (random.nextDouble() * size.height + animationValue * 50) % size.height;
       final opacity = (math.sin(animationValue * 2 * math.pi + i) * 0.3 + 0.4).clamp(0.0, 1.0);
       final size_particle = 2 + random.nextDouble() * 3;
-
-      final paint = Paint()
-        ..color = const Color(0xFF1AA7EC).withOpacity(opacity)
-        ..style = PaintingStyle.fill;
-
+      final paint = Paint()..color = const Color(0xFF1AA7EC).withOpacity(opacity)..style = PaintingStyle.fill;
       canvas.drawCircle(Offset(x, y), size_particle, paint);
     }
   }
-
   @override
   bool shouldRepaint(_FloatingParticlesPainter oldDelegate) => true;
 }
-

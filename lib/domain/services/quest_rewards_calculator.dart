@@ -1,4 +1,4 @@
-import '../../presentation/providers/quest_provider.dart';
+import '../../data/models/quest_model.dart';
 
 /// Classe représentant les récompenses d'une quête
 class QuestRewards {
@@ -52,11 +52,12 @@ class QuestRewardsCalculator {
     final baseRewards = calculateBaseRewards(quest.difficulty);
     
     // Calculer l'échéance estimée
-    final estimatedDeadline = quest.createdAt.add(quest.estimatedDuration);
+    final estimatedDuration = Duration(minutes: quest.estimatedDurationMinutes);
+    final estimatedDeadline = quest.deadline ?? quest.createdAt.add(estimatedDuration);
     
     // Calculer le temps écoulé
     final timeDifference = completedAt.difference(quest.createdAt);
-    final estimatedTime = quest.estimatedDuration;
+    final estimatedTime = estimatedDuration;
     
     double multiplier = 1.0;
     String bonusType = 'normal';

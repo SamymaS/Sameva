@@ -89,9 +89,9 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: _defaultBorderRadius,
           ),
-          textStyle: GoogleFonts.quicksand(
+          textStyle: GoogleFonts.poppins(
             fontSize: 16,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w600,
           ),
         ).copyWith(
           elevation: MaterialStateProperty.resolveWith<double>(
@@ -159,19 +159,27 @@ class AppTheme {
         brightness: Brightness.dark,
       ),
       scaffoldBackgroundColor: AppColors.backgroundNightBlue,
-      textTheme: GoogleFonts.quicksandTextTheme(ThemeData.dark().textTheme).copyWith(
-        displayLarge: GoogleFonts.medievalSharp(
+      textTheme: GoogleFonts.poppinsTextTheme(ThemeData.dark().textTheme).copyWith(
+        displayLarge: GoogleFonts.cinzel(
           fontSize: 32,
           fontWeight: FontWeight.bold,
           color: Colors.white,
         ),
-        displayMedium: GoogleFonts.medievalSharp(
+        displayMedium: GoogleFonts.cinzel(
           fontSize: 28,
           fontWeight: FontWeight.bold,
           color: Colors.white,
         ),
-        bodyLarge: GoogleFonts.quicksand(
+        bodyLarge: GoogleFonts.poppins(
           fontSize: 16,
+          color: Colors.white,
+        ),
+        bodyMedium: GoogleFonts.poppins(
+          fontSize: 14,
+          color: Colors.white,
+        ),
+        bodySmall: GoogleFonts.poppins(
+          fontSize: 12,
           color: Colors.white,
         ),
         // Style pour les valeurs numériques
@@ -191,7 +199,7 @@ class AppTheme {
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        titleTextStyle: GoogleFonts.medievalSharp(
+        titleTextStyle: GoogleFonts.cinzel(
           color: Colors.white,
           fontSize: 24,
           fontWeight: FontWeight.bold,
@@ -217,9 +225,9 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: _defaultBorderRadius,
           ),
-          textStyle: GoogleFonts.quicksand(
+          textStyle: GoogleFonts.poppins(
             fontSize: 16,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w600,
           ),
         ).copyWith(
           elevation: MaterialStateProperty.resolveWith<double>(
