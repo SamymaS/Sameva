@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../data/models/quest_model.dart';
 import '../../../../presentation/providers/quest_provider.dart';
 import '../../../theme/app_colors.dart';
 
@@ -22,8 +23,6 @@ class QuestList extends StatelessWidget {
         return AppColors.rarityUncommon;
       case QuestRarity.rare:
         return AppColors.rarityRare;
-      case QuestRarity.veryRare:
-        return AppColors.rarityEpic; // veryRare = epic selon Figma
       case QuestRarity.epic:
         return AppColors.rarityEpic;
       case QuestRarity.legendary:
@@ -172,7 +171,7 @@ class QuestList extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Durée: ${quest.estimatedDuration.inHours}h ${quest.estimatedDuration.inMinutes % 60}min',
+                          'Durée: ${quest.estimatedDurationMinutes ~/ 60}h ${quest.estimatedDurationMinutes % 60}min',
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: AppColors.textMuted,
                           ),

@@ -1,7 +1,10 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../widgets/figma/fantasy_card.dart';
-import '../../widgets/figma/fantasy_badge.dart';
+import '../../widgets/minimalist/hud_header.dart';
+import '../../widgets/minimalist/minimalist_card.dart';
+import '../../widgets/magical/animated_background.dart';
+import '../../widgets/magical/glowing_card.dart';
 import '../../theme/app_colors.dart';
 import '../../../presentation/providers/player_provider.dart';
 import '../../../presentation/providers/inventory_provider.dart';
@@ -41,79 +44,134 @@ class _MarketPageState extends State<MarketPage> {
     return _refreshCooldown - elapsed;
   }
 
+  Widget _buildRefreshTimer() {
+    final timeLeft = timeUntilRefresh;
+    final hours = timeLeft.inHours;
+    final minutes = timeLeft.inMinutes % 60;
+    
+    if (canRefresh) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppColors.primaryTurquoise.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.primaryTurquoise),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.refresh, size: 16, color: AppColors.primaryTurquoise),
+            const SizedBox(width: 6),
+            Text(
+              'Prêt à rafraîchir',
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.primaryTurquoise,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.textMuted.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.textMuted),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.access_time, size: 16, color: AppColors.textMuted),
+          const SizedBox(width: 6),
+          Text(
+            'Rafraîchissement dans: ${hours}h ${minutes}m',
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.textMuted,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.backgroundNightBlue,
-      body: SafeArea(
-        child: Column(
+      body: AnimatedMagicalBackground(
+        child: Stack(
           children: [
-            // En-tête avec titre, or du joueur et timer de rafraîchissement
-            Consumer<PlayerProvider>(
-              builder: (context, playerProvider, child) {
-                final stats = playerProvider.stats;
-                return Padding(
-                  padding: const EdgeInsets.all(16),
+            // Header HUD
+          Consumer<PlayerProvider>(
+            builder: (context, playerProvider, _) {
+              final stats = playerProvider.stats;
+              return HUDHeader(
+                level: stats?.level ?? 1,
+                experience: stats?.experience ?? 0,
+                maxExperience: playerProvider.experienceForLevel(stats?.level ?? 1),
+                healthPoints: stats?.healthPoints ?? 100,
+                maxHealthPoints: stats?.maxHealthPoints ?? 100,
+                gold: stats?.gold ?? 0,
+                crystals: stats?.crystals ?? 0,
+                onSettingsTap: () {
+                  // Navigation vers settings
+                },
+              );
+            },
+          ),
+          // Contenu
+          SafeArea(
+            child: Column(
+              children: [
+                const SizedBox(height: 80), // Espace pour le header
+                // Titre et timer
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Le Marché Astral', // Selon pages.md
-                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.textPrimary,
-                                ),
-                          ),
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.monetization_on,
-                                color: Color(0xFFF59E0B),
-                                size: 20,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${stats?.gold ?? 0}',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFFF59E0B),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                      Text(
+                        'Le Marché Astral',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'Cinzel',
+                          letterSpacing: 0.5,
+                        ),
                       ),
-                      const SizedBox(height: 8),
-                      // Timer de rafraîchissement (selon pages.md)
+                      const SizedBox(height: 12),
                       _buildRefreshTimer(),
                     ],
                   ),
-                );
-              },
-            ),
-            // Grille d'items
-            Expanded(
-              child: GridView.builder(
-                padding: const EdgeInsets.all(16),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 0.75,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
                 ),
-                itemCount: availableItems.length,
-                itemBuilder: (context, index) {
-                  final item = availableItems[index];
-                  return _MarketItemCard(
-                    item: item,
-                    onBuy: () => _buyItem(context, item),
-                  );
-                },
-              ),
+                // Grille d'items
+                Expanded(
+                  child: GridView.builder(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 100), // Padding en bas pour le dock
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      childAspectRatio: 0.75,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                    ),
+                    itemCount: availableItems.length,
+                    itemBuilder: (context, index) {
+                      final item = availableItems[index];
+                      return _MarketItemCard(
+                        item: item,
+                        onBuy: () => _buyItem(context, item),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
+          ),
           ],
         ),
       ),
@@ -179,62 +237,6 @@ class _MarketPageState extends State<MarketPage> {
       }
     }
   }
-
-  Widget _buildRefreshTimer() {
-    if (canRefresh) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: AppColors.success.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.success.withOpacity(0.5)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.refresh, size: 16, color: AppColors.success),
-            const SizedBox(width: 6),
-            Text(
-              'Marché rafraîchi',
-              style: TextStyle(
-                color: AppColors.success,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    final remaining = timeUntilRefresh;
-    final hours = remaining.inHours;
-    final minutes = remaining.inMinutes.remainder(60);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.warning.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.warning.withOpacity(0.5)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.access_time, size: 16, color: AppColors.warning),
-          const SizedBox(width: 6),
-          Text(
-            'Rafraîchissement dans ${hours}h ${minutes}m',
-            style: TextStyle(
-              color: AppColors.warning,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _MarketItemCard extends StatelessWidget {
@@ -291,20 +293,14 @@ class _MarketItemCard extends StatelessWidget {
         final stats = playerProvider.stats;
         final canAfford = stats != null && stats.gold >= item.value;
 
-        return FantasyCard(
-          backgroundColor: AppColors.backgroundDarkPanel.withOpacity(0.3),
-          border: Border.all(
-            color: _rarityColor.withOpacity(0.5),
-            width: 2,
-          ),
-          child: InkWell(
-            onTap: () => _showItemDetails(context, item),
-            borderRadius: BorderRadius.circular(16),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
+        return GlowingCard(
+          glowColor: _rarityColor,
+          borderWidth: 2,
+          onTap: () => _showItemDetails(context, item),
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
                   // Zone image avec badge
                   Expanded(
                     child: Stack(
@@ -332,14 +328,22 @@ class _MarketItemCard extends StatelessWidget {
                         Positioned(
                           top: 0,
                           right: 0,
-                          child: FantasyBadge(
-                            label: _rarityLabel,
-                            variant: BadgeVariant.default_,
-                            backgroundColor: _rarityColor,
-                            textColor: Colors.white,
+                          child: Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 6,
                               vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _rarityColor,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              _rarityLabel,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ),
@@ -423,8 +427,6 @@ class _MarketItemCard extends StatelessWidget {
                   ),
                 ],
               ),
-            ),
-          ),
         );
       },
     );

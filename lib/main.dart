@@ -42,9 +42,8 @@ void main() async {
   final questProvider = QuestProvider();
   final playerProvider = PlayerProvider();
   
-  // Charger les données initiales
-  questProvider.loadQuests('');
-  playerProvider.loadPlayerStats('');
+  // Ne pas charger les données ici - elles seront chargées après l'authentification
+  // Les données seront chargées dans les pages une fois l'utilisateur connecté
 
   runApp(
     MultiProvider(

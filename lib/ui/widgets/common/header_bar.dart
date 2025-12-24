@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../../theme/app_colors.dart';
 import '../../../presentation/providers/player_provider.dart';
 import '../../../presentation/providers/auth_provider.dart';
-import 'asset_image_widget.dart';
 
 /// Header Bar avec avatar, nom et stats - Inspiré du design Figma
 class HeaderBar extends StatelessWidget {
@@ -89,10 +88,9 @@ class HeaderBar extends StatelessWidget {
                   ),
                 ),
                 child: Center(
-                  child: AvatarImageWidget(
-                    avatarId: 'hero_base',
-                    size: 32,
-                    showBorder: false,
+                  child: Text(
+                    '🧙‍♀️',
+                    style: const TextStyle(fontSize: 24),
                   ),
                 ),
               ),

@@ -1,8 +1,11 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../theme/app_theme.dart';
 import '../../theme/app_colors.dart';
-import '../../widgets/figma/fantasy_card.dart';
+import '../../widgets/minimalist/hud_header.dart';
+import '../../widgets/minimalist/minimalist_card.dart';
+import '../../widgets/magical/animated_background.dart';
+import '../../widgets/magical/glowing_card.dart';
 import '../home/widgets/player_stats_card.dart';
 import '../../../presentation/providers/player_provider.dart';
 import '../../../presentation/providers/auth_provider.dart';
@@ -18,99 +21,178 @@ class ProfilePage extends StatelessWidget {
     final username = authUser?.userMetadata?['display_name'] as String? ?? 
                      authUser?.userMetadata?['name'] as String? ?? 
                      (authUser?.email?.split('@').first ?? 'Héros');
+    final stats = playerProvider.stats;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Le Hall des Héros'), // Selon pages.md
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
-      backgroundColor: AppColors.backgroundNightBlue,
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Center(
-            child: Column(
+      body: AnimatedMagicalBackground(
+        child: Stack(
+          children: [
+            // Header HUD
+          HUDHeader(
+            level: stats?.level ?? 1,
+            experience: stats?.experience ?? 0,
+            maxExperience: playerProvider.experienceForLevel(stats?.level ?? 1),
+            healthPoints: stats?.healthPoints ?? 100,
+            maxHealthPoints: stats?.maxHealthPoints ?? 100,
+            gold: stats?.gold ?? 0,
+            crystals: stats?.crystals ?? 0,
+            onSettingsTap: () {
+              // Navigation vers settings
+            },
+          ),
+          // Contenu
+          SafeArea(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 100, 20, 20), // Padding en haut pour le header, en bas pour le dock
               children: [
-                Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 48,
-                      backgroundColor: Colors.white,
-                      child: Icon(Icons.person, color: AppColors.primaryTurquoise, size: 48),
+                // Titre de page centré
+                Center(
+                  child: Text(
+                    'Le Hall des Héros',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Cinzel',
+                      letterSpacing: 0.5,
                     ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Container(
-                        decoration: BoxDecoration(
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // Avatar avec bouton d'édition
+                Center(
+                  child: Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 48,
+                        backgroundColor: Colors.white,
+                        child: Icon(
+                          Icons.person,
                           color: AppColors.primaryTurquoise,
-                          borderRadius: BorderRadius.circular(12),
+                          size: 48,
                         ),
-                        padding: const EdgeInsets.all(6),
-                        child: const Icon(Icons.edit, color: Colors.white, size: 16),
                       ),
-                    ),
-                  ],
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryTurquoise,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primaryTurquoise.withOpacity(0.5),
+                                blurRadius: 8,
+                                spreadRadius: 2,
+                              ),
+                            ],
+                          ),
+                          padding: const EdgeInsets.all(6),
+                          child: const Icon(
+                            Icons.edit,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 12),
-                Text(username, style: Theme.of(context).textTheme.titleLarge),
+                // Username
+                Center(
+                  child: Text(
+                    username,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text('Aventurier', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.textMuted)),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          const PlayerStatsCard(),
-          const SizedBox(height: 16),
-          // Section Succès/Hauts-Faits (selon pages.md)
-          FantasyCard(
-            title: 'Succès et Hauts-Faits',
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Text(
-                    'Médailles à débloquer',
+                // Titre/Rôle
+                Center(
+                  child: Text(
+                    'Aventurier',
                     style: TextStyle(
-                      color: AppColors.textSecondary,
+                      color: Colors.white.withOpacity(0.7),
                       fontSize: 14,
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  // TODO: Afficher les succès débloqués
-                  Text(
-                    'Bientôt disponible',
-                    style: TextStyle(
-                      color: AppColors.textMuted,
-                      fontSize: 12,
-                    ),
+                ),
+                const SizedBox(height: 24),
+                // Carte de stats
+                const PlayerStatsCard(),
+                const SizedBox(height: 16),
+                // Section Succès/Hauts-Faits
+                GlowingCard(
+                  glowColor: AppColors.primaryTurquoise,
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Succès et Hauts-Faits',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'Cinzel',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Médailles à débloquer',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.7),
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Bientôt disponible',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.5),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 16),
+                // Section Historique
+                GlowingCard(
+                  glowColor: AppColors.secondaryViolet,
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Historique des Activités',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'Cinzel',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Bientôt disponible',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.5),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
-          // Section Historique (selon pages.md)
-          FantasyCard(
-            title: 'Historique des Activités',
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  // TODO: Afficher l'historique des activités
-                  Text(
-                    'Bientôt disponible',
-                    style: TextStyle(
-                      color: AppColors.textMuted,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

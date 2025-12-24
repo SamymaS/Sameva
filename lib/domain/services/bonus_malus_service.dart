@@ -1,4 +1,4 @@
-import '../../presentation/providers/quest_provider.dart';
+import '../../data/models/quest_model.dart';
 
 /// Service pour calculer les bonus/malus basés sur les quêtes et l'activité
 class BonusMalusService {
