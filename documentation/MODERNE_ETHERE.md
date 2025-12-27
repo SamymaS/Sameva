@@ -317,3 +317,7 @@ Une interface qui :
 - ✅ **Guide** : L'utilisateur sait toujours où se trouve l'action principale
 - ✅ **Reste magique** : Garde l'identité RPG tout en étant moderne
 
+
+
+
+

@@ -17,7 +17,17 @@ class InventoryProvider with ChangeNotifier {
     try {
       final itemsList = _inventoryBox.get('items', defaultValue: <Map>[]);
       _items = (itemsList as List)
-          .map((json) => InventorySlot.fromJson(Map<String, dynamic>.from(json)))
+          .map((json) {
+            // Convertir dynamiquement en Map<String, dynamic>
+            if (json is Map) {
+              return InventorySlot.fromJson(
+                Map<String, dynamic>.from(
+                  json.map((key, value) => MapEntry(key.toString(), value))
+                )
+              );
+            }
+            throw Exception('Format invalide pour l\'item: $json');
+          })
           .toList();
       notifyListeners();
     } catch (e) {
