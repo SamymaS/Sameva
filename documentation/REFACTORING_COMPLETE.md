@@ -243,3 +243,7 @@ Les pages suivantes peuvent être refactorisées avec le même principe :
 - Le style est documenté dans `documentation/UX_UI_REFACTORING.md`
 - Les animations utilisent `SingleTickerProviderStateMixin` pour optimiser les performances
 
+
+
+
+

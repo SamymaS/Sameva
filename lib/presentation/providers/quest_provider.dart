@@ -48,6 +48,37 @@ class QuestProvider with ChangeNotifier {
 
   Future<void> addQuest(Quest quest) async {
     try {
+      // Vérifier que l'utilisateur existe dans la table users
+      final userCheck = await _supabase
+          .from('users')
+          .select('id')
+          .eq('id', quest.userId)
+          .maybeSingle();
+      
+      if (userCheck == null) {
+        // L'utilisateur n'existe pas, le créer
+        final authUser = _supabase.auth.currentUser;
+        if (authUser == null) {
+          throw Exception('Utilisateur non authentifié');
+        }
+        
+        // Créer l'utilisateur dans la table users
+        await _supabase.from('users').insert({
+          'id': quest.userId,
+          'username': authUser.email?.split('@')[0] ?? 'user_${quest.userId.substring(0, 8)}',
+          'display_name': authUser.userMetadata?['display_name'] ?? authUser.email?.split('@')[0] ?? 'User',
+        });
+        
+        // Créer l'équipement vide pour l'utilisateur
+        try {
+          await _supabase.from('user_equipment').insert({
+            'user_id': quest.userId,
+          });
+        } catch (_) {
+          // L'équipement existe peut-être déjà, ignorer l'erreur
+        }
+      }
+      
       final data = quest.toSupabaseMap();
       // Retirer l'id s'il est null pour laisser Supabase le générer
       if (quest.id == null) {
