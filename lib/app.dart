@@ -28,7 +28,6 @@ class App extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           home: _LaunchDecider(),
           onGenerateRoute: (settings) {
-            WidgetBuilder builder;
             Route<dynamic> buildWithTransition(Widget page, {Offset begin = const Offset(0.0, 0.03)}) {
               return PageRouteBuilder(
                 settings: settings,

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:math' as math;
 
 /// Logo Sameva animé avec CustomPaint
 class SamevaLogo extends StatefulWidget {

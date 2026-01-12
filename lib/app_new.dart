@@ -4,8 +4,6 @@ import 'pages/home/new_home_page.dart';
 import 'pages/market/market_page.dart';
 import 'pages/invocation/invocation_page.dart';
 import 'pages/avatar/avatar_page.dart';
-import 'widgets/transitions/custom_transitions.dart';
-import 'widgets/logo/sameva_logo.dart';
 
 final theme = ThemeData(
   brightness: Brightness.dark,

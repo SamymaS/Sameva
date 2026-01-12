@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:math' as math;
-import '../animations/ui_animations.dart';
 
 /// Bouton avec style fantasy et animations fluides
 class FantasyButton extends StatefulWidget {

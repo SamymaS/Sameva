@@ -10,7 +10,6 @@ class ProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final playerProvider = context.watch<PlayerProvider>();
     final authUser = context.watch<AuthProvider>().user;
     final username = authUser?.displayName ?? (authUser?.email?.split('@').first ?? 'Héros');
 
