@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:math' as math;
-import '../animations/ui_animations.dart';
 
 /// Card avec style fantasy et effets visuels
 class FantasyCard extends StatefulWidget {

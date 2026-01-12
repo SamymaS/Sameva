@@ -11,7 +11,6 @@ class SamevaApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final authProvider = Provider.of<AuthProvider>(context);
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,

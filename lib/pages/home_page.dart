@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_styles.dart';
-import '../widgets/app_logo.dart';
 import 'create_quest_page.dart';
 
 class LegacyHomePage extends StatefulWidget {

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:lottie/lottie.dart';
 import '../../widgets/animations/invocation_animation.dart';
 
 /// INVOCATION — Lottie (démo)

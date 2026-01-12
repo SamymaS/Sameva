@@ -6,7 +6,6 @@ import '../../core/providers/quest_provider.dart';
 import '../../widgets/fantasy/fantasy_button.dart';
 import '../../widgets/fantasy/fantasy_card.dart';
 import '../../widgets/fantasy/fantasy_text_field.dart';
-import '../../widgets/animations/particles_halo.dart';
 
 class FantasyCreateQuestPage extends StatefulWidget {
   const FantasyCreateQuestPage({super.key});
