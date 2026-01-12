@@ -1,0 +1,295 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Nunito:wght@300;400;600;700;800&display=swap');
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --font-size: 16px;
+  
+  /* 🎨 SAMEVA PALETTE GLOBALE */
+  /* Backgrounds */
+  --bg-deep-violet: #2D2B55;
+  --bg-night-blue: #0F172A;
+  --bg-dark-panel: #1A202C;
+  
+  /* Foreground */
+  --foreground: #FFFFFF;
+  --text-secondary: #CBD5E0;
+  
+  /* Accents */
+  --primary-turquoise: #4FD1C5;
+  --primary-turquoise-dark: #38B2AC;
+  --secondary-violet: #805AD5;
+  --secondary-violet-glow: #B794F4;
+  --gold: #F6E05E;
+  --gold-dark: #D69E2E;
+  
+  /* Système de Rareté */
+  --rarity-common: #CBD5E0;
+  --rarity-uncommon: #68D391;
+  --rarity-rare: #4299E1;
+  --rarity-epic: #9F7AEA;
+  --rarity-legendary: #ECC94B;
+  --rarity-mythic-red: #FC8181;
+  --rarity-mythic-dark: #F56565;
+  
+  /* UI Elements */
+  --input-bg: #0F172A;
+  --input-border: #4A5568;
+  --card-bg: rgba(26, 32, 44, 0.8);
+  --glass-bg: rgba(255, 255, 255, 0.1);
+  
+  /* Sameva mystical palette */
+  --color-cream-50: #fdfcfc;
+  --color-cream-100: #f5f3f0;
+  --color-cream-200: #ebe8e3;
+  --color-parchment: #FFFAF0;
+  
+  /* Gradients */
+  --gradient-radial: radial-gradient(var(--tw-gradient-stops));
+  --gradient-primary: linear-gradient(135deg, #4FD1C5, #38B2AC);
+  --gradient-gold: linear-gradient(135deg, #F6E05E, #D69E2E);
+  --gradient-violet: linear-gradient(135deg, #805AD5, #B794F4);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    background: radial-gradient(circle at center, var(--bg-deep-violet) 0%, var(--bg-night-blue) 100%);
+    /* Support for mobile notch and system bars */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Typographie Fantasy */
+  h1, h2, h3, .font-fantasy {
+    font-family: 'Cinzel Decorative', serif;
+  }
+
+  /* Hide scrollbars but keep scroll functionality */
+  * {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+  }
+
+  *::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+  }
+
+  /* Smooth scrolling for touch */
+  * {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+  
+  /* Utility class for visible scrollbar hide */
+  .scrollbar-hide {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@layer utilities {
+  /* Backgrounds */
+  .bg-gradient-radial {
+    background-image: radial-gradient(var(--tw-gradient-stops));
+  }
+  
+  .bg-sameva {
+    background: radial-gradient(circle at center, var(--bg-deep-violet) 0%, var(--bg-night-blue) 100%);
+  }
+  
+  .bg-noise {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
+  }
+  
+  /* Glassmorphism */
+  .glass {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+  
+  /* Rareté Borders */
+  .border-common {
+    border-color: var(--rarity-common);
+  }
+  
+  .border-uncommon {
+    border-color: var(--rarity-uncommon);
+  }
+  
+  .border-rare {
+    border-color: var(--rarity-rare);
+  }
+  
+  .border-epic {
+    border-color: var(--rarity-epic);
+    box-shadow: 0 0 15px var(--rarity-epic);
+  }
+  
+  .border-legendary {
+    border-color: var(--rarity-legendary);
+    box-shadow: 0 0 20px var(--rarity-legendary);
+  }
+  
+  .border-mythic {
+    border-color: var(--rarity-mythic-red);
+    box-shadow: 0 0 25px var(--rarity-mythic-red);
+  }
+  
+  /* Glow Effects */
+  .glow-turquoise {
+    box-shadow: 0 0 20px rgba(79, 209, 197, 0.4);
+  }
+  
+  .glow-violet {
+    box-shadow: 0 0 20px rgba(128, 90, 213, 0.4);
+  }
+  
+  .glow-gold {
+    box-shadow: 0 0 20px rgba(246, 224, 94, 0.4);
+  }
+  
+  .glow-epic {
+    box-shadow: 0 0 20px rgba(159, 122, 234, 0.6);
+  }
+  
+  .glow-legendary {
+    box-shadow: 0 0 25px rgba(236, 201, 75, 0.8);
+  }
+  
+  .glow-mythic {
+    box-shadow: 0 0 30px rgba(252, 129, 129, 0.9);
+  }
+  
+  /* Text Colors */
+  .text-cream-100 {
+    color: var(--color-cream-100);
+  }
+  
+  .text-cream-200 {
+    color: var(--color-cream-200);
+  }
+  
+  .text-turquoise {
+    color: var(--primary-turquoise);
+  }
+  
+  .text-gold {
+    color: var(--gold);
+  }
+  
+  /* Animations */
+  @keyframes breathing {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+  }
+  
+  @keyframes pulse-glow {
+    0%, 100% { 
+      opacity: 0.4;
+      transform: scale(1);
+    }
+    50% { 
+      opacity: 0.8;
+      transform: scale(1.1);
+    }
+  }
+  
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+  }
+  
+  @keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(200%); }
+  }
+  
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes confetti {
+    0% {
+      transform: translateY(0) rotate(0deg);
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(-200px) rotate(360deg);
+      opacity: 0;
+    }
+  }
+  
+  .animate-breathing {
+    animation: breathing 3s ease-in-out infinite;
+  }
+  
+  .animate-pulse-glow {
+    animation: pulse-glow 3s ease-in-out infinite;
+  }
+  
+  .animate-float {
+    animation: float 4s ease-in-out infinite;
+  }
+  
+  .animate-rotate {
+    animation: rotate 2s linear infinite;
+  }
+  
+  .animate-shimmer {
+    animation: shimmer 4s ease-in-out infinite;
+  }
+  
+  .animate-fade-in-up {
+    animation: fade-in-up 0.6s ease-out;
+  }
+  
+  .animate-confetti {
+    animation: confetti 1s ease-out forwards;
+  }
+  
+  /* Touch optimization */
+  .touch-pan-y {
+    touch-action: pan-y;
+  }
+
+  .touch-pan-x {
+    touch-action: pan-x;
+  }
+
+  .touch-none {
+    touch-action: none;
+  }
+  
+  /* Button Effects */
+  .btn-scale {
+    transition: transform 0.2s ease;
+  }
+  
+  .btn-scale:active {
+    transform: scale(0.95);
+  }
+}

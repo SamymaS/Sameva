@@ -35,6 +35,12 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.6
   
+<<<<<<< HEAD
+=======
+  # Supabase (Auth + Base de données)
+  supabase_flutter: ^2.5.4
+  
+>>>>>>> 8b32b3faebf56148495e42cbb9f47ffda8173a99
   # State Management
   provider: ^6.1.1
   
@@ -60,6 +66,7 @@ dependencies:
   shared_preferences: ^2.2.2
   flutter_animate: ^4.3.0
   cached_network_image: ^3.3.0
+  flutter_dotenv: ^5.1.0
 
 dev_dependencies:
   flutter_test:
@@ -87,9 +94,18 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/images/avatars/
+    - assets/images/items/
+    - assets/images/backgrounds/
+    - assets/images/companions/
+    - assets/images/auras/
+    - assets/images/icons/
+    - assets/minigames/
     - assets/animations/
     - assets/audio/
-    - assets/minigames/
+    - assets/icons/
+    - assets/icons/items/
+    - .env
 
   # To add assets to your application, add an assets section, like this:
   # assets:
