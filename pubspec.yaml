@@ -51,6 +51,9 @@ dependencies:
   # Preuve visuelle (validation de quête)
   image_picker: ^1.0.7
 
+  # HTTP (appels API pour analyse IA)
+  http: ^1.2.0
+
   # Utils
   uuid: ^4.2.2
   intl: ^0.19.0

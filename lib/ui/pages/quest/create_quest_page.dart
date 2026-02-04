@@ -182,7 +182,8 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
     );
     if (!mounted) return;
     if (ok) {
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(); // ferme formulaire
+      Navigator.of(context).pop(); // ferme page de choix → retour à la liste
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Quête créée')),
       );

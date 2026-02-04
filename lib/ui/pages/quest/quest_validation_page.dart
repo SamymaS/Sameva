@@ -1,17 +1,19 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../../config/supabase_config.dart';
 import '../../../data/models/quest_model.dart';
+import '../../../domain/services/api_validation_ai_service.dart';
 import '../../../domain/services/validation_ai_service.dart';
 import '../../../presentation/providers/auth_provider.dart';
 import '../../../presentation/providers/player_provider.dart';
 import '../../../presentation/providers/quest_provider.dart';
 import '../../theme/app_colors.dart';
 
-/// Validation de quête — Jakob (formulaire familier), Hick (1 action principale : Valider ou Prendre photo).
-/// Fitts : boutons larges.
+/// Validation de quête : timer si contrainte de temps, preuve photo ou vidéo.
 class QuestValidationPage extends StatefulWidget {
   final Quest quest;
 
@@ -22,14 +24,49 @@ class QuestValidationPage extends StatefulWidget {
 }
 
 class _QuestValidationPageState extends State<QuestValidationPage> {
-  final _validationService = MockValidationAIService();
+  late final ValidationAIService _validationService = () {
+    final url = SupabaseConfig.validationAiUrl;
+    if (url != null && url.isNotEmpty) {
+      return ApiValidationAIService(
+        baseUrl: url,
+        authToken: SupabaseConfig.supabaseAnonKey,
+      );
+    }
+    return MockValidationAIService();
+  }();
   bool _consentGiven = false;
   bool _mediaConsent = false;
+  bool _proofIsVideo = false; // false = photo, true = vidéo
   Uint8List? _proofImage;
+  String? _proofVideoPath;
   bool _isAnalyzing = false;
   ValidationResult? _result;
+  Timer? _timer;
 
   bool get _isPhotoValidation => widget.quest.validationType == ValidationType.photo;
+  bool get _hasDeadline => widget.quest.deadline != null;
+  bool get _hasProof => _proofImage != null || _proofVideoPath != null;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_hasDeadline) {
+      _timer = Timer.periodic(const Duration(seconds: 1), (_) => setState(() {}));
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  Duration? get _remainingTime {
+    final deadline = widget.quest.deadline;
+    if (deadline == null) return null;
+    final remaining = deadline.difference(DateTime.now());
+    return remaining.isNegative ? Duration.zero : remaining;
+  }
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
@@ -38,23 +75,58 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
       final bytes = await file.readAsBytes();
       setState(() {
         _proofImage = Uint8List.fromList(bytes);
+        _proofVideoPath = null;
+        _result = null;
+      });
+    }
+  }
+
+  Future<void> _pickVideo() async {
+    final picker = ImagePicker();
+    final file = await picker.pickVideo(source: ImageSource.camera, maxDuration: const Duration(seconds: 30));
+    if (file != null) {
+      setState(() {
+        _proofVideoPath = file.path;
+        _proofImage = null;
         _result = null;
       });
     }
   }
 
   Future<void> _analyze() async {
-    if (_proofImage == null) return;
-    setState(() => _isAnalyzing = true);
-    try {
-      final r = await _validationService.analyzeProof(
-        quest: widget.quest,
-        imageBytes: _proofImage!,
-      );
-      if (mounted) setState(() => _result = r);
-    } finally {
-      if (mounted) setState(() => _isAnalyzing = false);
+    if (_proofImage != null) {
+      setState(() => _isAnalyzing = true);
+      try {
+        final r = await _validationService.analyzeProof(
+          quest: widget.quest,
+          imageBytes: _proofImage!,
+        );
+        if (mounted) setState(() => _result = r);
+      } finally {
+        if (mounted) setState(() => _isAnalyzing = false);
+      }
+      return;
     }
+    if (_proofVideoPath != null) {
+      setState(() => _isAnalyzing = true);
+      try {
+        final r = await _validationService.analyzeVideoProof(
+          quest: widget.quest,
+          videoPath: _proofVideoPath!,
+        );
+        if (mounted) setState(() => _result = r);
+      } finally {
+        if (mounted) setState(() => _isAnalyzing = false);
+      }
+    }
+  }
+
+  void _clearProof() {
+    setState(() {
+      _proofImage = null;
+      _proofVideoPath = null;
+      _result = null;
+    });
   }
 
   Future<void> _completeAndNavigate() async {
@@ -90,18 +162,22 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
             ),
             const SizedBox(height: 4),
             Text(
-              widget.quest.category,
+              '${widget.quest.category} · ${widget.quest.estimatedDurationMinutes} min',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
             ),
+            if (_hasDeadline) ...[
+              const SizedBox(height: 16),
+              _TimerBlock(remaining: _remainingTime),
+            ],
             const SizedBox(height: 24),
             if (_isPhotoValidation) ...[
               const Text('Preuve visuelle', style: TextStyle(fontWeight: FontWeight.w500)),
               const SizedBox(height: 8),
               Text(
                 'Cadrez la zone liée à la quête (ex : lit, bureau, pièce rangée). '
-                'Assurez-vous que l\'action réalisée soit clairement visible.',
+                'Photo ou courte vidéo pour montrer la tâche réalisée.',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
@@ -111,33 +187,67 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
                 value: _mediaConsent,
                 onChanged: (v) => setState(() => _mediaConsent = v ?? false),
                 title: const Text(
-                  'J\'accepte que la photo soit utilisée uniquement pour la validation puis supprimée.',
+                  'J\'accepte que la preuve soit utilisée uniquement pour la validation puis supprimée.',
                 ),
                 controlAffinity: ListTileControlAffinity.leading,
               ),
               const SizedBox(height: 8),
-              if (_proofImage == null)
-                OutlinedButton.icon(
-                  onPressed: _mediaConsent ? _pickImage : null,
-                  icon: const Icon(Icons.camera_alt),
-                  label: const Text('Prendre une photo'),
-                )
-              else ...[
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.memory(
-                    _proofImage!,
-                    height: 200,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                  ),
+              if (!_hasProof) ...[
+                SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(value: false, label: Text('Photo'), icon: Icon(Icons.camera_alt)),
+                    ButtonSegment(value: true, label: Text('Vidéo'), icon: Icon(Icons.videocam)),
+                  ],
+                  selected: {_proofIsVideo},
+                  onSelectionChanged: (s) => setState(() => _proofIsVideo = s.first),
                 ),
+                const SizedBox(height: 12),
+                if (_mediaConsent)
+                  _proofIsVideo
+                      ? OutlinedButton.icon(
+                          onPressed: _pickVideo,
+                          icon: const Icon(Icons.videocam),
+                          label: const Text('Prendre une vidéo (max 30 s)'),
+                        )
+                      : OutlinedButton.icon(
+                          onPressed: _pickImage,
+                          icon: const Icon(Icons.camera_alt),
+                          label: const Text('Prendre une photo'),
+                        ),
+              ] else ...[
+                if (_proofImage != null)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.memory(
+                      _proofImage!,
+                      height: 200,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                  )
+                else
+                  Container(
+                    height: 200,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.videocam, size: 48),
+                        SizedBox(height: 8),
+                        Text('Vidéo enregistrée'),
+                      ],
+                    ),
+                  ),
                 const SizedBox(height: 12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     TextButton(
-                      onPressed: () => setState(() => _proofImage = null),
+                      onPressed: _clearProof,
                       child: const Text('Reprendre'),
                     ),
                     const SizedBox(width: 8),
@@ -186,6 +296,47 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
   }
 }
 
+class _TimerBlock extends StatelessWidget {
+  const _TimerBlock({this.remaining});
+
+  final Duration? remaining;
+
+  @override
+  Widget build(BuildContext context) {
+    if (remaining == null) return const SizedBox.shrink();
+    final r = remaining!;
+    final isOver = r == Duration.zero;
+    final text = isOver
+        ? 'Échéance dépassée'
+        : 'Temps restant : ${r.inHours}:${(r.inMinutes % 60).toString().padLeft(2, '0')}:${(r.inSeconds % 60).toString().padLeft(2, '0')}';
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      decoration: BoxDecoration(
+        color: isOver
+            ? Theme.of(context).colorScheme.errorContainer
+            : Theme.of(context).colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isOver ? Icons.schedule : Icons.timer_outlined,
+            color: isOver ? Theme.of(context).colorScheme.onErrorContainer : Theme.of(context).colorScheme.onPrimaryContainer,
+          ),
+          const SizedBox(width: 12),
+          Text(
+            text,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: isOver ? Theme.of(context).colorScheme.onErrorContainer : Theme.of(context).colorScheme.onPrimaryContainer,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ResultBlock extends StatelessWidget {
   const _ResultBlock({required this.result, required this.onValidate});
 
@@ -194,31 +345,18 @@ class _ResultBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Classification simple : >=70 validée, 40–69 validation partielle, <40 refusée.
     final int score = result.score;
     final bool isValid = score >= 70;
     final bool isPartial = score >= 40 && score < 70;
-    final String label = isValid
-        ? 'Validée'
-        : isPartial
-            ? 'Validation partielle'
-            : 'Refusée';
-    final Color color = isValid
-        ? AppColors.success
-        : isPartial
-            ? AppColors.warning
-            : AppColors.error;
+    final String label = isValid ? 'Validée' : isPartial ? 'Validation partielle' : 'Refusée';
+    final Color color = isValid ? AppColors.success : isPartial ? AppColors.warning : AppColors.error;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
             Icon(
-              isValid
-                  ? Icons.check_circle
-                  : isPartial
-                      ? Icons.hourglass_bottom
-                      : Icons.cancel,
+              isValid ? Icons.check_circle : isPartial ? Icons.hourglass_bottom : Icons.cancel,
               color: color,
               size: 28,
             ),
