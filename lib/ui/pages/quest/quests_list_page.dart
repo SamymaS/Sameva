@@ -4,7 +4,7 @@ import '../../../data/models/quest_model.dart';
 import '../../../presentation/providers/auth_provider.dart';
 import '../../../presentation/providers/quest_provider.dart';
 import '../../theme/app_colors.dart';
-import 'create_quest_page.dart';
+import 'create_quest_choice_page.dart';
 
 /// Mes Quêtes — liste simple, 2 onglets (À faire / Terminées).
 class QuestsListPage extends StatefulWidget {
@@ -74,7 +74,7 @@ class _QuestsListPageState extends State<QuestsListPage> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
           await Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const CreateQuestPage()),
+            MaterialPageRoute(builder: (_) => const CreateQuestChoicePage()),
           );
           await _load(); // recharger pour voir la nouvelle quête
         },
