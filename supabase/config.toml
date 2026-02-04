@@ -1,9 +1,8 @@
 # Configuration Supabase — Sameva
 # Après avoir créé un projet sur https://database.new, exécutez :
-#   supabase link --project-ref VOTRE_PROJECT_ID
+#   npx supabase link --project-ref VOTRE_PROJECT_ID
 
-[project]
-id = ""
+project_id = "mgddxrysvjlpfejbmfly"
 
 [api]
 enabled = true
@@ -15,7 +14,7 @@ max_rows = 1000
 [db]
 port = 54322
 shadow_port = 54320
-major_version = 15
+major_version = 17
 
 [studio]
 enabled = true
@@ -32,5 +31,6 @@ file_size_limit = "50MiB"
 [auth]
 enabled = true
 
-[functions]
+# JWT vérifié par défaut pour les Edge Functions
+[functions.analyze-quest-proof]
 verify_jwt = true
