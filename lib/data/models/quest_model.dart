@@ -1,5 +1,3 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
-
 // ============================================
 // ENUMS (Alignés avec le schéma Supabase)
 // ============================================
