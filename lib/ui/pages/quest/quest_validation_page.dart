@@ -24,6 +24,7 @@ class QuestValidationPage extends StatefulWidget {
 class _QuestValidationPageState extends State<QuestValidationPage> {
   final _validationService = MockValidationAIService();
   bool _consentGiven = false;
+  bool _mediaConsent = false;
   Uint8List? _proofImage;
   bool _isAnalyzing = false;
   ValidationResult? _result;
@@ -98,9 +99,26 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
             if (_isPhotoValidation) ...[
               const Text('Preuve visuelle', style: TextStyle(fontWeight: FontWeight.w500)),
               const SizedBox(height: 8),
+              Text(
+                'Cadrez la zone liée à la quête (ex : lit, bureau, pièce rangée). '
+                'Assurez-vous que l\'action réalisée soit clairement visible.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+              const SizedBox(height: 12),
+              CheckboxListTile(
+                value: _mediaConsent,
+                onChanged: (v) => setState(() => _mediaConsent = v ?? false),
+                title: const Text(
+                  'J\'accepte que la photo soit utilisée uniquement pour la validation puis supprimée.',
+                ),
+                controlAffinity: ListTileControlAffinity.leading,
+              ),
+              const SizedBox(height: 8),
               if (_proofImage == null)
                 OutlinedButton.icon(
-                  onPressed: _pickImage,
+                  onPressed: _mediaConsent ? _pickImage : null,
                   icon: const Icon(Icons.camera_alt),
                   label: const Text('Prendre une photo'),
                 )
@@ -124,7 +142,7 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
                     ),
                     const SizedBox(width: 8),
                     FilledButton.icon(
-                      onPressed: _isAnalyzing ? null : _analyze,
+                      onPressed: _isAnalyzing || !_mediaConsent ? null : _analyze,
                       icon: _isAnalyzing
                           ? const SizedBox(
                               width: 20,
@@ -176,16 +194,37 @@ class _ResultBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = result.isValid ? AppColors.success : AppColors.error;
+    // Classification simple : >=70 validée, 40–69 validation partielle, <40 refusée.
+    final int score = result.score;
+    final bool isValid = score >= 70;
+    final bool isPartial = score >= 40 && score < 70;
+    final String label = isValid
+        ? 'Validée'
+        : isPartial
+            ? 'Validation partielle'
+            : 'Refusée';
+    final Color color = isValid
+        ? AppColors.success
+        : isPartial
+            ? AppColors.warning
+            : AppColors.error;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Icon(result.isValid ? Icons.check_circle : Icons.cancel, color: color, size: 28),
+            Icon(
+              isValid
+                  ? Icons.check_circle
+                  : isPartial
+                      ? Icons.hourglass_bottom
+                      : Icons.cancel,
+              color: color,
+              size: 28,
+            ),
             const SizedBox(width: 8),
             Text(
-              result.isValid ? 'Validée' : 'Refusée',
+              label,
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color),
             ),
           ],
@@ -194,7 +233,7 @@ class _ResultBlock extends StatelessWidget {
         Text('Score : ${result.score}/100 (seuil 70)', style: Theme.of(context).textTheme.bodyMedium),
         const SizedBox(height: 8),
         Text(result.explanation, style: Theme.of(context).textTheme.bodySmall),
-        if (result.isValid) ...[
+        if (isValid) ...[
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,

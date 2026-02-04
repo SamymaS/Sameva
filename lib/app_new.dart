@@ -89,11 +89,6 @@ class _SamevaAppState extends State<SamevaApp> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.of(context).pushNamed('/create-quest'),
-        icon: const Icon(Icons.add),
-        label: const Text('Créer une quête'),
-      ),
     );
   }
 }
