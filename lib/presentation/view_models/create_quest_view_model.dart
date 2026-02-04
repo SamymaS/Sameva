@@ -17,7 +17,7 @@ class CreateQuestViewModel extends ChangeNotifier {
   final List<String> categories = [
     'Maison',
     'Sport',
-    'Santé',
+    'Loisir',
     'Études',
     'Travail',
     'Autre',
@@ -31,6 +31,7 @@ class CreateQuestViewModel extends ChangeNotifier {
     required String category,
     required ValidationType validationType,
     int durationMinutes = 30,
+    DateTime? deadline,
   }) async {
     final userId = _authProvider.userId;
     if (userId == null || userId.isEmpty) {
@@ -54,6 +55,7 @@ class CreateQuestViewModel extends ChangeNotifier {
         rarity: QuestRarity.common,
         status: QuestStatus.active,
         validationType: validationType,
+        deadline: deadline,
       );
       await _questProvider.addQuest(quest);
       _isLoading = false;

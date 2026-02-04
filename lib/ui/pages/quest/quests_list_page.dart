@@ -3,11 +3,10 @@ import 'package:provider/provider.dart';
 import '../../../data/models/quest_model.dart';
 import '../../../presentation/providers/auth_provider.dart';
 import '../../../presentation/providers/quest_provider.dart';
-import '../../../presentation/view_models/quests_list_view_model.dart';
 import '../../theme/app_colors.dart';
+import 'create_quest_page.dart';
 
-/// Mes Quêtes — MVVM, Jakob (ListTile familier), Miller (onglets À faire / Terminées, listes courtes).
-/// Fitts : FAB + ListTile grandes zones de touch.
+/// Mes Quêtes — liste simple, 2 onglets (À faire / Terminées).
 class QuestsListPage extends StatefulWidget {
   const QuestsListPage({super.key});
 
@@ -16,6 +15,8 @@ class QuestsListPage extends StatefulWidget {
 }
 
 class _QuestsListPageState extends State<QuestsListPage> {
+  int _selectedTabIndex = 0;
+
   @override
   void initState() {
     super.initState();
@@ -31,53 +32,54 @@ class _QuestsListPageState extends State<QuestsListPage> {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<QuestsListViewModel>(
-      create: (_) => QuestsListViewModel(
-        context.read<QuestProvider>(),
-        context.read<AuthProvider>(),
-      )..loadQuests(),
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Mes Quêtes'),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.settings_outlined),
-              onPressed: () => Navigator.of(context).pushNamed('/settings'),
-              tooltip: 'Paramètres',
-            ),
-          ],
-        ),
-        body: Consumer<QuestsListViewModel>(
-          builder: (context, vm, _) {
-            if (vm.isLoading) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SegmentedButton<int>(
-                  segments: const [
-                    ButtonSegment(value: 0, label: Text('À faire'), icon: Icon(Icons.list_alt)),
-                    ButtonSegment(value: 1, label: Text('Terminées'), icon: Icon(Icons.check_circle_outline)),
-                  ],
-                  selected: {vm.selectedTabIndex},
-                  onSelectionChanged: (s) => vm.setTab(s.first),
-                ),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: vm.selectedTabIndex == 0
-                      ? _QuestList(quests: vm.activeQuests)
-                      : _QuestList(quests: vm.completedQuests, completed: true),
-                ),
-              ],
-            );
-          },
-        ),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () => Navigator.of(context).pushNamed('/create-quest'),
-          icon: const Icon(Icons.add),
-          label: const Text('Créer une quête'),
-        ),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Mes Quêtes'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => Navigator.of(context).pushNamed('/settings'),
+            tooltip: 'Paramètres',
+          ),
+        ],
+      ),
+      body: Consumer<QuestProvider>(
+        builder: (context, qp, _) {
+          if (qp.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final active = qp.activeQuests;
+          final completed = qp.completedQuests;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SegmentedButton<int>(
+                segments: const [
+                  ButtonSegment(value: 0, label: Text('À faire'), icon: Icon(Icons.list_alt)),
+                  ButtonSegment(value: 1, label: Text('Terminées'), icon: Icon(Icons.check_circle_outline)),
+                ],
+                selected: {_selectedTabIndex},
+                onSelectionChanged: (s) => setState(() => _selectedTabIndex = s.first),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: _selectedTabIndex == 0
+                    ? _QuestList(quests: active)
+                    : _QuestList(quests: completed, completed: true),
+              ),
+            ],
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          await Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const CreateQuestPage()),
+          );
+          await _load(); // recharger pour voir la nouvelle quête
+        },
+        icon: const Icon(Icons.add),
+        label: const Text('Créer une quête'),
       ),
     );
   }
