@@ -1,0 +1,25 @@
+---
+description: Conventions Dart/Flutter et langue française pour le projet Sameva
+globs: lib/**/*.dart
+alwaysApply: false
+---
+
+# Conventions Sameva (Dart)
+
+## Langue
+
+- **UI** : textes affichés, labels, messages d'erreur → **français**.
+- **Documentation** : commentaires, README, docs du repo → **français**.
+- **Commits** : messages de commit en **français**.
+
+## Flutter / Dart
+
+- Suivre `analysis_options.yaml` et `flutter analyze`.
+- Imports : ordre recommandé (package Flutter/Dart, puis packages tiers, puis imports relatifs du projet).
+- Préférer `const` pour widgets et constructeurs quand c'est possible.
+- Utiliser les providers avec `context.watch<T>()` pour réactivité et `context.read<T>()` pour actions ponctuelles.
+
+## Architecture
+
+- Ne pas mettre de logique métier dans les pages ; utiliser les providers et les services du domain.
+- Nouveaux fichiers : les placer dans la couche appropriée (data / domain / presentation / ui).
