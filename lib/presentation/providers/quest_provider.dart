@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/models/quest_model.dart';
 import '../../domain/services/quest_rewards_calculator.dart';
+import '../../domain/services/bonus_malus_service.dart';
+import 'player_provider.dart';
 
 class QuestProvider with ChangeNotifier {
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -205,6 +207,57 @@ class QuestProvider with ChangeNotifier {
       quest,
       completedAt,
       hasStreakBonus: hasStreakBonus,
+    );
+  }
+
+  /// Complète une quête et calcule les récompenses avec bonus/malus
+  /// Retourne les récompenses finales pour affichage dans l'UI
+  Future<QuestRewards> completeQuestWithRewards(String questId, PlayerProvider playerProvider) async {
+    final quest = _quests.firstWhere((q) => q.id == questId);
+    final now = DateTime.now();
+    final userId = quest.userId;
+
+    // 1. Compléter la quête
+    await completeQuest(questId);
+
+    // 2. Calculer les récompenses de base avec timing
+    final baseRewards = QuestRewardsCalculator.calculateRewardsWithTiming(
+      quest,
+      now,
+      hasStreakBonus: playerProvider.hasStreakBonus,
+    );
+
+    // 3. Calculer le multiplicateur bonus/malus
+    final bonusMalus = BonusMalusService.calculateTotalBonusMalus(
+      completedQuestsToday: getCompletedQuestsToday(),
+      activeQuestsToday: getActiveQuestsToday(),
+      missedQuests: getMissedQuests(),
+      streak: playerProvider.stats?.streak ?? 0,
+      lastActiveDate: playerProvider.stats?.lastActiveDate,
+    );
+
+    // 4. Appliquer le multiplicateur
+    final finalXP = BonusMalusService.calculateExperienceModifier(bonusMalus, baseRewards.experience);
+    final finalGold = BonusMalusService.calculateGoldModifier(bonusMalus, baseRewards.gold);
+
+    // 5. Distribuer les récompenses
+    await playerProvider.addExperience(userId, finalXP);
+    await playerProvider.addGold(userId, finalGold);
+    if (baseRewards.crystals > 0) {
+      await playerProvider.addCrystals(userId, baseRewards.crystals);
+    }
+    await playerProvider.updateStreak(userId);
+    await playerProvider.incrementQuestsCompleted(userId);
+
+    // 6. Vérifier les achievements
+    await playerProvider.checkAndUnlockAchievements(userId);
+
+    return QuestRewards(
+      experience: finalXP,
+      gold: finalGold,
+      crystals: baseRewards.crystals,
+      bonusType: baseRewards.bonusType,
+      multiplier: bonusMalus,
     );
   }
 } 

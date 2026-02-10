@@ -7,6 +7,7 @@ import '../../widgets/minimalist/quest_card_minimalist.dart';
 import '../../widgets/magical/animated_background.dart';
 import '../../theme/app_colors.dart';
 import '../../../data/models/quest_model.dart';
+import '../../../domain/services/quest_rewards_calculator.dart';
 import '../../../presentation/providers/quest_provider.dart';
 import '../../../presentation/providers/player_provider.dart';
 import '../quest/quest_detail_page.dart';
@@ -205,9 +206,7 @@ class _SanctuaryPageState extends State<SanctuaryPage>
                               ),
                             );
                           },
-                          onComplete: () {
-                            // TODO: Implémenter validation de quête
-                          },
+                          onComplete: () => _completeQuest(quest),
                         );
                       },
                     );
@@ -218,6 +217,142 @@ class _SanctuaryPageState extends State<SanctuaryPage>
           ),
         );
       },
+    );
+  }
+
+  Future<void> _completeQuest(Quest quest) async {
+    if (quest.id == null) return;
+
+    final questProvider = Provider.of<QuestProvider>(context, listen: false);
+    final playerProvider = Provider.of<PlayerProvider>(context, listen: false);
+
+    try {
+      final rewards = await questProvider.completeQuestWithRewards(
+        quest.id!,
+        playerProvider,
+      );
+
+      if (!mounted) return;
+
+      _showRewardsDialog(quest.title, rewards);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur: $e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  void _showRewardsDialog(String questTitle, QuestRewards rewards) {
+    String bonusLabel;
+    Color bonusColor;
+    switch (rewards.bonusType) {
+      case 'early':
+        bonusLabel = 'En avance !';
+        bonusColor = AppColors.primaryTurquoise;
+        break;
+      case 'on_time':
+        bonusLabel = 'A temps';
+        bonusColor = AppColors.success;
+        break;
+      case 'late':
+        bonusLabel = 'En retard';
+        bonusColor = AppColors.warning;
+        break;
+      default:
+        bonusLabel = '';
+        bonusColor = Colors.white;
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.backgroundNightBlue,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Column(
+          children: [
+            const Text('🎉', style: TextStyle(fontSize: 40)),
+            const SizedBox(height: 8),
+            Text(
+              'Quête Accomplie !',
+              style: TextStyle(
+                color: Colors.white,
+                fontFamily: 'Cinzel',
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              questTitle,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.7),
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (bonusLabel.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: bonusColor.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: bonusColor.withOpacity(0.5)),
+                ),
+                child: Text(
+                  bonusLabel,
+                  style: TextStyle(color: bonusColor, fontWeight: FontWeight.w600),
+                ),
+              ),
+            _rewardRow('⚡ XP', '+${rewards.experience}', AppColors.primaryTurquoise),
+            const SizedBox(height: 8),
+            _rewardRow('🪙 Or', '+${rewards.gold}', AppColors.gold),
+            if (rewards.crystals > 0) ...[
+              const SizedBox(height: 8),
+              _rewardRow('💎 Cristaux', '+${rewards.crystals}', AppColors.secondaryViolet),
+            ],
+            if (rewards.multiplier != 1.0) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Multiplicateur: x${rewards.multiplier.toStringAsFixed(2)}',
+                style: TextStyle(
+                  color: rewards.multiplier > 1.0 ? AppColors.primaryTurquoise : AppColors.warning,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(
+              'Continuer',
+              style: TextStyle(color: AppColors.primaryTurquoise, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _rewardRow(String label, String value, Color color) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 16)),
+        Text(value, style: TextStyle(color: color, fontSize: 18, fontWeight: FontWeight.bold)),
+      ],
     );
   }
 

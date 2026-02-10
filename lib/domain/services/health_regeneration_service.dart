@@ -1,6 +1,6 @@
+import '../../data/models/quest_model.dart';
 import '../../presentation/providers/player_provider.dart';
 import '../../presentation/providers/quest_provider.dart';
-import 'bonus_malus_service.dart';
 
 /// Service pour gérer la régénération des PV au fil du temps
 class HealthRegenerationService {

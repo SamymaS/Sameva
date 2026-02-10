@@ -1,0 +1,27 @@
+---
+description: Design system et widgets UI pour les écrans Sameva
+globs: lib/ui/**/*.dart
+alwaysApply: false
+---
+
+# UI Sameva
+
+## Couleurs et thème
+
+- Utiliser **AppColors** (`lib/ui/theme/app_colors.dart`) pour toutes les couleurs. Pas de `Color(0x...)` en dur pour l'UI.
+- Rareté : `AppColors.getRarityColor(rarity)` et `AppColors.shouldGlow(rarity)` pour bordures/effets.
+- Styles communs : `AppStyles.radius`, `AppStyles.titleStyle`, `AppStyles.subtitleStyle`, `AppStyles.softShadow`.
+
+## Widgets existants
+
+- **minimalist/** : MinimalistButton, MinimalistCard, MinimalistPanel, FloatingDock, FloatingFab, etc.
+- **magical/** : GlowingCard, AnimatedGlow, HoverScale, AnimatedBackground.
+- **fantasy/** : FantasyButton, FantasyCard, FantasyTextField.
+- **common/** : GlobalHeader, RarityBorder, LoadingScreen, PageTransition.
+
+Réutiliser ces widgets plutôt que recréer des composants équivalents. Choisir le style (minimalist / magical / fantasy) en fonction de la page.
+
+## Cohérence
+
+- Polices : MedievalSharp (titres fantasy), Press Start 2P (stats/jeu), Quicksand/Poppins (corps).
+- Fonds sombres : `AppColors.backgroundNightBlue`, `backgroundDarkPanel` pour cartes/panneaux.

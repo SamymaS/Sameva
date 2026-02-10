@@ -397,23 +397,40 @@ class _InventoryPageState extends State<InventoryPage>
     final inventoryProvider = Provider.of<InventoryProvider>(context, listen: false);
     final playerProvider = Provider.of<PlayerProvider>(context, listen: false);
 
+    final List<String> effects = [];
+
     // Appliquer les effets
     if (item.healthBonus != null && item.healthBonus! > 0) {
       await playerProvider.heal('', item.healthBonus!);
+      effects.add('+${item.healthBonus} PV');
     }
     if (item.experienceBonus != null && item.experienceBonus! > 0) {
       await playerProvider.addExperience('', item.experienceBonus!);
+      effects.add('+${item.experienceBonus} XP');
     }
     if (item.goldBonus != null && item.goldBonus! > 0) {
       await playerProvider.addGold('', item.goldBonus!);
+      effects.add('+${item.goldBonus} Or');
+    }
+
+    // Bonus de moral via metadata ou par défaut pour les consommables
+    final moralBonus = item.metadata?['moralBonus'] as double?;
+    if (moralBonus != null && moralBonus > 0) {
+      await playerProvider.updateMoral('', moralBonus);
+      effects.add('+${moralBonus.toStringAsFixed(1)} Moral');
+    } else if (item.type == ItemType.consumable) {
+      // Les consommables (nourriture) donnent +0.1 moral par défaut
+      await playerProvider.updateMoral('', 0.1);
+      effects.add('+0.1 Moral');
     }
 
     await inventoryProvider.removeItem('', item.id, quantity: 1);
 
     if (mounted) {
+      final effectText = effects.isNotEmpty ? effects.join(', ') : 'aucun effet';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${item.name} utilisé'),
+          content: Text('${item.name} utilisé ($effectText)'),
           backgroundColor: AppColors.success,
           behavior: SnackBarBehavior.floating,
         ),
