@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
-import 'app_theme.dart';
-import 'auth_provider.dart';
+import '../../theme/app_theme.dart';
+import '../../theme/app_colors.dart';
+import '../../../presentation/providers/auth_provider.dart';
 
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});

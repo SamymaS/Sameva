@@ -1,18 +1,16 @@
-# Documentation Sameva
+# Documentation Sameva (MVP)
 
-Ce dossier contient toute la documentation du projet Sameva.
+Documentation recentrée sur le **MVP** : quêtes, validation (simple + preuve visuelle + IA), 6 pages.
 
-## 📚 Structure de la documentation
+## Fichiers
 
-- **Architecture** : Documentation sur l'architecture du projet
-- **API** : Documentation des APIs et services
-- **Guides** : Guides d'utilisation et de développement
-- **Migration** : Documentation des migrations (Firebase → Supabase)
+| Fichier | Description |
+|---------|-------------|
+| **[VISION_REBOOT_MVP.md](VISION_REBOOT_MVP.md)** | Principe fondateur, cœur (la quête), types de validation, 6 pages, exclu MVP, implémentation actuelle. |
+| **[SUPABASE_SETUP.md](SUPABASE_SETUP.md)** | Configuration Supabase : projet, schéma SQL, auth, clés API, `.env`. |
+| **[supabase_schema.sql](supabase_schema.sql)** | Schéma SQL à exécuter dans Supabase (users, quests, etc.). |
 
-## 📝 Fichiers disponibles
+## Liens rapides
 
-- `SUPABASE_SETUP.md` - Guide de configuration Supabase
-- `MIGRATION_SUPABASE.md` - Guide de migration depuis Firebase
-- `SYNTHESE_PROJET.md` - Synthèse complète du projet
-- `supabase_schema.sql` - Schéma SQL pour Supabase (à la racine)
-
+- **Vision et règles du projet** → `VISION_REBOOT_MVP.md`
+- **Démarrer (backend)** → `SUPABASE_SETUP.md`

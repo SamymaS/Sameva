@@ -1,27 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter/services.dart';
 import 'app_colors.dart';
 
+/// Thème Material 3 sobre — Jakob (patterns familiers), accessibilité.
+/// Zones de touch ≥ 48dp (Fitts).
 class AppTheme {
-  static final _defaultBorderRadius = BorderRadius.circular(16.0);
-  static const _defaultElevation = 4.0;
-  static const _defaultAnimationDuration = Duration(milliseconds: 300);
-
-  // Style de texte pour les valeurs numériques (score, niveau, etc.)
-  static TextStyle numberTextStyle({
-    required Color color,
-    double fontSize = 16,
-    FontWeight fontWeight = FontWeight.normal,
-  }) {
-    return TextStyle(
-      fontFamily: 'PressStart2P',
-      fontSize: fontSize,
-      fontWeight: fontWeight,
-      color: color,
-      height: 1.2,
-      letterSpacing: 1,
-    );
-  }
+  static const double _minTouchTarget = 48.0;
 
   static ThemeData light() {
     return ThemeData(
@@ -29,125 +13,53 @@ class AppTheme {
       colorScheme: ColorScheme.fromSeed(
         seedColor: AppColors.primary,
         brightness: Brightness.light,
+        primary: AppColors.primary,
       ),
       scaffoldBackgroundColor: AppColors.background,
-      textTheme: GoogleFonts.quicksandTextTheme().copyWith(
-        displayLarge: GoogleFonts.medievalSharp(
-          fontSize: 32,
-          fontWeight: FontWeight.bold,
-          color: AppColors.textPrimary,
-        ),
-        displayMedium: GoogleFonts.medievalSharp(
-          fontSize: 28,
-          fontWeight: FontWeight.bold,
-          color: AppColors.textPrimary,
-        ),
-        bodyLarge: GoogleFonts.quicksand(
-          fontSize: 16,
-          color: AppColors.textPrimary,
-        ),
-        // Style pour les valeurs numériques
-        labelSmall: numberTextStyle(
-          color: AppColors.textPrimary,
-          fontSize: 12,
-        ),
-        labelMedium: numberTextStyle(
-          color: AppColors.textPrimary,
-          fontSize: 14,
-        ),
-        labelLarge: numberTextStyle(
-          color: AppColors.textPrimary,
-          fontSize: 16,
-        ),
-      ),
-      appBarTheme: AppBarTheme(
-        backgroundColor: Colors.transparent,
+      appBarTheme: const AppBarTheme(
+        centerTitle: true,
         elevation: 0,
-        titleTextStyle: GoogleFonts.medievalSharp(
-          color: AppColors.textPrimary,
-          fontSize: 24,
-          fontWeight: FontWeight.bold,
-        ),
-        iconTheme: IconThemeData(color: AppColors.textPrimary),
-      ),
-      cardTheme: CardTheme(
-        elevation: _defaultElevation,
-        shape: RoundedRectangleBorder(
-          borderRadius: _defaultBorderRadius,
-        ),
-        color: Colors.white.withOpacity(0.9),
+        scrolledUnderElevation: 1,
+        systemOverlayStyle: SystemUiOverlayStyle.dark,
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          elevation: _defaultElevation,
-          padding: const EdgeInsets.symmetric(
-            horizontal: 24,
-            vertical: 16,
-          ),
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: _defaultBorderRadius,
-          ),
-          textStyle: GoogleFonts.poppins(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ).copyWith(
-          elevation: MaterialStateProperty.resolveWith<double>(
-            (Set<MaterialState> states) {
-              if (states.contains(MaterialState.pressed)) {
-                return 2.0;
-              }
-              if (states.contains(MaterialState.hovered)) {
-                return 6.0;
-              }
-              return _defaultElevation;
-            },
-          ),
+          minimumSize: const Size(double.infinity, _minTouchTarget),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(double.infinity, _minTouchTarget),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          minimumSize: const Size(88, _minTouchTarget),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white.withOpacity(0.9),
-        border: OutlineInputBorder(
-          borderRadius: _defaultBorderRadius,
-          borderSide: BorderSide(color: AppColors.primary.withOpacity(0.5)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: _defaultBorderRadius,
-          borderSide: BorderSide(color: AppColors.primary.withOpacity(0.5)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: _defaultBorderRadius,
-          borderSide: BorderSide(
-            color: AppColors.primary,
-            width: 2,
-          ),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: _defaultBorderRadius,
-          borderSide: BorderSide(
-            color: AppColors.error,
-            width: 2,
-          ),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: _defaultBorderRadius,
-          borderSide: BorderSide(
-            color: AppColors.error,
-            width: 2,
-          ),
-        ),
-        labelStyle: TextStyle(color: AppColors.textSecondary),
-        hintStyle: TextStyle(color: AppColors.textMuted),
+        border: const OutlineInputBorder(),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
-      pageTransitionsTheme: const PageTransitionsTheme(
-        builders: {
-          TargetPlatform.android: CupertinoPageTransitionsBuilder(),
-          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-        },
+      listTileTheme: const ListTileThemeData(
+        minLeadingWidth: 24,
+        minVerticalPadding: 12,
       ),
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: AppColors.primary,
+        unselectedItemColor: Colors.grey,
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        extendedSizeConstraints: BoxConstraints(minHeight: 56, minWidth: 80),
+      ),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: AppColors.primary,
+      ),
+      dividerTheme: const DividerThemeData(space: 1, thickness: 1),
     );
   }
 
@@ -155,135 +67,56 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: AppColors.primaryTurquoise,
+        seedColor: AppColors.primary,
         brightness: Brightness.dark,
+        primary: AppColors.primary,
+        surface: AppColors.backgroundDark,
       ),
-      scaffoldBackgroundColor: AppColors.backgroundNightBlue,
-      textTheme: GoogleFonts.poppinsTextTheme(ThemeData.dark().textTheme).copyWith(
-        displayLarge: GoogleFonts.cinzel(
-          fontSize: 32,
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
-        ),
-        displayMedium: GoogleFonts.cinzel(
-          fontSize: 28,
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
-        ),
-        bodyLarge: GoogleFonts.poppins(
-          fontSize: 16,
-          color: Colors.white,
-        ),
-        bodyMedium: GoogleFonts.poppins(
-          fontSize: 14,
-          color: Colors.white,
-        ),
-        bodySmall: GoogleFonts.poppins(
-          fontSize: 12,
-          color: Colors.white,
-        ),
-        // Style pour les valeurs numériques
-        labelSmall: numberTextStyle(
-          color: Colors.white,
-          fontSize: 12,
-        ),
-        labelMedium: numberTextStyle(
-          color: Colors.white,
-          fontSize: 14,
-        ),
-        labelLarge: numberTextStyle(
-          color: Colors.white,
-          fontSize: 16,
-        ),
-      ),
-      appBarTheme: AppBarTheme(
-        backgroundColor: Colors.transparent,
+      scaffoldBackgroundColor: AppColors.backgroundDark,
+      appBarTheme: const AppBarTheme(
+        centerTitle: true,
         elevation: 0,
-        titleTextStyle: GoogleFonts.cinzel(
-          color: Colors.white,
-          fontSize: 24,
-          fontWeight: FontWeight.bold,
-        ),
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-      cardTheme: CardTheme(
-        elevation: _defaultElevation,
-        shape: RoundedRectangleBorder(
-          borderRadius: _defaultBorderRadius,
-        ),
-        color: AppColors.textPrimary.withOpacity(0.1),
+        scrolledUnderElevation: 1,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          elevation: _defaultElevation,
-          padding: const EdgeInsets.symmetric(
-            horizontal: 24,
-            vertical: 16,
-          ),
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: _defaultBorderRadius,
-          ),
-          textStyle: GoogleFonts.poppins(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ).copyWith(
-          elevation: MaterialStateProperty.resolveWith<double>(
-            (Set<MaterialState> states) {
-              if (states.contains(MaterialState.pressed)) {
-                return 2.0;
-              }
-              if (states.contains(MaterialState.hovered)) {
-                return 6.0;
-              }
-              return _defaultElevation;
-            },
-          ),
+          minimumSize: const Size(double.infinity, _minTouchTarget),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(double.infinity, _minTouchTarget),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          minimumSize: const Size(88, _minTouchTarget),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.textPrimary.withOpacity(0.1),
-        border: OutlineInputBorder(
-          borderRadius: _defaultBorderRadius,
-          borderSide: BorderSide(color: AppColors.primary.withOpacity(0.5)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: _defaultBorderRadius,
-          borderSide: BorderSide(color: AppColors.primary.withOpacity(0.5)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: _defaultBorderRadius,
-          borderSide: BorderSide(
-            color: AppColors.primary,
-            width: 2,
-          ),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: _defaultBorderRadius,
-          borderSide: BorderSide(
-            color: AppColors.error,
-            width: 2,
-          ),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: _defaultBorderRadius,
-          borderSide: BorderSide(
-            color: AppColors.error,
-            width: 2,
-          ),
-        ),
-        labelStyle: const TextStyle(color: Colors.white70),
-        hintStyle: const TextStyle(color: Colors.white54),
+        border: const OutlineInputBorder(),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
-      pageTransitionsTheme: const PageTransitionsTheme(
-        builders: {
-          TargetPlatform.android: CupertinoPageTransitionsBuilder(),
-          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-        },
+      listTileTheme: const ListTileThemeData(
+        minLeadingWidth: 24,
+        minVerticalPadding: 12,
       ),
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: AppColors.primary,
+        unselectedItemColor: Colors.grey,
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        extendedSizeConstraints: BoxConstraints(minHeight: 56, minWidth: 80),
+      ),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: AppColors.primary,
+      ),
+      dividerTheme: const DividerThemeData(space: 1, thickness: 1),
     );
   }
 }

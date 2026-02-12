@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'app_colors.dart';
+import '../../theme/app_colors.dart';
 
 /// Bannière stylisée pour afficher des informations importantes
 class FantasyBanner extends StatelessWidget {
