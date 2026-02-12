@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
-import '../../theme/app_theme.dart';
 import '../../theme/app_colors.dart';
 import '../../../presentation/providers/auth_provider.dart';
 
@@ -21,13 +19,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('has_onboarded', true);
 
+    if (!mounted) return;
     final isAuthenticated = context.read<AuthProvider>().isAuthenticated;
     if (isAuthenticated) {
-      // Aller à la shell principale
-      if (mounted) Navigator.of(context).pushReplacementNamed('/');
+      Navigator.of(context).pushReplacementNamed('/');
     } else {
-      // Aller à la page de connexion
-      if (mounted) Navigator.of(context).pushReplacementNamed('/login');
+      Navigator.of(context).pushReplacementNamed('/login');
     }
   }
 
@@ -37,22 +34,25 @@ class _OnboardingPageState extends State<OnboardingPage> {
       _buildSlide(
         title: 'Transforme ta vie en aventure',
         subtitle: 'Définis des quêtes, gagne de l\'XP et progresse chaque jour',
-        asset: 'assets/animations/rpg_logo.json',
+        icon: Icons.auto_awesome,
+        color: AppColors.primaryTurquoise,
       ),
       _buildSlide(
         title: 'Des quêtes épiques',
         subtitle: 'Crée des objectifs clairs et motivants avec des récompenses',
-        asset: 'assets/animations/rpg_loading.json',
+        icon: Icons.assignment_turned_in,
+        color: AppColors.secondaryViolet,
       ),
       _buildSlide(
-        title: 'Un univers pastel, fluide et motivant',
-        subtitle: 'Des animations douces et un design qui donne envie d\'agir',
-        asset: 'assets/animations/loading.json',
+        title: 'Progresse et gagne des récompenses',
+        subtitle: 'Obtiens de l\'XP, des pièces et des objets en accomplissant tes quêtes',
+        icon: Icons.emoji_events,
+        color: AppColors.gold,
       ),
     ];
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         actions: [
           TextButton(
@@ -82,7 +82,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 width: _currentPage == i ? 18 : 8,
                 height: 8,
                 decoration: BoxDecoration(
-                  color: _currentPage == i ? AppColors.primary : AppColors.textMuted.withOpacity(0.5),
+                  color: _currentPage == i
+                      ? AppColors.primaryTurquoise
+                      : AppColors.textMuted.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -96,8 +98,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
               child: ElevatedButton(
                 onPressed: _currentPage == pages.length - 1
                     ? _finishOnboarding
-                    : () => _pageController.nextPage(duration: const Duration(milliseconds: 250), curve: Curves.easeOut),
-                child: Text(_currentPage == pages.length - 1 ? 'Commencer' : 'Suivant'),
+                    : () => _pageController.nextPage(
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeOut),
+                child: Text(
+                    _currentPage == pages.length - 1 ? 'Commencer' : 'Suivant'),
               ),
             ),
           ),
@@ -106,24 +111,39 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
-  Widget _buildSlide({required String title, required String subtitle, required String asset}) {
+  Widget _buildSlide({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+  }) {
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Lottie.asset(asset, width: 220, height: 220),
-          const SizedBox(height: 24),
+          Container(
+            width: 160,
+            height: 160,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color.withValues(alpha: 0.1),
+            ),
+            child: Icon(icon, size: 80, color: color),
+          ),
+          const SizedBox(height: 32),
           Text(
             title,
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.displayMedium,
+            style: Theme.of(context).textTheme.headlineMedium,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Text(
             subtitle,
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppColors.textSecondary),
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: AppColors.textSecondary,
+                ),
           ),
         ],
       ),
