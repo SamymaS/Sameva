@@ -57,3 +57,11 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+env_reference.txt
+
+# Supabase local secrets (Edge Functions)
+supabase/.env.local
+
+# Node modules
+node_modules/
+package-lock.json

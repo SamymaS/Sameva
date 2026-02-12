@@ -35,5 +35,10 @@ class SupabaseConfig {
     }
     return key;
   }
+
+  /// URL de l'Edge Function d'analyse de preuve (optionnel).
+  /// Si défini, l'app utilisera l'IA réelle au lieu du mock.
+  /// Ex. https://VOTRE_PROJECT_REF.supabase.co/functions/v1/analyze-quest-proof
+  static String? get validationAiUrl => dotenv.env['VALIDATION_AI_URL'];
 }
 

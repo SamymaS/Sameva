@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'app_colors.dart';
+import '../../theme/app_colors.dart';
 
 /// Bouton stylisé avec support pour icônes et assets
 class FantasyButton extends StatelessWidget {

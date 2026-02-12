@@ -1,87 +1,60 @@
 # Sameva
 
-> Transforme ta to-do list en aventure épique.
+**Sameva** pousse l'utilisateur à réaliser des **actions réelles** en rendant la validation des tâches **crédible, vérifiable et gratifiante**.
 
-Sameva est une application mobile en cours de création qui réinvente le suivi d'objectifs avec une mise en scène RPG, des tons pastels réconfortants et une narration motivante. Pensé comme un compagnon ludique pour étudiants, jeunes actifs et créatifs débordés, Sameva transforme chaque petite victoire en quête héroïque.
-
-**Créé et imaginé par Samy Boudaoud.**
+Tout le reste (avatar, loot, animations, IA, etc.) existe uniquement pour servir cette fonction.
 
 ---
 
-## Pourquoi Sameva donne envie de jouer sérieux
-- **Motivation par le jeu** : chaque tâche devient une quête, avec des niveaux à gravir, de l'or à gagner et des statistiques de personnage qui s'envolent lorsque tu restes concentré.
-- **Univers doux et accessible** : typographies féeriques, palette pastel et animations soignées pour se sentir instantanément dans un cocon d'inspiration.
-- **Routine guidée** : onboarding scénarisé en trois tableaux animés qui te plonge dans l'aventure sans prise de tête.
-- **Connexion instantanée** : authentification simple pour retrouver ta progression sur tous tes appareils en un clin d'œil.
-- **Quêtes sur mesure** : classe tes objectifs par rareté, fréquence ou sous-quêtes et ressens la satisfaction de cocher chaque étape dans une interface intuitive.
-- **Tableau de bord héroïque** : visualise ton niveau, ton expérience, ton or et ta crédibilité comme un véritable personnage de RPG.
-- **Navigation fluide** : une coque principale à quatre onglets (Accueil, Récompenses, Profil, Paramètres) pensée pour alterner entre planification, récompenses et suivi personnel.
+## Vision MVP (reboot recentré)
+
+- **Cœur** : la **Quête** — action réelle concrète, mesurable et vérifiable (ranger une pièce, faire du sport, étudier 30 min, etc.).
+- **Priorité n°1** : la **validation** — simple (checkbox), preuve visuelle (photo/vidéo), puis analyse IA (score 0–100, seuil 70).
+- **6 pages** : Authentification · Mes Quêtes · Création de Quête · Validation de Quête · Récompense / Progression · Profil / Historique.
+
+Exclu du MVP : boutique, gacha, mini-jeux, classements, social, économie complexe.
+
+→ Voir **[documentation/VISION_REBOOT_MVP.md](documentation/VISION_REBOOT_MVP.md)** pour le détail.
 
 ---
 
-## Ce qui t'attend aujourd'hui
-| Expérience | Ce que tu vas vivre |
-| --- | --- |
-| **Accueil vivant** | Liste tes quêtes du jour et regarde tes récompenses d'XP et d'or tomber au fur et à mesure. |
-| **Boutique de rêves** | Imagine les récompenses que tu t'offriras avec l'or accumulé et commence à projeter ta prochaine victoire. |
-| **Profil légendaire** | Découvre tes statistiques globales et prépare ton prochain palier de progression. |
-| **Paramètres soignés** | Choisis ton ambiance claire ou sombre et gère ton compte sans quitter ton univers. |
+## Lancer le projet
 
-Chaque écran est conçu pour déclencher un sourire et rappeler que ta productivité peut être belle et inspirante.
-
----
-
-## Une vision ambitieuse
-Sameva est encore en pleine gestation, mais la feuille de route promet une montée en puissance continue :
-
-1. **Création de quêtes enrichie** – finaliser l'enregistrement complet et l'édition en direct pour offrir une flexibilité totale aux joueurs organisés.
-2. **Récompenses dynamiques** – transformer la boutique en véritable marché d'objets virtuels afin de renforcer le sentiment de progression tangible.
-3. **Profil évolutif** – ajouter succès, badges et personnalisation d'avatar pour célébrer chaque style d'aventurier.
-4. **Moments communautaires** – ouvrir la voie à des classements amicaux et à des défis de groupe pour maintenir la motivation sur la durée.
-5. **Événements saisonniers** – proposer des séries de quêtes thématiques pour renouveler l'expérience et accompagner les grands moments de l'année.
-
-Chaque étape renforce l'idée d'un monde persistant où l'organisation quotidienne devient un jeu qu'on a envie de relancer encore et encore.
-
----
-
-## Architecture & technologie (en un coup d'œil)
-- **Flutter & Dart** pour une expérience mobile souple et performante sur iOS, Android, web et desktop.
-- **Provider, Hive, SharedPreferences** pour un état maîtrisé et des préférences qui te suivent.
-- **Firebase Auth & Cloud Firestore** pour sécuriser tes données et les synchroniser avec fiabilité.
-- **Animations & design system maison** pour maintenir l'immersion du premier au dernier écran.
-
----
-
-## Architecture du code détaillé
-```
-lib/
-├── app.dart               # Configuration MaterialApp et routes principales
-├── main.dart              # Initialisation Firebase, Hive, Provider et OpenAI
-├── config/                # Chargement des variables d'environnement (.env)
-├── core/
-│   ├── providers/         # Auth, quêtes, joueur, thème (state management Provider)
-│   └── ...
-├── pages/                 # Vues : onboarding, auth, home, rewards, profile, settings…
-│   ├── home/widgets/      # Composants spécifiques (liste de quêtes, carte de stats)
-│   └── quest/             # Détails et création des quêtes
-├── services/              # Intégrations Firebase & OpenAI
-├── theme/                 # Thèmes, styles et palette de couleurs
-└── widgets/               # Composants transverses (à étendre)
-```
-
-## Tu veux tester l'aventure ?
 ```bash
-git clone https://github.com/<votre-utilisateur>/sameva.git
-cd sameva
+git clone <repo>
+cd Sameva
+cp .env.example .env   # puis renseigner SUPABASE_URL et SUPABASE_ANON_KEY
 flutter pub get
 flutter run
 ```
 
-Pense à configurer un projet Firebase avec Authentication (email/mot de passe + anonyme) et Cloud Firestore, puis à ajouter les fichiers `google-services.json` et `GoogleService-Info.plist` dans les dossiers natifs correspondants.
+- **Backend** : Supabase (auth + base de données). Voir **[documentation/SUPABASE_SETUP.md](documentation/SUPABASE_SETUP.md)**.
+- **État** : Provider (auth, quêtes, joueur, thème). Données locales : Hive (quests, playerStats).
 
 ---
 
-### Rejoins la quête
-Sameva n'en est qu'au début de son épopée. Que tu sois joueur nostalgique de RPG, créatif à l'agenda chargé ou professionnel en quête d'une méthode de productivité motivante, cette application est conçue pour toi.
+## Structure du code (MVP)
 
-Reste à l'écoute pour les prochaines versions et prépare-toi à vivre ta productivité comme une véritable aventure. L'histoire ne fait que commencer.
+```
+lib/
+├── main.dart              # Point d'entrée, Supabase, Hive, Provider
+├── app_new.dart           # SamevaApp — 2 onglets (Mes Quêtes, Profil), routes
+├── config/                # Supabase (supabase_config.dart)
+├── data/models/           # Quest (quest_model.dart)
+├── domain/services/       # validation_ai_service, quest_rewards_calculator
+├── presentation/providers # auth, quest, player, theme
+└── ui/
+    ├── pages/             # auth, quest (list, create, validation), profile, rewards, settings
+    ├── theme/             # app_theme, app_colors
+    └── widgets/           # magical (animated_background, glowing_card), minimalist (fade_in, button, card, hud_header)
+```
+
+---
+
+## Documentation
+
+| Fichier | Contenu |
+|--------|---------|
+| [documentation/VISION_REBOOT_MVP.md](documentation/VISION_REBOOT_MVP.md) | Principe fondateur, 6 pages, validation, exclu MVP |
+| [documentation/SUPABASE_SETUP.md](documentation/SUPABASE_SETUP.md) | Configuration Supabase, schéma, clés API |
+| [documentation/supabase_schema.sql](documentation/supabase_schema.sql) | Schéma SQL Supabase |

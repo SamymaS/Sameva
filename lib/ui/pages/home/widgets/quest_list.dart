@@ -34,7 +34,7 @@ class QuestList extends StatelessWidget {
 
   String _getFrequencyText(QuestFrequency frequency) {
     switch (frequency) {
-      case QuestFrequency.once:
+      case QuestFrequency.oneOff:
         return 'Unique';
       case QuestFrequency.daily:
         return 'Quotidienne';
@@ -177,7 +177,7 @@ class QuestList extends StatelessWidget {
                           ),
                         ),
                         ElevatedButton(
-                          onPressed: () => onQuestCompleted(quest.id),
+                          onPressed: () => onQuestCompleted(quest.id ?? ''),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.success,
                             padding: const EdgeInsets.symmetric(
