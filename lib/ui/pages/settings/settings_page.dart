@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../presentation/providers/theme_provider.dart';
-import '../../../presentation/providers/auth_provider.dart';
 
 /// Paramètres — Hick (peu d’options), Jakob (ListTile standard).
 class SettingsPage extends StatelessWidget {

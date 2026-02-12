@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../../data/models/quest_model.dart';
-import '../../../../presentation/providers/quest_provider.dart';
 import '../../../theme/app_colors.dart';
 
 class QuestList extends StatelessWidget {

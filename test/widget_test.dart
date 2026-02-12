@@ -10,7 +10,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
-import 'package:sameva/main.dart';
 import 'package:sameva/presentation/providers/auth_provider.dart';
 import 'package:sameva/presentation/providers/quest_provider.dart';
 import 'package:sameva/presentation/providers/player_provider.dart';
