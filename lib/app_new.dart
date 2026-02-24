@@ -10,11 +10,17 @@ import 'ui/pages/quest/quests_list_page.dart';
 import 'ui/pages/profile/profile_page.dart';
 import 'ui/pages/rewards/rewards_page.dart';
 import 'ui/pages/settings/settings_page.dart';
+import 'ui/pages/home/sanctuary_page.dart';
+import 'ui/pages/inventory/inventory_page.dart';
+import 'ui/pages/avatar/avatar_page.dart';
+import 'ui/pages/market/market_page.dart';
+import 'ui/pages/invocation/invocation_page.dart';
+import 'ui/pages/minigames/minigames_page.dart';
+import 'ui/widgets/common/dock_bar.dart';
 import 'ui/theme/app_theme.dart';
 import 'data/models/quest_model.dart';
 
-/// Sameva — MVVM, UX (Fitts, Hick, Jakob, Miller, Goal Gradient), PWA-ready.
-/// 6 pages : Auth | Mes Quêtes | Création | Validation | Récompenses | Profil
+/// Sameva — navigation 8 pages avec DockBar flottant.
 class SamevaApp extends StatefulWidget {
   const SamevaApp({super.key});
 
@@ -25,9 +31,15 @@ class SamevaApp extends StatefulWidget {
 class _SamevaAppState extends State<SamevaApp> {
   int _currentIndex = 0;
 
-  final List<Widget> _pages = [
-    const QuestsListPage(),
-    const ProfilePage(),
+  static const _pages = [
+    SanctuaryPage(),
+    QuestsListPage(),
+    InventoryPage(),
+    AvatarPage(),
+    MarketPage(),
+    InvocationPage(),
+    MinigamesPage(),
+    ProfilePage(),
   ];
 
   @override
@@ -49,9 +61,11 @@ class _SamevaAppState extends State<SamevaApp> {
             '/register': (context) => const RegisterPage(),
           },
           onGenerateRoute: (settings) {
-            if (settings.name == '/quest/validate' && settings.arguments is Quest) {
+            if (settings.name == '/quest/validate' &&
+                settings.arguments is Quest) {
               return MaterialPageRoute<void>(
-                builder: (_) => QuestValidationPage(quest: settings.arguments! as Quest),
+                builder: (_) =>
+                    QuestValidationPage(quest: settings.arguments! as Quest),
               );
             }
             return null;
@@ -71,23 +85,30 @@ class _SamevaAppState extends State<SamevaApp> {
 
   Widget _buildHome() {
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _pages,
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.assignment_outlined),
-            label: 'Mes Quêtes',
+      body: Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 64),
+            child: IndexedStack(
+              index: _currentIndex,
+              children: _pages,
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            label: 'Profil',
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: DockBar(
+              currentIndex: _currentIndex,
+              onTap: (i) => setState(() => _currentIndex = i),
+            ),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => Navigator.of(context).pushNamed('/create-quest'),
+        backgroundColor: const Color(0xFF4FD1C5),
+        child: const Icon(Icons.add),
       ),
     );
   }

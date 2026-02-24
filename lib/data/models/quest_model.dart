@@ -10,76 +10,34 @@ enum QuestRarity {
   legendary,
   mythic;
 
-  String toSupabaseString() {
-    switch (this) {
-      case QuestRarity.common:
-        return 'common';
-      case QuestRarity.uncommon:
-        return 'uncommon';
-      case QuestRarity.rare:
-        return 'rare';
-      case QuestRarity.epic:
-        return 'epic';
-      case QuestRarity.legendary:
-        return 'legendary';
-      case QuestRarity.mythic:
-        return 'mythic';
-    }
-  }
+  // P3 : .name correspond exactement aux valeurs Supabase
+  String toSupabaseString() => name;
 
   static QuestRarity fromSupabaseString(String value) {
-    switch (value) {
-      case 'common':
-        return QuestRarity.common;
-      case 'uncommon':
-        return QuestRarity.uncommon;
-      case 'rare':
-        return QuestRarity.rare;
-      case 'epic':
-        return QuestRarity.epic;
-      case 'legendary':
-        return QuestRarity.legendary;
-      case 'mythic':
-        return QuestRarity.mythic;
-      default:
-        return QuestRarity.common;
+    try {
+      return QuestRarity.values.byName(value);
+    } catch (_) {
+      return QuestRarity.common;
     }
   }
 }
 
 enum QuestFrequency {
-  oneOff, // Correspond à 'one_off' dans Supabase
+  oneOff, // Correspond à 'one_off' dans Supabase (seul cas avec snake_case)
   daily,
   weekly,
   monthly;
 
-  String toSupabaseString() {
-    switch (this) {
-      case QuestFrequency.oneOff:
-        return 'one_off';
-      case QuestFrequency.daily:
-        return 'daily';
-      case QuestFrequency.weekly:
-        return 'weekly';
-      case QuestFrequency.monthly:
-        return 'monthly';
-    }
-  }
+  // P3 : .name pour tous sauf oneOff qui a un underscore dans Supabase
+  String toSupabaseString() => switch (this) {
+    QuestFrequency.oneOff => 'one_off',
+    _ => name,
+  };
 
-  static QuestFrequency fromSupabaseString(String value) {
-    switch (value) {
-      case 'one_off':
-        return QuestFrequency.oneOff;
-      case 'daily':
-        return QuestFrequency.daily;
-      case 'weekly':
-        return QuestFrequency.weekly;
-      case 'monthly':
-        return QuestFrequency.monthly;
-      default:
-        return QuestFrequency.oneOff;
-    }
-  }
+  static QuestFrequency fromSupabaseString(String value) => switch (value) {
+    'one_off' => QuestFrequency.oneOff,
+    _ => QuestFrequency.values.byName(value),
+  };
 }
 
 enum QuestStatus {
@@ -88,31 +46,14 @@ enum QuestStatus {
   failed,
   archived;
 
-  String toSupabaseString() {
-    switch (this) {
-      case QuestStatus.active:
-        return 'active';
-      case QuestStatus.completed:
-        return 'completed';
-      case QuestStatus.failed:
-        return 'failed';
-      case QuestStatus.archived:
-        return 'archived';
-    }
-  }
+  // P3 : .name correspond exactement aux valeurs Supabase
+  String toSupabaseString() => name;
 
   static QuestStatus fromSupabaseString(String value) {
-    switch (value) {
-      case 'active':
-        return QuestStatus.active;
-      case 'completed':
-        return QuestStatus.completed;
-      case 'failed':
-        return QuestStatus.failed;
-      case 'archived':
-        return QuestStatus.archived;
-      default:
-        return QuestStatus.active;
+    try {
+      return QuestStatus.values.byName(value);
+    } catch (_) {
+      return QuestStatus.active;
     }
   }
 }
@@ -124,31 +65,14 @@ enum ValidationType {
   timer,
   geolocation;
 
-  String toSupabaseString() {
-    switch (this) {
-      case ValidationType.manual:
-        return 'manual';
-      case ValidationType.photo:
-        return 'photo';
-      case ValidationType.timer:
-        return 'timer';
-      case ValidationType.geolocation:
-        return 'geolocation';
-    }
-  }
+  // P3 : .name correspond exactement aux valeurs Supabase
+  String toSupabaseString() => name;
 
   static ValidationType fromSupabaseString(String value) {
-    switch (value) {
-      case 'manual':
-        return ValidationType.manual;
-      case 'photo':
-        return ValidationType.photo;
-      case 'timer':
-        return ValidationType.timer;
-      case 'geolocation':
-        return ValidationType.geolocation;
-      default:
-        return ValidationType.manual;
+    try {
+      return ValidationType.values.byName(value);
+    } catch (_) {
+      return ValidationType.manual;
     }
   }
 }
@@ -168,7 +92,7 @@ class Quest {
   final String category;
   final QuestRarity rarity;
   final List<String> subQuests;
-  final bool isCompleted;
+  // P2.3 : isCompleted supprimé — dérivé de status == QuestStatus.completed
   final QuestStatus status;
   final DateTime createdAt;
   final DateTime? completedAt;
@@ -181,6 +105,9 @@ class Quest {
   final int? goldReward;
   final String? proofData; // Données de preuve (photo, géolocalisation, etc.)
 
+  // P2.3 : getter dérivé, pas de champ redondant
+  bool get isCompleted => status == QuestStatus.completed;
+
   Quest({
     this.id,
     required this.userId,
@@ -192,7 +119,6 @@ class Quest {
     required this.category,
     required this.rarity,
     List<String>? subQuests,
-    this.isCompleted = false,
     required this.status,
     DateTime? createdAt,
     this.completedAt,
@@ -220,7 +146,8 @@ class Quest {
       'category': category,
       'rarity': rarity.toSupabaseString(),
       'sub_quests': subQuests,
-      'is_completed': isCompleted,
+      // P2.3 : is_completed dérivé de status (compatible avec la colonne DB)
+      'is_completed': status == QuestStatus.completed,
       'status': status.toSupabaseString(),
       'validation_type': validationType.toSupabaseString(),
       'xp_reward': xpReward,
@@ -246,7 +173,7 @@ class Quest {
       category: map['category'] as String,
       rarity: QuestRarity.fromSupabaseString(map['rarity'] as String),
       subQuests: (map['sub_quests'] as List<dynamic>?)?.cast<String>() ?? [],
-      isCompleted: map['is_completed'] as bool? ?? false,
+      // P2.3 : status est la source de vérité, is_completed ignoré à la lecture
       status: QuestStatus.fromSupabaseString(map['status'] as String? ?? 'active'),
       createdAt: map['created_at'] != null
           ? DateTime.parse(map['created_at'] as String)
@@ -281,7 +208,6 @@ class Quest {
     String? category,
     QuestRarity? rarity,
     List<String>? subQuests,
-    bool? isCompleted,
     QuestStatus? status,
     DateTime? createdAt,
     DateTime? completedAt,
@@ -303,7 +229,6 @@ class Quest {
       category: category ?? this.category,
       rarity: rarity ?? this.rarity,
       subQuests: subQuests ?? this.subQuests,
-      isCompleted: isCompleted ?? this.isCompleted,
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       completedAt: completedAt ?? this.completedAt,
@@ -316,4 +241,3 @@ class Quest {
     );
   }
 }
-

@@ -45,18 +45,61 @@ class _QuestsListPageState extends State<QuestsListPage> {
       ),
       body: Consumer<QuestProvider>(
         builder: (context, qp, _) {
+          // P1.2 : affichage de l'erreur réseau avec possibilité de réessayer
+          if (qp.error != null) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.cloud_off_outlined,
+                      size: 48,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      qp.error!,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                    const SizedBox(height: 24),
+                    FilledButton.icon(
+                      onPressed: _load,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Réessayer'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
           if (qp.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
+
           final active = qp.activeQuests;
           final completed = qp.completedQuests;
+
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               SegmentedButton<int>(
                 segments: const [
-                  ButtonSegment(value: 0, label: Text('À faire'), icon: Icon(Icons.list_alt)),
-                  ButtonSegment(value: 1, label: Text('Terminées'), icon: Icon(Icons.check_circle_outline)),
+                  ButtonSegment(
+                    value: 0,
+                    label: Text('À faire'),
+                    icon: Icon(Icons.list_alt),
+                  ),
+                  ButtonSegment(
+                    value: 1,
+                    label: Text('Terminées'),
+                    icon: Icon(Icons.check_circle_outline),
+                  ),
                 ],
                 selected: {_selectedTabIndex},
                 onSelectionChanged: (s) => setState(() => _selectedTabIndex = s.first),
@@ -76,7 +119,7 @@ class _QuestsListPageState extends State<QuestsListPage> {
           await Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const CreateQuestChoicePage()),
           );
-          await _load(); // recharger pour voir la nouvelle quête
+          await _load();
         },
         icon: const Icon(Icons.add),
         label: const Text('Créer une quête'),
@@ -115,7 +158,9 @@ class _QuestList extends StatelessWidget {
             '${quest.category} · ${quest.estimatedDurationMinutes} min',
             style: Theme.of(context).textTheme.bodySmall,
           ),
-          trailing: completed ? const Icon(Icons.check_circle, color: AppColors.success) : const Icon(Icons.chevron_right),
+          trailing: completed
+              ? const Icon(Icons.check_circle, color: AppColors.success)
+              : const Icon(Icons.chevron_right),
           onTap: () {
             if (!completed) {
               Navigator.of(context).pushNamed('/quest/validate', arguments: quest);

@@ -48,6 +48,8 @@ class QuestRewardsCalculator {
     Quest quest,
     DateTime completedAt, {
     bool hasStreakBonus = false,
+    int xpBonusPercent = 0,
+    int goldBonusPercent = 0,
   }) {
     final baseRewards = calculateBaseRewards(quest.difficulty);
     
@@ -84,8 +86,8 @@ class QuestRewardsCalculator {
     }
 
     return QuestRewards(
-      experience: (baseRewards.experience * multiplier).round(),
-      gold: (baseRewards.gold * multiplier).round(),
+      experience: (baseRewards.experience * multiplier * (1 + xpBonusPercent / 100)).round(),
+      gold: (baseRewards.gold * multiplier * (1 + goldBonusPercent / 100)).round(),
       crystals: baseRewards.crystals,
       bonusType: bonusType,
       multiplier: multiplier,
