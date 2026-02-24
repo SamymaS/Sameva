@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'config/supabase_config.dart';
+import 'domain/services/notification_service.dart';
 import 'presentation/providers/auth_provider.dart';
 import 'presentation/providers/quest_provider.dart';
 import 'presentation/providers/player_provider.dart';
@@ -32,6 +33,9 @@ void main() async {
   await Hive.openBox('settings');
   await Hive.openBox('inventory');
   await Hive.openBox('equipment');
+
+  // Notifications locales (best-effort)
+  await NotificationService.init();
 
   final questProvider = QuestProvider();
   final playerProvider = PlayerProvider();

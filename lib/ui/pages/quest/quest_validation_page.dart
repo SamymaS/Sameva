@@ -141,9 +141,17 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
         playerProvider: context.read<PlayerProvider>(),
         equipmentProvider: context.read<EquipmentProvider>(),
       );
-      final rewards = await useCase.execute(questId);
+      final result = await useCase.execute(questId);
+      final rewards = result.rewards;
 
       if (!mounted) return;
+
+      // Dialog level-up avant de naviguer
+      if (result.didLevelUp) {
+        await _showLevelUpDialog(result.newLevel, rewards.experience);
+        if (!mounted) return;
+      }
+
       Navigator.of(context).pop();
       Navigator.of(context).pushNamed('/rewards');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -165,6 +173,14 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
     } finally {
       if (mounted) setState(() => _isValidating = false);
     }
+  }
+
+  Future<void> _showLevelUpDialog(int newLevel, int xpGained) {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _LevelUpDialog(level: newLevel, xpGained: xpGained),
+    );
   }
 
   @override
@@ -433,6 +449,135 @@ class _ResultBlock extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+// ─── Dialog Level-Up ─────────────────────────────────────────────────────────
+
+class _LevelUpDialog extends StatefulWidget {
+  final int level;
+  final int xpGained;
+
+  const _LevelUpDialog({required this.level, required this.xpGained});
+
+  @override
+  State<_LevelUpDialog> createState() => _LevelUpDialogState();
+}
+
+class _LevelUpDialogState extends State<_LevelUpDialog>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _scale;
+  late Animation<double> _glow;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+    _scale = CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut);
+    _glow = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeIn),
+    );
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: AnimatedBuilder(
+        animation: _ctrl,
+        builder: (_, __) => Transform.scale(
+          scale: _scale.value,
+          child: Container(
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppColors.backgroundDeepViolet, AppColors.backgroundDarkPanel],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: AppColors.gold.withValues(alpha: 0.6 + _glow.value * 0.4),
+                width: 2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.gold.withValues(alpha: _glow.value * 0.5),
+                  blurRadius: 40,
+                  spreadRadius: 4,
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Étoile animée
+                Icon(
+                  Icons.auto_awesome,
+                  color: AppColors.gold,
+                  size: 56 + _glow.value * 8,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'NIVEAU SUPÉRIEUR !',
+                  style: TextStyle(
+                    color: AppColors.gold,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Niveau ${widget.level}',
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 36,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '+${widget.xpGained} XP',
+                  style: const TextStyle(
+                    color: AppColors.primaryTurquoise,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.gold,
+                      foregroundColor: AppColors.backgroundNightBlue,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text(
+                      'Continuer',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

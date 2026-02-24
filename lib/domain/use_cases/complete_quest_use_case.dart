@@ -1,13 +1,23 @@
 import '../services/quest_rewards_calculator.dart';
+import '../services/notification_service.dart';
 import '../../presentation/providers/quest_provider.dart';
 import '../../presentation/providers/player_provider.dart';
 import '../../presentation/providers/equipment_provider.dart';
 
+/// Résultat complet de la complétion d'une quête.
+class CompleteQuestResult {
+  final QuestRewards rewards;
+  final bool didLevelUp;
+  final int newLevel;
+
+  const CompleteQuestResult({
+    required this.rewards,
+    required this.didLevelUp,
+    required this.newLevel,
+  });
+}
+
 /// P2.1 — Use case dédié à la complétion d'une quête avec récompenses.
-///
-/// Responsabilité unique : orchestrer QuestProvider et PlayerProvider
-/// sans que l'un connaisse l'autre. La logique de récompense est centralisée
-/// ici, hors des providers.
 class CompleteQuestUseCase {
   final QuestProvider _questProvider;
   final PlayerProvider _playerProvider;
@@ -21,17 +31,17 @@ class CompleteQuestUseCase {
         _playerProvider = playerProvider,
         _equipmentProvider = equipmentProvider;
 
-  /// Complète la quête [questId] et distribue les récompenses calculées.
-  ///
-  /// Retourne les [QuestRewards] pour affichage dans l'UI.
-  Future<QuestRewards> execute(String questId) async {
+  Future<CompleteQuestResult> execute(String questId) async {
     final quest = _questProvider.quests.firstWhere((q) => q.id == questId);
     final now = DateTime.now();
+
+    // Niveau avant récompenses
+    final levelBefore = _playerProvider.stats?.level ?? 1;
 
     // 1. Marquer la quête comme complète
     await _questProvider.completeQuest(questId);
 
-    // 2. Calculer les récompenses avec bonus timing, streak et équipement
+    // 2. Calculer les récompenses
     final rewards = QuestRewardsCalculator.calculateRewardsWithTiming(
       quest,
       now,
@@ -51,6 +61,15 @@ class CompleteQuestUseCase {
     await _playerProvider.incrementQuestsCompleted(userId);
     await _playerProvider.checkAndUnlockAchievements(userId);
 
-    return rewards;
+    // 4. Annuler le rappel streak (quête complétée aujourd'hui)
+    await NotificationService.cancelStreakReminder();
+
+    final levelAfter = _playerProvider.stats?.level ?? 1;
+
+    return CompleteQuestResult(
+      rewards: rewards,
+      didLevelUp: levelAfter > levelBefore,
+      newLevel: levelAfter,
+    );
   }
 }
