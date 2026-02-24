@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import '../../theme/app_colors.dart';
 import '../../../presentation/providers/auth_provider.dart';
@@ -16,8 +16,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
   int _currentPage = 0;
 
   Future<void> _finishOnboarding() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('has_onboarded', true);
+    // P1.1 : migré de shared_preferences vers Hive (settings box déjà ouvert)
+    await Hive.box('settings').put('has_onboarded', true);
 
     if (!mounted) return;
     final isAuthenticated = context.read<AuthProvider>().isAuthenticated;

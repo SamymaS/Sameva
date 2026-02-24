@@ -4,22 +4,23 @@ import '../../../presentation/providers/player_provider.dart';
 import '../../theme/app_colors.dart';
 
 /// Récompenses — Goal Gradient (progression XP visible), Jakob (listes familières).
-/// Miller : peu d’éléments affichés.
+/// Miller : peu d'éléments affichés.
 class RewardsPage extends StatelessWidget {
   const RewardsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final stats = context.watch<PlayerProvider>().stats;
+    final playerProvider = context.watch<PlayerProvider>();
+    final stats = playerProvider.stats;
     final level = stats?.level ?? 1;
     final experience = stats?.experience ?? 0;
     final gold = stats?.gold ?? 0;
     final streak = stats?.streak ?? 0;
 
-    // XP pour niveau suivant (simplifié : 100 * level)
-    final xpForNextLevel = level * 100;
-    final xpInLevel = experience % 100;
-    final progress = xpForNextLevel > 0 ? (xpInLevel / 100).clamp(0.0, 1.0) : 0.0;
+    // P0.2 : utilise experienceForLevel() — même formule que addExperience()
+    // (100 × level × 1.5), au lieu du calcul incorrect `level * 100`.
+    final xpNeeded = playerProvider.experienceForLevel(level);
+    final progress = xpNeeded > 0 ? (experience / xpNeeded).clamp(0.0, 1.0) : 0.0;
 
     return Scaffold(
       appBar: AppBar(
@@ -32,7 +33,10 @@ class RewardsPage extends StatelessWidget {
           children: [
             Text(
               'Niveau $level',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             LinearProgressIndicator(
@@ -43,7 +47,7 @@ class RewardsPage extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              '$xpInLevel / 100 XP vers le niveau ${level + 1}',
+              '$experience / $xpNeeded XP vers le niveau ${level + 1}',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
@@ -58,11 +62,14 @@ class RewardsPage extends StatelessWidget {
             ListTile(
               leading: Icon(Icons.local_fire_department, color: AppColors.warning),
               title: const Text('Série de jours'),
-              trailing: Text('$streak jour${streak > 1 ? 's' : ''}', style: Theme.of(context).textTheme.titleMedium),
+              trailing: Text(
+                '$streak jour${streak > 1 ? 's' : ''}',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
             ),
             const SizedBox(height: 24),
             Text(
-              'Continuez à valider des quêtes pour gagner de l’XP et progresser.',
+              'Continuez à valider des quêtes pour gagner de l\'XP et progresser.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),

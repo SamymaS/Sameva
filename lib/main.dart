@@ -8,6 +8,8 @@ import 'presentation/providers/auth_provider.dart';
 import 'presentation/providers/quest_provider.dart';
 import 'presentation/providers/player_provider.dart';
 import 'presentation/providers/theme_provider.dart';
+import 'presentation/providers/inventory_provider.dart';
+import 'presentation/providers/equipment_provider.dart';
 import 'app_new.dart';
 
 void main() async {
@@ -16,7 +18,7 @@ void main() async {
   try {
     await dotenv.load(fileName: '.env');
   } catch (e) {
-    print('⚠️ Erreur lors du chargement du fichier .env: $e');
+    debugPrint('main: erreur chargement .env: $e');
   }
 
   await Supabase.initialize(
@@ -28,9 +30,13 @@ void main() async {
   await Hive.openBox('quests');
   await Hive.openBox('playerStats');
   await Hive.openBox('settings');
+  await Hive.openBox('inventory');
+  await Hive.openBox('equipment');
 
   final questProvider = QuestProvider();
   final playerProvider = PlayerProvider();
+  final inventoryProvider = InventoryProvider()..loadInventory();
+  final equipmentProvider = EquipmentProvider()..loadEquipment();
 
   runApp(
     MultiProvider(
@@ -39,8 +45,10 @@ void main() async {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider.value(value: questProvider),
         ChangeNotifierProvider.value(value: playerProvider),
+        ChangeNotifierProvider.value(value: inventoryProvider),
+        ChangeNotifierProvider.value(value: equipmentProvider),
       ],
       child: const SamevaApp(),
     ),
   );
-} 
+}

@@ -8,7 +8,8 @@ import '../../../config/supabase_config.dart';
 import '../../../data/models/quest_model.dart';
 import '../../../domain/services/api_validation_ai_service.dart';
 import '../../../domain/services/validation_ai_service.dart';
-import '../../../presentation/providers/auth_provider.dart';
+import '../../../domain/use_cases/complete_quest_use_case.dart';
+import '../../../presentation/providers/equipment_provider.dart';
 import '../../../presentation/providers/player_provider.dart';
 import '../../../presentation/providers/quest_provider.dart';
 import '../../theme/app_colors.dart';
@@ -34,12 +35,14 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
     }
     return MockValidationAIService();
   }();
+
   bool _consentGiven = false;
   bool _mediaConsent = false;
-  bool _proofIsVideo = false; // false = photo, true = vidéo
+  bool _proofIsVideo = false;
   Uint8List? _proofImage;
   String? _proofVideoPath;
   bool _isAnalyzing = false;
+  bool _isValidating = false;
   ValidationResult? _result;
   Timer? _timer;
 
@@ -83,7 +86,10 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
 
   Future<void> _pickVideo() async {
     final picker = ImagePicker();
-    final file = await picker.pickVideo(source: ImageSource.camera, maxDuration: const Duration(seconds: 30));
+    final file = await picker.pickVideo(
+      source: ImageSource.camera,
+      maxDuration: const Duration(seconds: 30),
+    );
     if (file != null) {
       setState(() {
         _proofVideoPath = file.path;
@@ -94,30 +100,23 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
   }
 
   Future<void> _analyze() async {
-    if (_proofImage != null) {
-      setState(() => _isAnalyzing = true);
-      try {
-        final r = await _validationService.analyzeProof(
+    setState(() => _isAnalyzing = true);
+    try {
+      ValidationResult r;
+      if (_proofImage != null) {
+        r = await _validationService.analyzeProof(
           quest: widget.quest,
           imageBytes: _proofImage!,
         );
-        if (mounted) setState(() => _result = r);
-      } finally {
-        if (mounted) setState(() => _isAnalyzing = false);
-      }
-      return;
-    }
-    if (_proofVideoPath != null) {
-      setState(() => _isAnalyzing = true);
-      try {
-        final r = await _validationService.analyzeVideoProof(
+      } else {
+        r = await _validationService.analyzeVideoProof(
           quest: widget.quest,
           videoPath: _proofVideoPath!,
         );
-        if (mounted) setState(() => _result = r);
-      } finally {
-        if (mounted) setState(() => _isAnalyzing = false);
       }
+      if (mounted) setState(() => _result = r);
+    } finally {
+      if (mounted) setState(() => _isAnalyzing = false);
     }
   }
 
@@ -129,22 +128,43 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
     });
   }
 
+  /// P0.1 + P2.1 : utilise CompleteQuestUseCase — calcul des récompenses
+  /// via QuestRewardsCalculator (timing + streak), plus de contournement.
   Future<void> _completeAndNavigate() async {
     final questId = widget.quest.id;
-    final userId = context.read<AuthProvider>().userId;
-    if (questId == null || userId == null) return;
+    if (questId == null) return;
 
-    await context.read<QuestProvider>().completeQuest(questId);
-    final xp = widget.quest.xpReward ?? 10;
-    await context.read<PlayerProvider>().addExperience(userId, xp);
-    await context.read<PlayerProvider>().updateStreak(userId);
+    setState(() => _isValidating = true);
+    try {
+      final useCase = CompleteQuestUseCase(
+        questProvider: context.read<QuestProvider>(),
+        playerProvider: context.read<PlayerProvider>(),
+        equipmentProvider: context.read<EquipmentProvider>(),
+      );
+      final rewards = await useCase.execute(questId);
 
-    if (!mounted) return;
-    Navigator.of(context).pop();
-    Navigator.of(context).pushNamed('/rewards');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Quête validée · +$xp XP')),
-    );
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      Navigator.of(context).pushNamed('/rewards');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Quête validée · +${rewards.experience} XP · +${rewards.gold} or'
+            '${rewards.hasBonus ? ' (bonus ×${rewards.multiplier.toStringAsFixed(1)})' : ''}',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur lors de la validation : $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isValidating = false);
+    }
   }
 
   @override
@@ -158,7 +178,10 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
           children: [
             Text(
               widget.quest.title,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
             Text(
@@ -187,7 +210,7 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
                 value: _mediaConsent,
                 onChanged: (v) => setState(() => _mediaConsent = v ?? false),
                 title: const Text(
-                  'J\'accepte que la preuve soit utilisée uniquement pour la validation puis supprimée.',
+                  "J'accepte que la preuve soit utilisée uniquement pour la validation puis supprimée.",
                 ),
                 controlAffinity: ListTileControlAffinity.leading,
               ),
@@ -267,7 +290,11 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
               ],
               if (_result != null) ...[
                 const SizedBox(height: 24),
-                _ResultBlock(result: _result!, onValidate: _completeAndNavigate),
+                _ResultBlock(
+                  result: _result!,
+                  isValidating: _isValidating,
+                  onValidate: _completeAndNavigate,
+                ),
               ],
             ] else ...[
               CheckboxListTile(
@@ -285,8 +312,14 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
               ),
               const SizedBox(height: 24),
               FilledButton(
-                onPressed: _consentGiven ? _completeAndNavigate : null,
-                child: const Text('Valider la quête'),
+                onPressed: (_consentGiven && !_isValidating) ? _completeAndNavigate : null,
+                child: _isValidating
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Valider la quête'),
               ),
             ],
           ],
@@ -298,7 +331,6 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
 
 class _TimerBlock extends StatelessWidget {
   const _TimerBlock({this.remaining});
-
   final Duration? remaining;
 
   @override
@@ -321,14 +353,18 @@ class _TimerBlock extends StatelessWidget {
         children: [
           Icon(
             isOver ? Icons.schedule : Icons.timer_outlined,
-            color: isOver ? Theme.of(context).colorScheme.onErrorContainer : Theme.of(context).colorScheme.onPrimaryContainer,
+            color: isOver
+                ? Theme.of(context).colorScheme.onErrorContainer
+                : Theme.of(context).colorScheme.onPrimaryContainer,
           ),
           const SizedBox(width: 12),
           Text(
             text,
             style: TextStyle(
               fontWeight: FontWeight.w600,
-              color: isOver ? Theme.of(context).colorScheme.onErrorContainer : Theme.of(context).colorScheme.onPrimaryContainer,
+              color: isOver
+                  ? Theme.of(context).colorScheme.onErrorContainer
+                  : Theme.of(context).colorScheme.onPrimaryContainer,
             ),
           ),
         ],
@@ -338,18 +374,26 @@ class _TimerBlock extends StatelessWidget {
 }
 
 class _ResultBlock extends StatelessWidget {
-  const _ResultBlock({required this.result, required this.onValidate});
+  const _ResultBlock({
+    required this.result,
+    required this.onValidate,
+    required this.isValidating,
+  });
 
   final ValidationResult result;
   final VoidCallback onValidate;
+  final bool isValidating;
 
   @override
   Widget build(BuildContext context) {
     final int score = result.score;
     final bool isValid = score >= 70;
     final bool isPartial = score >= 40 && score < 70;
-    final String label = isValid ? 'Validée' : isPartial ? 'Validation partielle' : 'Refusée';
-    final Color color = isValid ? AppColors.success : isPartial ? AppColors.warning : AppColors.error;
+    final String label =
+        isValid ? 'Validée' : isPartial ? 'Validation partielle' : 'Refusée';
+    final Color color =
+        isValid ? AppColors.success : isPartial ? AppColors.warning : AppColors.error;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -368,7 +412,8 @@ class _ResultBlock extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        Text('Score : ${result.score}/100 (seuil 70)', style: Theme.of(context).textTheme.bodyMedium),
+        Text('Score : ${result.score}/100 (seuil 70)',
+            style: Theme.of(context).textTheme.bodyMedium),
         const SizedBox(height: 8),
         Text(result.explanation, style: Theme.of(context).textTheme.bodySmall),
         if (isValid) ...[
@@ -376,8 +421,14 @@ class _ResultBlock extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: FilledButton(
-              onPressed: onValidate,
-              child: const Text('Valider et recevoir les récompenses'),
+              onPressed: isValidating ? null : onValidate,
+              child: isValidating
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Valider et recevoir les récompenses'),
             ),
           ),
         ],
