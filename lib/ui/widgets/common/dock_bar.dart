@@ -26,19 +26,23 @@ class DockBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
     return ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Container(
-          height: 64,
+          height: 64 + bottomInset,
           color: AppColors.backgroundDarkPanel.withValues(alpha: 0.85),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(_icons.length, (i) => _DockItem(
-              icon: _icons[i],
-              isActive: i == currentIndex,
-              onTap: () => onTap(i),
-            )),
+          child: Padding(
+            padding: EdgeInsets.only(bottom: bottomInset),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: List.generate(_icons.length, (i) => _DockItem(
+                icon: _icons[i],
+                isActive: i == currentIndex,
+                onTap: () => onTap(i),
+              )),
+            ),
           ),
         ),
       ),

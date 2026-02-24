@@ -1,13 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../data/models/quest_model.dart';
+import '../../../presentation/providers/auth_provider.dart';
 import '../../../presentation/providers/player_provider.dart';
 import '../../../presentation/providers/quest_provider.dart';
 import '../../theme/app_colors.dart';
 
 /// Page d'accueil : sanctuaire du joueur avec stats, streak et quêtes du jour.
-class SanctuaryPage extends StatelessWidget {
+class SanctuaryPage extends StatefulWidget {
   const SanctuaryPage({super.key});
+
+  @override
+  State<SanctuaryPage> createState() => _SanctuaryPageState();
+}
+
+class _SanctuaryPageState extends State<SanctuaryPage> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  Future<void> _load() async {
+    final userId = context.read<AuthProvider>().userId;
+    if (userId == null) return;
+    await context.read<QuestProvider>().loadQuests(userId);
+    await context.read<PlayerProvider>().loadPlayerStats(userId);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,103 +40,103 @@ class SanctuaryPage extends StatelessWidget {
               return const Center(child: CircularProgressIndicator());
             }
 
+            final now = DateTime.now();
+            final today = DateTime(now.year, now.month, now.day);
             final todayQuests = quests.activeQuests.where((q) {
-              final now = DateTime.now();
-              final today = DateTime(now.year, now.month, now.day);
               final created = DateTime(q.createdAt.year, q.createdAt.month, q.createdAt.day);
-              return created == today ||
-                  q.frequency.name == 'daily';
+              return created == today || q.frequency == QuestFrequency.daily;
             }).take(3).toList();
 
             final xpForNext = player.experienceForLevel(stats.level);
 
-            return CustomScrollView(
-              slivers: [
-                SliverAppBar(
-                  backgroundColor: AppColors.backgroundNightBlue,
-                  floating: true,
-                  title: const Text(
-                    'Sanctuaire',
-                    style: TextStyle(
-                      color: AppColors.primaryTurquoise,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  actions: [
-                    Padding(
-                      padding: const EdgeInsets.only(right: 16),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.local_fire_department,
-                              color: Colors.orange, size: 20),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${stats.streak}',
-                            style: const TextStyle(
-                              color: Colors.orange,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
+            return RefreshIndicator(
+              onRefresh: _load,
+              child: CustomScrollView(
+                slivers: [
+                  SliverAppBar(
+                    backgroundColor: AppColors.backgroundNightBlue,
+                    floating: true,
+                    title: const Text(
+                      'Sanctuaire',
+                      style: TextStyle(
+                        color: AppColors.primaryTurquoise,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ],
-                ),
-                SliverPadding(
-                  padding: const EdgeInsets.all(16),
-                  sliver: SliverList(
-                    delegate: SliverChildListDelegate([
-                      // Carte stats joueur
-                      _StatsCard(stats: stats, xpForNext: xpForNext),
-                      const SizedBox(height: 16),
-                      // Moral bar
-                      _MoralBar(moral: stats.moral),
-                      const SizedBox(height: 24),
-                      // Quêtes du jour
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Aujourd\'hui',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
-                                    color: AppColors.textPrimary,
-                                    fontWeight: FontWeight.bold),
-                          ),
-                          TextButton(
-                            onPressed: () {},
-                            child: const Text(
-                              'Voir tout',
-                              style:
-                                  TextStyle(color: AppColors.primaryTurquoise),
+                    actions: [
+                      Padding(
+                        padding: const EdgeInsets.only(right: 16),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.local_fire_department,
+                                color: Colors.orange, size: 20),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${stats.streak}',
+                              style: const TextStyle(
+                                color: Colors.orange,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 8),
-                      if (todayQuests.isEmpty)
-                        Container(
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            color: AppColors.backgroundDarkPanel,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Center(
-                            child: Text(
-                              'Aucune quête pour aujourd\'hui.\nCréez votre première quête !',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: AppColors.textMuted),
-                            ),
-                          ),
-                        )
-                      else
-                        ...todayQuests.map((q) => _QuestTile(quest: q)),
-                    ]),
+                    ],
                   ),
-                ),
-              ],
+                  SliverPadding(
+                    padding: const EdgeInsets.all(16),
+                    sliver: SliverList(
+                      delegate: SliverChildListDelegate([
+                        _StatsCard(stats: stats, xpForNext: xpForNext),
+                        const SizedBox(height: 16),
+                        _MoralBar(moral: stats.moral),
+                        const SizedBox(height: 24),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              "Aujourd'hui",
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
+                                      color: AppColors.textPrimary,
+                                      fontWeight: FontWeight.bold),
+                            ),
+                            TextButton(
+                              onPressed: () {},
+                              child: const Text(
+                                'Voir tout',
+                                style: TextStyle(color: AppColors.primaryTurquoise),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        if (quests.isLoading)
+                          const Center(child: CircularProgressIndicator())
+                        else if (todayQuests.isEmpty)
+                          Container(
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              color: AppColors.backgroundDarkPanel,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Center(
+                              child: Text(
+                                "Aucune quête pour aujourd'hui.\nCréez votre première quête !",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: AppColors.textMuted),
+                              ),
+                            ),
+                          )
+                        else
+                          ...todayQuests.map((q) => _QuestTile(quest: q)),
+                      ]),
+                    ),
+                  ),
+                ],
+              ),
             );
           },
         ),
@@ -146,7 +165,8 @@ class _StatsCard extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.primaryTurquoise.withValues(alpha: 0.3)),
+        border: Border.all(
+            color: AppColors.primaryTurquoise.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -179,7 +199,8 @@ class _StatsCard extends StatelessWidget {
                       style: const TextStyle(
                           color: AppColors.gold, fontWeight: FontWeight.bold)),
                   const SizedBox(width: 12),
-                  const Icon(Icons.diamond, color: AppColors.secondaryViolet, size: 18),
+                  const Icon(Icons.diamond,
+                      color: AppColors.secondaryViolet, size: 18),
                   const SizedBox(width: 4),
                   Text('${stats.crystals}',
                       style: const TextStyle(
@@ -195,8 +216,8 @@ class _StatsCard extends StatelessWidget {
             child: LinearProgressIndicator(
               value: xpProgress,
               backgroundColor: AppColors.backgroundNightBlue,
-              valueColor:
-                  const AlwaysStoppedAnimation<Color>(AppColors.primaryTurquoise),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                  AppColors.primaryTurquoise),
               minHeight: 8,
             ),
           ),
@@ -292,8 +313,7 @@ class _QuestTile extends StatelessWidget {
           ),
           Text(
             '${quest.estimatedDurationMinutes} min',
-            style: const TextStyle(
-                color: AppColors.textMuted, fontSize: 12),
+            style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
           ),
         ],
       ),

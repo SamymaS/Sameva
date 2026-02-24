@@ -115,6 +115,7 @@ class _QuestsListPageState extends State<QuestsListPage> {
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'quests_list_fab',
         onPressed: () async {
           await Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const CreateQuestChoicePage()),

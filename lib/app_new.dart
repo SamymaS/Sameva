@@ -20,7 +20,7 @@ import 'ui/widgets/common/dock_bar.dart';
 import 'ui/theme/app_theme.dart';
 import 'data/models/quest_model.dart';
 
-/// Sameva — navigation 8 pages avec DockBar flottant.
+/// Sameva — navigation 8 pages avec DockBar flottant + swipe horizontal.
 class SamevaApp extends StatefulWidget {
   const SamevaApp({super.key});
 
@@ -30,8 +30,12 @@ class SamevaApp extends StatefulWidget {
 
 class _SamevaAppState extends State<SamevaApp> {
   int _currentIndex = 0;
+  late final PageController _pageController;
 
-  static const _pages = [
+  // Pages enveloppées dans _KeepAlivePage pour préserver leur état pendant le swipe
+  late final List<Widget> _pages;
+
+  static const _rawPages = <Widget>[
     SanctuaryPage(),
     QuestsListPage(),
     InventoryPage(),
@@ -41,6 +45,28 @@ class _SamevaAppState extends State<SamevaApp> {
     MinigamesPage(),
     ProfilePage(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(initialPage: _currentIndex);
+    _pages = _rawPages.map((p) => _KeepAlivePage(child: p)).toList();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _goToPage(int index) {
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+    setState(() => _currentIndex = index);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -75,7 +101,7 @@ class _SamevaAppState extends State<SamevaApp> {
               if (!authProvider.isAuthenticated) {
                 return const LoginPage();
               }
-              return _buildHome();
+              return _buildHome(context);
             },
           ),
         );
@@ -83,33 +109,54 @@ class _SamevaAppState extends State<SamevaApp> {
     );
   }
 
-  Widget _buildHome() {
+  Widget _buildHome(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
     return Scaffold(
       body: Stack(
         children: [
+          // Padding pour que le contenu ne passe pas derrière la DockBar
           Padding(
-            padding: const EdgeInsets.only(bottom: 64),
-            child: IndexedStack(
-              index: _currentIndex,
+            padding: EdgeInsets.only(bottom: 64 + bottomInset),
+            child: PageView(
+              controller: _pageController,
+              onPageChanged: (i) => setState(() => _currentIndex = i),
               children: _pages,
             ),
           ),
+          // DockBar flottante
           Positioned(
             bottom: 0,
             left: 0,
             right: 0,
             child: DockBar(
               currentIndex: _currentIndex,
-              onTap: (i) => setState(() => _currentIndex = i),
+              onTap: _goToPage,
             ),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.of(context).pushNamed('/create-quest'),
-        backgroundColor: const Color(0xFF4FD1C5),
-        child: const Icon(Icons.add),
-      ),
     );
+  }
+}
+
+/// Préserve l'état d'une page même quand elle sort du viewport du PageView.
+class _KeepAlivePage extends StatefulWidget {
+  final Widget child;
+
+  const _KeepAlivePage({required this.child});
+
+  @override
+  State<_KeepAlivePage> createState() => _KeepAlivePageState();
+}
+
+class _KeepAlivePageState extends State<_KeepAlivePage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }

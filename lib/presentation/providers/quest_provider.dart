@@ -45,6 +45,9 @@ class QuestProvider with ChangeNotifier {
       _quests = (response as List)
           .map((map) => Quest.fromSupabaseMap(Map<String, dynamic>.from(map)))
           .toList();
+
+      // Reset automatique des quêtes daily complétées avant aujourd'hui
+      await _resetDailyQuestsIfNeeded();
     } catch (e) {
       debugPrint('QuestProvider: erreur chargement: $e');
       _error = 'Impossible de charger les quêtes. Vérifiez votre connexion.';
@@ -52,6 +55,31 @@ class QuestProvider with ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  /// Remet à "active" les quêtes daily complétées avant aujourd'hui.
+  Future<void> _resetDailyQuestsIfNeeded() async {
+    final todayStart = DateTime.now();
+    final today = DateTime(todayStart.year, todayStart.month, todayStart.day);
+
+    final toReset = _quests.where((q) =>
+        q.frequency == QuestFrequency.daily &&
+        q.status == QuestStatus.completed &&
+        q.completedAt != null &&
+        q.completedAt!.isBefore(today)).toList();
+
+    for (final quest in toReset) {
+      try {
+        final reset = quest.copyWith(
+          status: QuestStatus.active,
+          completedAt: null,
+          updatedAt: DateTime.now(),
+        );
+        await updateQuest(reset);
+      } catch (e) {
+        debugPrint('QuestProvider: erreur reset daily ${quest.id}: $e');
+      }
     }
   }
 
