@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
 import '../../../data/models/item_model.dart';
 import '../../../domain/services/item_factory.dart';
 import '../../../presentation/providers/auth_provider.dart';
@@ -180,7 +181,7 @@ class _ShopItemTile extends StatelessWidget {
     final auth = context.read<AuthProvider>();
     final userId = auth.userId ?? '';
     player.addGold(userId, -item.goldValue);
-    final newItem = item.copyWith(id: UniqueKey().toString());
+    final newItem = item.copyWith(id: const Uuid().v4());
     inventory.addItem(newItem);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${item.name} acheté !')),

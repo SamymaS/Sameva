@@ -155,6 +155,67 @@ class ItemFactory {
       'goldValue': 120,
       'stackable': true,
     },
+    // --- COSMÉTIQUES ---
+    {
+      'name': 'Chapeau Mystique',
+      'description': 'Un chapeau conique aux reflets violets, symbole de sagesse.',
+      'type': ItemType.cosmetic,
+      'rarity': QuestRarity.rare,
+      'iconCodePoint': Icons.auto_awesome.codePoint,
+      'stats': {'colorValue': 0xFF805AD5, 'styleIndex': 1},
+      'goldValue': 200,
+      'cosmeticSlot': 'hat',
+    },
+    {
+      'name': 'Couronne d\'Or',
+      'description': 'Une couronne dorée digne des grands champions.',
+      'type': ItemType.cosmetic,
+      'rarity': QuestRarity.legendary,
+      'iconCodePoint': Icons.workspace_premium.codePoint,
+      'stats': {'colorValue': 0xFFF6E05E, 'styleIndex': 2},
+      'goldValue': 500,
+      'cosmeticSlot': 'hat',
+    },
+    {
+      'name': 'Robe d\'Azur',
+      'description': 'Une robe turquoise aux reflets chatoyants.',
+      'type': ItemType.cosmetic,
+      'rarity': QuestRarity.uncommon,
+      'iconCodePoint': Icons.dry_cleaning.codePoint,
+      'stats': {'colorValue': 0xFF4FD1C5},
+      'goldValue': 150,
+      'cosmeticSlot': 'outfit',
+    },
+    {
+      'name': 'Cape Violette',
+      'description': 'Une cape de velours violet à l\'allure mystérieuse.',
+      'type': ItemType.cosmetic,
+      'rarity': QuestRarity.rare,
+      'iconCodePoint': Icons.style.codePoint,
+      'stats': {'colorValue': 0xFF805AD5},
+      'goldValue': 250,
+      'cosmeticSlot': 'outfit',
+    },
+    {
+      'name': 'Aura Dorée',
+      'description': 'Une aura rayonnante qui enveloppe le héros d\'or.',
+      'type': ItemType.cosmetic,
+      'rarity': QuestRarity.epic,
+      'iconCodePoint': Icons.wb_sunny.codePoint,
+      'stats': {'colorValue': 0xFFF6E05E},
+      'goldValue': 350,
+      'cosmeticSlot': 'aura',
+    },
+    {
+      'name': 'Aura de Cristal',
+      'description': 'Une aura cristalline aux teintes turquoise légendaires.',
+      'type': ItemType.cosmetic,
+      'rarity': QuestRarity.legendary,
+      'iconCodePoint': Icons.flare.codePoint,
+      'stats': {'colorValue': 0xFF4FD1C5},
+      'goldValue': 600,
+      'cosmeticSlot': 'aura',
+    },
     // --- MATÉRIAUX ---
     {
       'name': 'Fragment de Pierre',
@@ -219,14 +280,14 @@ class ItemFactory {
       quantity: 1,
       stackable: template['stackable'] as bool? ?? false,
       goldValue: template['goldValue'] as int,
+      cosmeticSlot: template['cosmeticSlot'] as String?,
     );
   }
 
   /// Retourne le catalogue achetable en boutique.
   static List<Item> getMarketCatalog() {
     return _catalog
-        .where((c) =>
-            c['type'] != ItemType.material)
+        .where((c) => c['type'] != ItemType.material)
         .map((c) => Item(
               id: 'market_${c['name']}',
               name: c['name'] as String,
@@ -238,6 +299,7 @@ class ItemFactory {
               quantity: 1,
               stackable: c['stackable'] as bool? ?? false,
               goldValue: c['goldValue'] as int,
+              cosmeticSlot: c['cosmeticSlot'] as String?,
             ))
         .toList();
   }

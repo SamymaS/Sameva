@@ -6,7 +6,7 @@ import '../../../presentation/providers/inventory_provider.dart';
 import '../../../presentation/providers/player_provider.dart';
 import '../../theme/app_colors.dart';
 
-/// Page avatar : personnage avec slots d'équipement et stats.
+/// Page avatar : personnage avec slots d'équipement, cosmétiques et stats.
 class AvatarPage extends StatelessWidget {
   const AvatarPage({super.key});
 
@@ -29,6 +29,22 @@ class AvatarPage extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
 
+          // Récupérer les cosmétiques
+          final hatItem = equipment.getCosmeticSlot('hat');
+          final outfitItem = equipment.getCosmeticSlot('outfit');
+          final auraItem = equipment.getCosmeticSlot('aura');
+
+          final bodyColor = outfitItem != null
+              ? Color(outfitItem.stats['colorValue'] ?? 0xFF4FD1C5)
+              : AppColors.primaryTurquoise;
+          final hatStyle = hatItem?.stats['styleIndex'] ?? 0;
+          final hatColor = hatItem != null
+              ? Color(hatItem.stats['colorValue'] ?? 0xFF805AD5)
+              : AppColors.secondaryViolet;
+          final auraColor = auraItem != null
+              ? Color(auraItem.stats['colorValue'] ?? 0xFFF6E05E)
+              : null;
+
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -40,9 +56,14 @@ class AvatarPage extends StatelessWidget {
                     alignment: Alignment.center,
                     children: [
                       // Personnage dessiné
-                      const CustomPaint(
-                        size: Size(100, 180),
-                        painter: _CharacterPainter(),
+                      CustomPaint(
+                        size: const Size(100, 180),
+                        painter: _CharacterPainter(
+                          bodyColor: bodyColor,
+                          hatStyle: hatStyle,
+                          hatColor: hatColor,
+                          auraColor: auraColor,
+                        ),
                       ),
                       // Helmet (haut)
                       Positioned(
@@ -95,6 +116,9 @@ class AvatarPage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
+                // Section cosmétiques
+                _CosmeticsSection(equipment: equipment),
+                const SizedBox(height: 16),
                 // Panel stats
                 _StatsPanel(stats: stats, equipment: equipment),
               ],
@@ -107,20 +131,43 @@ class AvatarPage extends StatelessWidget {
 }
 
 class _CharacterPainter extends CustomPainter {
-  const _CharacterPainter();
+  final Color bodyColor;
+  final int hatStyle;
+  final Color hatColor;
+  final Color? auraColor;
+
+  _CharacterPainter({
+    required this.bodyColor,
+    required this.hatStyle,
+    required this.hatColor,
+    this.auraColor,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+
+    // Aura (fond, avant tout)
+    if (auraColor != null) {
+      final auraPaint = Paint()
+        ..color = auraColor!.withValues(alpha: 0.25)
+        ..style = PaintingStyle.fill;
+      final auraStroke = Paint()
+        ..color = auraColor!.withValues(alpha: 0.5)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3;
+      canvas.drawCircle(Offset(cx, 75), 80, auraPaint);
+      canvas.drawCircle(Offset(cx, 75), 80, auraStroke);
+    }
+
     final paint = Paint()
-      ..color = AppColors.primaryTurquoise.withValues(alpha: 0.8)
+      ..color = bodyColor.withValues(alpha: 0.8)
       ..style = PaintingStyle.fill;
 
     final strokePaint = Paint()
-      ..color = AppColors.primaryTurquoise
+      ..color = bodyColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
-
-    final cx = size.width / 2;
 
     // Tête
     canvas.drawCircle(Offset(cx, 20), 18, paint);
@@ -140,10 +187,209 @@ class _CharacterPainter extends CustomPainter {
     canvas.drawLine(Offset(cx - 10, 104), Offset(cx - 10, 140), strokePaint);
     // Jambe droite
     canvas.drawLine(Offset(cx + 10, 104), Offset(cx + 10, 140), strokePaint);
+
+    // Chapeau
+    if (hatStyle == 1) {
+      // Chapeau conique (arc en haut de la tête)
+      final hatPaint = Paint()
+        ..color = hatColor.withValues(alpha: 0.9)
+        ..style = PaintingStyle.fill;
+      final hatStroke = Paint()
+        ..color = hatColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2;
+      final hatPath = Path()
+        ..moveTo(cx - 20, 8)
+        ..lineTo(cx, -22)
+        ..lineTo(cx + 20, 8)
+        ..close();
+      canvas.drawPath(hatPath, hatPaint);
+      canvas.drawPath(hatPath, hatStroke);
+    } else if (hatStyle == 2) {
+      // Couronne (3 pointes)
+      final hatPaint = Paint()
+        ..color = hatColor.withValues(alpha: 0.9)
+        ..style = PaintingStyle.fill;
+      final hatStroke = Paint()
+        ..color = hatColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2;
+      final crownPath = Path()
+        ..moveTo(cx - 20, 5)
+        ..lineTo(cx - 20, -8)
+        ..lineTo(cx - 10, 0)
+        ..lineTo(cx, -14)
+        ..lineTo(cx + 10, 0)
+        ..lineTo(cx + 20, -8)
+        ..lineTo(cx + 20, 5)
+        ..close();
+      canvas.drawPath(crownPath, hatPaint);
+      canvas.drawPath(crownPath, hatStroke);
+    }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _CharacterPainter old) =>
+      old.bodyColor != bodyColor ||
+      old.hatStyle != hatStyle ||
+      old.hatColor != hatColor ||
+      old.auraColor != auraColor;
+}
+
+class _CosmeticsSection extends StatelessWidget {
+  final EquipmentProvider equipment;
+
+  const _CosmeticsSection({required this.equipment});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundDarkPanel,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+            color: AppColors.secondaryViolet.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Apparence',
+            style: TextStyle(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.bold,
+                fontSize: 16),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _CosmeticSlot(
+                slot: 'hat',
+                label: 'Chapeau',
+                icon: Icons.auto_awesome,
+                equipment: equipment,
+              ),
+              _CosmeticSlot(
+                slot: 'outfit',
+                label: 'Tenue',
+                icon: Icons.dry_cleaning,
+                equipment: equipment,
+              ),
+              _CosmeticSlot(
+                slot: 'aura',
+                label: 'Aura',
+                icon: Icons.flare,
+                equipment: equipment,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CosmeticSlot extends StatelessWidget {
+  final String slot;
+  final String label;
+  final IconData icon;
+  final EquipmentProvider equipment;
+
+  const _CosmeticSlot({
+    required this.slot,
+    required this.label,
+    required this.icon,
+    required this.equipment,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final item = equipment.getCosmeticSlot(slot);
+    final color = item != null
+        ? Color(item.stats['colorValue'] ?? 0xFF805AD5)
+        : Colors.grey;
+
+    return GestureDetector(
+      onTap: item != null
+          ? () => _showUnequipDialog(context, item, slot)
+          : () => _showHint(context),
+      child: Column(
+        children: [
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: item != null ? 0.2 : 0.05),
+              border: Border.all(color: color, width: 1.5),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: item != null
+                ? Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(item.getIcon(), color: color, size: 24),
+                    ],
+                  )
+                : Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(icon,
+                          color: Colors.grey.withValues(alpha: 0.5), size: 20),
+                    ],
+                  ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            item?.name ?? label,
+            style: TextStyle(
+              color: item != null ? color : Colors.grey,
+              fontSize: 9,
+            ),
+            textAlign: TextAlign.center,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showUnequipDialog(
+      BuildContext context, Item item, String slot) {
+    final inventory = context.read<InventoryProvider>();
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppColors.backgroundDarkPanel,
+        title: Text(item.name,
+            style: const TextStyle(color: AppColors.textPrimary)),
+        content: const Text('Retirer ce cosmétique ?',
+            style: TextStyle(color: AppColors.textSecondary)),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Annuler')),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: AppColors.secondaryViolet),
+            onPressed: () {
+              equipment.unequipCosmetic(slot, inventory);
+              Navigator.pop(context);
+            },
+            child: const Text('Retirer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showHint(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text('Portez un cosmétique depuis votre inventaire.'),
+      duration: Duration(seconds: 2),
+    ));
+  }
 }
 
 class _EquipSlot extends StatelessWidget {
@@ -186,7 +432,8 @@ class _EquipSlot extends StatelessWidget {
             : Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(_slotIcon(slot), color: Colors.grey.withValues(alpha: 0.5), size: 18),
+                  Icon(_slotIcon(slot),
+                      color: Colors.grey.withValues(alpha: 0.5), size: 18),
                   Text(label,
                       style: const TextStyle(
                           color: Colors.grey, fontSize: 8)),
@@ -277,8 +524,8 @@ class _StatsPanel extends StatelessWidget {
               '${stats.healthPoints} / ${stats.maxHealthPoints}',
               hpBonus > 0 ? '+$hpBonus' : null,
               AppColors.primaryTurquoise),
-          _StatRow('XP bonus', '${xpBonus}%', null, null),
-          _StatRow('Or bonus', '${goldBonus}%', null, null),
+          _StatRow('XP bonus', '$xpBonus%', null, null),
+          _StatRow('Or bonus', '$goldBonus%', null, null),
           _StatRow('Moral', '${(stats.moral * 100).round()}%',
               moralBonus > 0 ? '+$moralBonus' : null,
               AppColors.primaryTurquoise),

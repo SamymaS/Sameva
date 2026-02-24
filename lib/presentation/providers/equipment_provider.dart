@@ -6,11 +6,15 @@ import 'inventory_provider.dart';
 class EquipmentProvider with ChangeNotifier {
   Box get _box => Hive.box('equipment');
 
-  Map<EquipmentSlot, Item?> _equipped = {
+  final Map<EquipmentSlot, Item?> _equipped = {
     for (final slot in EquipmentSlot.values) slot: null,
   };
 
+  final Map<String, Item?> _cosmetics = {'hat': null, 'outfit': null, 'aura': null};
+
   Map<EquipmentSlot, Item?> get equipped => Map.unmodifiable(_equipped);
+
+  Item? getCosmeticSlot(String slot) => _cosmetics[slot];
 
   Item? getSlot(EquipmentSlot slot) => _equipped[slot];
 
@@ -45,6 +49,19 @@ class EquipmentProvider with ChangeNotifier {
           }
         }
       }
+      final rawCosmetics = _box.get('cosmetics');
+      if (rawCosmetics != null) {
+        final cosMap = Map<String, dynamic>.from(rawCosmetics as Map);
+        for (final slot in ['hat', 'outfit', 'aura']) {
+          final itemData = cosMap[slot];
+          if (itemData != null) {
+            _cosmetics[slot] =
+                Item.fromJson(Map<String, dynamic>.from(itemData as Map));
+          } else {
+            _cosmetics[slot] = null;
+          }
+        }
+      }
       notifyListeners();
     } catch (e) {
       debugPrint('EquipmentProvider: erreur chargement: $e');
@@ -75,6 +92,28 @@ class EquipmentProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  /// Équipe un cosmétique dans [slot]. Remet l'ancien dans l'inventaire.
+  void equipCosmetic(Item item, String slot, InventoryProvider inventory) {
+    final current = _cosmetics[slot];
+    if (current != null) {
+      inventory.addItem(current);
+    }
+    inventory.removeItem(item.id);
+    _cosmetics[slot] = item;
+    _save();
+    notifyListeners();
+  }
+
+  /// Déséquipe le cosmétique [slot] et le remet dans l'inventaire.
+  void unequipCosmetic(String slot, InventoryProvider inventory) {
+    final item = _cosmetics[slot];
+    if (item == null) return;
+    inventory.addItem(item);
+    _cosmetics[slot] = null;
+    _save();
+    notifyListeners();
+  }
+
   void _save() {
     try {
       final map = <String, dynamic>{};
@@ -84,6 +123,14 @@ class EquipmentProvider with ChangeNotifier {
         }
       }
       _box.put('equipment', map);
+
+      final cosMap = <String, dynamic>{};
+      for (final entry in _cosmetics.entries) {
+        if (entry.value != null) {
+          cosMap[entry.key] = entry.value!.toJson();
+        }
+      }
+      _box.put('cosmetics', cosMap);
     } catch (e) {
       debugPrint('EquipmentProvider: erreur sauvegarde: $e');
     }
