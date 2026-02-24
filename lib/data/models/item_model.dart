@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'quest_model.dart';
 
-enum ItemType { weapon, armor, helmet, boots, ring, potion, material }
+enum ItemType { weapon, armor, helmet, boots, ring, potion, material, cosmetic }
 
 enum EquipmentSlot { weapon, armor, helmet, boots, ring }
 
@@ -12,10 +12,11 @@ class Item {
   final ItemType type;
   final QuestRarity rarity;
   final int iconCodePoint;
-  final Map<String, int> stats; // xpBonus, goldBonus, hpBonus, moralBonus
+  final Map<String, int> stats; // xpBonus, goldBonus, hpBonus, moralBonus, colorValue, styleIndex
   final int quantity;
   final bool stackable;
   final int goldValue;
+  final String? cosmeticSlot; // 'hat' | 'outfit' | 'aura'
 
   const Item({
     required this.id,
@@ -28,6 +29,7 @@ class Item {
     this.quantity = 1,
     this.stackable = false,
     required this.goldValue,
+    this.cosmeticSlot,
   });
 
   IconData getIcon() => IconData(iconCodePoint, fontFamily: 'MaterialIcons');
@@ -40,9 +42,12 @@ class Item {
       ItemType.helmet => EquipmentSlot.helmet,
       ItemType.boots => EquipmentSlot.boots,
       ItemType.ring => EquipmentSlot.ring,
-      ItemType.potion || ItemType.material => null,
+      ItemType.potion || ItemType.material || ItemType.cosmetic => null,
     };
   }
+
+  /// Retourne le slot cosmétique pour cet item, null si non cosmétique.
+  static String? cosmeticSlotForItem(Item item) => item.cosmeticSlot;
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -55,6 +60,7 @@ class Item {
         'quantity': quantity,
         'stackable': stackable,
         'goldValue': goldValue,
+        if (cosmeticSlot != null) 'cosmeticSlot': cosmeticSlot,
       };
 
   factory Item.fromJson(Map<String, dynamic> json) => Item(
@@ -70,6 +76,7 @@ class Item {
         quantity: json['quantity'] as int? ?? 1,
         stackable: json['stackable'] as bool? ?? false,
         goldValue: json['goldValue'] as int? ?? 0,
+        cosmeticSlot: json['cosmeticSlot'] as String?,
       );
 
   Item copyWith({
@@ -83,6 +90,7 @@ class Item {
     int? quantity,
     bool? stackable,
     int? goldValue,
+    String? cosmeticSlot,
   }) =>
       Item(
         id: id ?? this.id,
@@ -95,5 +103,6 @@ class Item {
         quantity: quantity ?? this.quantity,
         stackable: stackable ?? this.stackable,
         goldValue: goldValue ?? this.goldValue,
+        cosmeticSlot: cosmeticSlot ?? this.cosmeticSlot,
       );
 }

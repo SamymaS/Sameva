@@ -1,6 +1,5 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import '../../../presentation/providers/auth_provider.dart';
 import '../../../presentation/providers/player_provider.dart';
@@ -127,9 +126,6 @@ class _MemoryGamePageState extends State<MemoryGamePage>
                 ? 30
                 : 10;
 
-    Hive.box('settings')
-        .put('lastMemoryGameAt', DateTime.now().toIso8601String());
-
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -226,6 +222,7 @@ class _MemoryGamePageState extends State<MemoryGamePage>
                   crossAxisCount: 4,
                   mainAxisSpacing: 10,
                   crossAxisSpacing: 10,
+                  childAspectRatio: 0.9,
                 ),
                 itemCount: 16,
                 itemBuilder: (_, i) => _CardTile(
@@ -298,18 +295,28 @@ class _CardTile extends StatelessWidget {
                   ? Transform(
                       alignment: Alignment.center,
                       transform: Matrix4.rotationY(pi),
-                      child: Icon(
-                        iconData,
-                        color: isMatched
-                            ? AppColors.primaryTurquoise
-                            : AppColors.secondaryVioletGlow,
-                        size: 32,
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Icon(
+                            iconData,
+                            color: isMatched
+                                ? AppColors.primaryTurquoise
+                                : AppColors.secondaryVioletGlow,
+                            size: 24,
+                          ),
+                        ),
                       ),
                     )
-                  : const Icon(
-                      Icons.auto_fix_high,
-                      color: AppColors.inputBorder,
-                      size: 28,
+                  : const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(4),
+                        child: Icon(
+                          Icons.auto_fix_high,
+                          color: AppColors.inputBorder,
+                          size: 22,
+                        ),
+                      ),
                     ),
             ),
           ),

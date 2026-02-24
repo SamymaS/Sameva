@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../data/models/item_model.dart';
 import '../../../data/models/quest_model.dart';
+import '../../../presentation/providers/auth_provider.dart';
 import '../../../presentation/providers/equipment_provider.dart';
 import '../../../presentation/providers/inventory_provider.dart';
 import '../../../presentation/providers/player_provider.dart';
@@ -165,8 +166,9 @@ class _ItemBottomSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final slot = Item.slotForItem(item);
+    final cosSlot = Item.cosmeticSlotForItem(item);
     final player = context.read<PlayerProvider>();
-    final userId = player.stats?.level != null ? 'user' : '';
+    final userId = context.read<AuthProvider>().userId ?? '';
 
     return Padding(
       padding: const EdgeInsets.all(24),
@@ -254,6 +256,32 @@ class _ItemBottomSheet extends StatelessWidget {
                     label: const Text('Déséquiper'),
                   ),
                 ),
+              if (item.type == ItemType.cosmetic && cosSlot != null) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: equipment.getCosmeticSlot(cosSlot)?.id == item.id
+                      ? OutlinedButton.icon(
+                          onPressed: () {
+                            equipment.unequipCosmetic(cosSlot, inventory);
+                            Navigator.pop(context);
+                          },
+                          icon: const Icon(Icons.remove_circle_outline,
+                              size: 16),
+                          label: const Text('Retirer'),
+                        )
+                      : FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                              backgroundColor: AppColors.secondaryViolet),
+                          onPressed: () {
+                            equipment.equipCosmetic(item, cosSlot, inventory);
+                            Navigator.pop(context);
+                          },
+                          icon: const Icon(Icons.face_retouching_natural,
+                              size: 16),
+                          label: const Text('Porter'),
+                        ),
+                ),
+              ],
               if (item.type == ItemType.potion) ...[
                 if (slot != null) const SizedBox(width: 8),
                 Expanded(
@@ -261,6 +289,9 @@ class _ItemBottomSheet extends StatelessWidget {
                     style: FilledButton.styleFrom(
                         backgroundColor: AppColors.success),
                     onPressed: () {
+                      if (player.stats != null) {
+                        player.heal(userId, item.stats['hpBonus'] ?? 20);
+                      }
                       inventory.removeItem(item.id);
                       Navigator.pop(context);
                     },

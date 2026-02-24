@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import '../../theme/app_colors.dart';
+import 'anagram_game_page.dart';
 import 'memory_game_page.dart';
+import 'numbers_game_page.dart';
+import 'reaction_game_page.dart';
+import 'sequence_game_page.dart';
 
 /// Hub des mini-jeux.
 class MinigamesPage extends StatelessWidget {
@@ -22,42 +25,83 @@ class MinigamesPage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _MemoryGameTile(),
+          _GameTile(
+            icon: Icons.extension_outlined,
+            title: 'Mémoire de sorts',
+            reward: '10–100 or selon votre temps',
+            color: AppColors.secondaryViolet,
+            onPlay: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const MemoryGamePage()),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _GameTile(
+            icon: Icons.flash_on,
+            title: 'Réaction rapide',
+            reward: 'Jusqu\'à 100 or (10 or / cible)',
+            color: AppColors.primaryTurquoise,
+            onPlay: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const ReactionGamePage()),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _GameTile(
+            icon: Icons.calculate_outlined,
+            title: 'Suite de nombres',
+            reward: 'Jusqu\'à 100 or (20 or / réponse)',
+            color: AppColors.gold,
+            onPlay: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const NumbersGamePage()),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _GameTile(
+            icon: Icons.touch_app,
+            title: 'Tap Séquence',
+            reward: 'Niveau × 15 or (max 100)',
+            color: const Color(0xFF48BB78),
+            onPlay: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const SequenceGamePage()),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _GameTile(
+            icon: Icons.sort_by_alpha,
+            title: 'Anagramme',
+            reward: 'Jusqu\'à 90 or (30 or / mot)',
+            color: const Color(0xFFE53E3E),
+            onPlay: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const AnagramGamePage()),
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _MemoryGameTile extends StatelessWidget {
-  bool get _canPlay {
-    final box = Hive.box('settings');
-    final lastStr = box.get('lastMemoryGameAt') as String?;
-    if (lastStr == null) return true;
-    final last = DateTime.parse(lastStr);
-    return DateTime.now().difference(last).inHours >= 24;
-  }
+class _GameTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String reward;
+  final Color color;
+  final VoidCallback onPlay;
 
-  Duration get _cooldownRemaining {
-    final box = Hive.box('settings');
-    final lastStr = box.get('lastMemoryGameAt') as String?;
-    if (lastStr == null) return Duration.zero;
-    final last = DateTime.parse(lastStr);
-    final elapsed = DateTime.now().difference(last);
-    final remaining = const Duration(hours: 24) - elapsed;
-    return remaining.isNegative ? Duration.zero : remaining;
-  }
+  const _GameTile({
+    required this.icon,
+    required this.title,
+    required this.reward,
+    required this.color,
+    required this.onPlay,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final canPlay = _canPlay;
     return Container(
       decoration: BoxDecoration(
         color: AppColors.backgroundDarkPanel,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.secondaryViolet.withValues(alpha: 0.4),
-        ),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.all(16),
@@ -65,15 +109,14 @@ class _MemoryGameTile extends StatelessWidget {
           width: 48,
           height: 48,
           decoration: BoxDecoration(
-            color: AppColors.secondaryViolet.withValues(alpha: 0.2),
+            color: color.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: const Icon(Icons.extension_outlined,
-              color: AppColors.secondaryVioletGlow, size: 28),
+          child: Icon(icon, color: color, size: 28),
         ),
-        title: const Text(
-          'Mémoire de sorts',
-          style: TextStyle(
+        title: Text(
+          title,
+          style: const TextStyle(
               color: AppColors.textPrimary, fontWeight: FontWeight.bold),
         ),
         subtitle: Column(
@@ -85,50 +128,28 @@ class _MemoryGameTile extends StatelessWidget {
                 const Icon(Icons.monetization_on,
                     color: AppColors.gold, size: 14),
                 const SizedBox(width: 4),
-                const Text(
-                  '10–100 or selon votre temps',
-                  style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                Expanded(
+                  child: Text(
+                    reward,
+                    style: const TextStyle(
+                        color: AppColors.textMuted, fontSize: 12),
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 4),
-            if (!canPlay) ...[
-              Text(
-                'Disponible dans ${_formatTimer(_cooldownRemaining)}',
-                style: const TextStyle(
-                    color: AppColors.warning, fontSize: 12),
-              ),
-            ] else ...[
-              const Text(
-                'Disponible maintenant !',
-                style: TextStyle(color: AppColors.success, fontSize: 12),
-              ),
-            ],
+            const Text(
+              'Disponible maintenant !',
+              style: TextStyle(color: AppColors.success, fontSize: 12),
+            ),
           ],
         ),
         trailing: FilledButton(
-          onPressed: canPlay
-              ? () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const MemoryGamePage(),
-                    ),
-                  )
-              : null,
-          style: FilledButton.styleFrom(
-            backgroundColor: canPlay
-                ? AppColors.secondaryViolet
-                : AppColors.secondaryViolet.withValues(alpha: 0.3),
-          ),
+          onPressed: onPlay,
+          style: FilledButton.styleFrom(backgroundColor: color),
           child: const Text('Jouer'),
         ),
       ),
     );
-  }
-
-  String _formatTimer(Duration d) {
-    final h = d.inHours;
-    final m = d.inMinutes % 60;
-    if (h > 0) return '${h}h ${m}min';
-    return '${m}min';
   }
 }
