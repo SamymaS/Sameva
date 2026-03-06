@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import 'presentation/providers/auth_provider.dart';
 import 'presentation/providers/theme_provider.dart';
 import 'ui/pages/auth/login_page.dart';
+import 'ui/pages/onboarding/onboarding_page.dart';
 import 'ui/pages/auth/register_page.dart';
 import 'ui/pages/quest/create_quest_page.dart';
 import 'ui/pages/quest/quest_validation_page.dart';
@@ -79,6 +81,7 @@ class _SamevaAppState extends State<SamevaApp> {
           themeMode: themeProvider.themeMode,
           debugShowCheckedModeBanner: false,
           routes: {
+            '/login': (context) => const LoginPage(),
             '/profile': (context) => const ProfilePage(),
             '/settings': (context) => const SettingsPage(),
             '/quests': (context) => const QuestsListPage(),
@@ -98,6 +101,12 @@ class _SamevaAppState extends State<SamevaApp> {
           },
           home: Consumer<AuthProvider>(
             builder: (context, authProvider, _) {
+              // Afficher l'onboarding une seule fois (flag Hive 'has_onboarded')
+              final hasOnboarded =
+                  Hive.box('settings').get('has_onboarded', defaultValue: false) as bool;
+              if (!hasOnboarded) {
+                return const OnboardingPage();
+              }
               if (!authProvider.isAuthenticated) {
                 return const LoginPage();
               }

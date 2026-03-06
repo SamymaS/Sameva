@@ -4,6 +4,7 @@ import '../../../data/models/quest_model.dart';
 import '../../../presentation/providers/auth_provider.dart';
 import '../../../presentation/providers/quest_provider.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/common/quest_detail_sheet.dart';
 import 'create_quest_choice_page.dart';
 
 /// Mes Quêtes — liste simple, 2 onglets (À faire / Terminées).
@@ -162,11 +163,14 @@ class _QuestList extends StatelessWidget {
           trailing: completed
               ? const Icon(Icons.check_circle, color: AppColors.success)
               : const Icon(Icons.chevron_right),
-          onTap: () {
-            if (!completed) {
-              Navigator.of(context).pushNamed('/quest/validate', arguments: quest);
-            }
-          },
+          onTap: () => QuestDetailSheet.show(
+            context,
+            quest: quest,
+            onValidate: completed
+                ? null
+                : () => Navigator.of(context)
+                    .pushNamed('/quest/validate', arguments: quest),
+          ),
         );
       },
     );

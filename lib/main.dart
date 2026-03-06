@@ -11,6 +11,7 @@ import 'presentation/providers/player_provider.dart';
 import 'presentation/providers/theme_provider.dart';
 import 'presentation/providers/inventory_provider.dart';
 import 'presentation/providers/equipment_provider.dart';
+import 'presentation/providers/notification_provider.dart';
 import 'app_new.dart';
 
 void main() async {
@@ -46,6 +47,7 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider.value(value: questProvider),
         ChangeNotifierProvider.value(value: playerProvider),
