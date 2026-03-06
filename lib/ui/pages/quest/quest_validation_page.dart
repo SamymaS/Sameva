@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../config/supabase_config.dart';
 import '../../../data/models/quest_model.dart';
 import '../../../domain/services/api_validation_ai_service.dart';
+import '../../../domain/services/claude_validation_ai_service.dart';
 import '../../../domain/services/validation_ai_service.dart';
 import '../../../domain/use_cases/complete_quest_use_case.dart';
 import '../../../presentation/providers/equipment_provider.dart';
@@ -26,6 +27,10 @@ class QuestValidationPage extends StatefulWidget {
 
 class _QuestValidationPageState extends State<QuestValidationPage> {
   late final ValidationAIService _validationService = () {
+    final apiKey = SupabaseConfig.anthropicApiKey;
+    if (apiKey != null && apiKey.isNotEmpty) {
+      return ClaudeValidationAIService(apiKey: apiKey);
+    }
     final url = SupabaseConfig.validationAiUrl;
     if (url != null && url.isNotEmpty) {
       return ApiValidationAIService(
@@ -73,7 +78,12 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-    final file = await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+    final file = await picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 80,
+      maxWidth: 1280,
+      maxHeight: 1280,
+    );
     if (file != null) {
       final bytes = await file.readAsBytes();
       setState(() {
@@ -115,6 +125,16 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
         );
       }
       if (mounted) setState(() => _result = r);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur analyse : $e'),
+            backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isAnalyzing = false);
     }

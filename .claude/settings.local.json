@@ -11,7 +11,9 @@
       "Bash(supabase:*)",
       "Bash(npx supabase:*)",
       "Bash(node --version 2>&1 && npm --version 2>&1)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(echo:*)",
+      "Bash(python3:*)"
     ]
   }
 }
