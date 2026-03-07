@@ -10,7 +10,15 @@ class EquipmentProvider with ChangeNotifier {
     for (final slot in EquipmentSlot.values) slot: null,
   };
 
-  final Map<String, Item?> _cosmetics = {'hat': null, 'outfit': null, 'aura': null};
+  final Map<String, Item?> _cosmetics = {
+    'hat': null,
+    'outfit': null,
+    'pants': null,
+    'shoes': null,
+    'aura': null,
+  };
+
+  static const List<String> cosmeticSlots = ['hat', 'outfit', 'pants', 'shoes', 'aura'];
 
   Map<EquipmentSlot, Item?> get equipped => Map.unmodifiable(_equipped);
 
@@ -52,7 +60,7 @@ class EquipmentProvider with ChangeNotifier {
       final rawCosmetics = _box.get('cosmetics');
       if (rawCosmetics != null) {
         final cosMap = Map<String, dynamic>.from(rawCosmetics as Map);
-        for (final slot in ['hat', 'outfit', 'aura']) {
+        for (final slot in cosmeticSlots) {
           final itemData = cosMap[slot];
           if (itemData != null) {
             _cosmetics[slot] =
