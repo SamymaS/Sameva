@@ -8,6 +8,7 @@ import '../../../presentation/providers/inventory_provider.dart';
 import '../../../presentation/providers/player_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/character/character_painter.dart';
+import '../../widgets/common/item_icon.dart';
 
 /// Page avatar : personnalisation du personnage + équipement combat + stats.
 class AvatarPage extends StatefulWidget {
@@ -280,11 +281,10 @@ class _CosmeticSlotButton extends StatelessWidget {
                   width: 1.5),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              item != null ? item.getIcon() : icon,
-              color: color.withValues(alpha: item != null ? 1.0 : 0.45),
-              size: 22,
-            ),
+            child: item != null
+                ? ItemIcon(item: item!, size: 36, showBackground: false)
+                : Icon(icon,
+                    color: color.withValues(alpha: 0.45), size: 22),
           ),
           const SizedBox(height: 4),
           Text(
@@ -430,8 +430,8 @@ class _CosmeticPickerSheet extends StatelessWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(item.getIcon(), color: color, size: 26),
-                        const SizedBox(height: 6),
+                        ItemIcon(item: item, size: 40, showBackground: false),
+                        const SizedBox(height: 4),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 4),
                           child: Text(
@@ -804,11 +804,13 @@ class _EquipSlot extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              item != null ? item.getIcon() : _slotIcon(slot),
-              color: color.withValues(alpha: item != null ? 1.0 : 0.45),
-              size: 22,
-            ),
+            item != null
+                ? ItemIcon(item: item!, size: 34, showBackground: false)
+                : Icon(
+                    _slotIcon(slot),
+                    color: color.withValues(alpha: 0.45),
+                    size: 22,
+                  ),
             const SizedBox(height: 4),
             Text(
               item?.name.split(' ').first ?? label,

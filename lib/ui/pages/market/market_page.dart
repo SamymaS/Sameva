@@ -7,6 +7,8 @@ import '../../../presentation/providers/auth_provider.dart';
 import '../../../presentation/providers/inventory_provider.dart';
 import '../../../presentation/providers/player_provider.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/common/item_icon.dart';
+import '../invocation/invocation_page.dart';
 
 /// Page marché : boutique filtrée par catégorie + vente d'items.
 class MarketPage extends StatelessWidget {
@@ -26,19 +28,31 @@ class MarketPage extends StatelessWidget {
         actions: [
           Consumer<PlayerProvider>(
             builder: (_, player, __) => Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: Row(
-                children: [
-                  const Icon(Icons.monetization_on,
-                      color: AppColors.gold, size: 18),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${player.stats?.gold ?? 0}',
-                    style: const TextStyle(
-                        color: AppColors.gold, fontWeight: FontWeight.bold),
-                  ),
-                ],
+              padding: const EdgeInsets.only(left: 4, right: 4),
+              child: Center(
+                child: Row(
+                  children: [
+                    const Icon(Icons.monetization_on,
+                        color: AppColors.gold, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${player.stats?.gold ?? 0}',
+                      style: const TextStyle(
+                          color: AppColors.gold,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14),
+                    ),
+                  ],
+                ),
               ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.auto_fix_high,
+                color: AppColors.textSecondary, size: 20),
+            tooltip: 'Invocation',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const InvocationPage()),
             ),
           ),
         ],
@@ -230,7 +244,7 @@ class _ShopItemTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(item.getIcon(), color: _rarityColor, size: 28),
+          ItemIcon(item: item, size: 44, showRarityGlow: true),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -420,7 +434,7 @@ class _SellTab extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Icon(item.getIcon(), color: color, size: 24),
+                  ItemIcon(item: item, size: 40, showBackground: false),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(

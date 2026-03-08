@@ -14,15 +14,12 @@ import 'ui/pages/rewards/rewards_page.dart';
 import 'ui/pages/settings/settings_page.dart';
 import 'ui/pages/home/sanctuary_page.dart';
 import 'ui/pages/inventory/inventory_page.dart';
-import 'ui/pages/avatar/avatar_page.dart';
 import 'ui/pages/market/market_page.dart';
-import 'ui/pages/invocation/invocation_page.dart';
-import 'ui/pages/minigames/minigames_page.dart';
 import 'ui/widgets/common/dock_bar.dart';
 import 'ui/theme/app_theme.dart';
 import 'data/models/quest_model.dart';
 
-/// Sameva — navigation 8 pages avec DockBar flottant + swipe horizontal.
+/// Sameva — navigation 5 pages avec DockBar flottant + swipe horizontal.
 class SamevaApp extends StatefulWidget {
   const SamevaApp({super.key});
 
@@ -41,10 +38,7 @@ class _SamevaAppState extends State<SamevaApp> {
     SanctuaryPage(),
     QuestsListPage(),
     InventoryPage(),
-    AvatarPage(),
     MarketPage(),
-    InvocationPage(),
-    MinigamesPage(),
     ProfilePage(),
   ];
 
@@ -125,7 +119,7 @@ class _SamevaAppState extends State<SamevaApp> {
         children: [
           // Padding pour que le contenu ne passe pas derrière la DockBar
           Padding(
-            padding: EdgeInsets.only(bottom: 64 + bottomInset),
+            padding: EdgeInsets.only(bottom: 68 + bottomInset),
             child: PageView(
               controller: _pageController,
               onPageChanged: (i) => setState(() => _currentIndex = i),

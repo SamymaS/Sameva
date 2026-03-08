@@ -27,6 +27,7 @@ dependencies:
 
   # UI
   google_fonts: ^6.2.1
+  flutter_svg: ^2.0.10+1
 
   # Preuve visuelle (validation de quête)
   image_picker: ^1.0.7
@@ -54,6 +55,7 @@ flutter:
 
   assets:
     - assets/fonts/
+    - assets/items/
     - .env
 
   fonts:

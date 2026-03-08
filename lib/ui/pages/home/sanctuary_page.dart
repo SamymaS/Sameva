@@ -69,12 +69,12 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
                         child: Row(
                           children: [
                             const Icon(Icons.local_fire_department,
-                                color: Colors.orange, size: 20),
+                                color: AppColors.warning, size: 20),
                             const SizedBox(width: 4),
                             Text(
                               '${stats.streak}',
                               style: const TextStyle(
-                                color: Colors.orange,
+                                color: AppColors.warning,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -104,7 +104,7 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
                                       fontWeight: FontWeight.bold),
                             ),
                             TextButton(
-                              onPressed: () {},
+                              onPressed: () => Navigator.of(context).pushNamed('/quests'),
                               child: const Text(
                                 'Voir tout',
                                 style: TextStyle(color: AppColors.primaryTurquoise),
@@ -260,7 +260,7 @@ class _StatsCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.favorite, color: Colors.redAccent, size: 14),
+                  const Icon(Icons.favorite, color: AppColors.error, size: 14),
                   const SizedBox(width: 4),
                   Text(
                     '${stats.healthPoints} / ${stats.maxHealthPoints} HP',
@@ -272,11 +272,11 @@ class _StatsCard extends StatelessWidget {
               Row(
                 children: [
                   const Icon(Icons.local_fire_department,
-                      color: Colors.orange, size: 14),
+                      color: AppColors.warning, size: 14),
                   const SizedBox(width: 4),
                   Text(
                     '${stats.streak} jour${stats.streak > 1 ? 's' : ''}',
-                    style: const TextStyle(color: Colors.orange, fontSize: 12),
+                    style: const TextStyle(color: AppColors.warning, fontSize: 12),
                   ),
                 ],
               ),
@@ -286,7 +286,7 @@ class _StatsCard extends StatelessWidget {
           // Barre HP animée
           _AnimatedBar(
             value: hpProgress,
-            color: Colors.redAccent,
+            color: AppColors.error,
             backgroundColor: AppColors.backgroundNightBlue,
             height: 6,
           ),

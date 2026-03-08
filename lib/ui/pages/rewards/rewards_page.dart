@@ -342,7 +342,7 @@ class _StatsSection extends StatelessWidget {
             Expanded(
               child: _StatTile(
                 icon: Icons.local_fire_department,
-                color: Colors.orange,
+                color: AppColors.warning,
                 value: '${stats.streak}j',
                 label: 'Série',
               ),
@@ -351,7 +351,7 @@ class _StatsSection extends StatelessWidget {
             Expanded(
               child: _StatTile(
                 icon: Icons.favorite,
-                color: Colors.redAccent,
+                color: AppColors.error,
                 value: '${stats.healthPoints}',
                 label: 'HP',
               ),
@@ -501,7 +501,7 @@ class _LevelUpBanner extends StatelessWidget {
 
 class _ParticlePainter extends CustomPainter {
   final double progress;
-  static final _rand = math.Random(42);
+  static final _rand = math.Random();
   static final List<_Particle> _particles = List.generate(
     30,
     (i) => _Particle(

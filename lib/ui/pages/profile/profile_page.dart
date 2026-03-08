@@ -8,6 +8,7 @@ import '../../../presentation/providers/player_provider.dart';
 import '../../../presentation/providers/quest_provider.dart';
 import '../../../presentation/view_models/profile_view_model.dart';
 import '../../theme/app_colors.dart';
+import '../minigames/minigames_page.dart';
 
 
 class ProfilePage extends StatefulWidget {
@@ -91,8 +92,16 @@ class _ProfileContent extends StatelessWidget {
             backgroundColor: AppColors.backgroundNightBlue,
             actions: [
               IconButton(
+                icon: const Icon(Icons.extension_outlined,
+                    color: AppColors.textSecondary, size: 20),
+                tooltip: 'Minijeux',
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const MinigamesPage()),
+                ),
+              ),
+              IconButton(
                 icon: const Icon(Icons.settings_outlined,
-                    color: AppColors.textSecondary),
+                    color: AppColors.textSecondary, size: 20),
                 onPressed: () => Navigator.of(context).pushNamed('/settings'),
               ),
             ],
@@ -241,20 +250,20 @@ class _HeroHeader extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: Colors.orange.withValues(alpha: 0.2),
+                              color: AppColors.warning.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.orange, width: 1),
+                              border: Border.all(color: AppColors.warning, width: 1),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 const Icon(Icons.local_fire_department,
-                                    color: Colors.orange, size: 12),
+                                    color: AppColors.warning, size: 12),
                                 const SizedBox(width: 2),
                                 Text(
                                   '${stats!.streak}j',
                                   style: const TextStyle(
-                                      color: Colors.orange,
+                                      color: AppColors.warning,
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12),
                                 ),
@@ -327,7 +336,7 @@ class _QuickStatsRow extends StatelessWidget {
         const SizedBox(width: 8),
         _StatChip(
           icon: Icons.favorite,
-          color: Colors.redAccent,
+          color: AppColors.error,
           label: '${stats?.healthPoints ?? 100}',
           sublabel: 'HP',
         ),
@@ -454,7 +463,7 @@ class _EquipmentSummary extends StatelessWidget {
                       if (gold > 0)
                         _BonusBadge('+$gold% Or', AppColors.gold),
                       if (hp > 0)
-                        _BonusBadge('+$hp HP', Colors.redAccent),
+                        _BonusBadge('+$hp HP', AppColors.error),
                     ],
                   ),
                 ],
