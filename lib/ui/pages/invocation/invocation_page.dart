@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
+import '../../../data/models/cat_model.dart';
 import '../../../data/models/item_model.dart';
 import '../../../data/models/quest_model.dart';
 import '../../../domain/services/item_factory.dart';
