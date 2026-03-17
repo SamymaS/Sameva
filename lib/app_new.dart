@@ -115,20 +115,27 @@ class _SamevaAppState extends State<SamevaApp> {
   }
 
   Widget _buildHome(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).padding.bottom;
+    // viewPadding.bottom est stable même quand le clavier est ouvert,
+    // contrairement à padding.bottom qui peut devenir 0.
+    final navBarHeight = MediaQuery.viewPaddingOf(context).bottom;
+    const dockBarHeight = 68.0;
+
     return Scaffold(
+      // Empêche le Scaffold de redimensionner le body quand le clavier s'ouvre
+      // (le keyboard est géré par chaque page individuellement).
+      resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
-          // Padding pour que le contenu ne passe pas derrière la DockBar
+          // Contenu des pages : réserve l'espace pour la DockBar + barre Android
           Padding(
-            padding: EdgeInsets.only(bottom: 68 + bottomInset),
+            padding: EdgeInsets.only(bottom: dockBarHeight + navBarHeight),
             child: PageView(
               controller: _pageController,
               onPageChanged: (i) => setState(() => _currentIndex = i),
               children: _pages,
             ),
           ),
-          // DockBar flottante
+          // DockBar flottante en bas — gère elle-même son padding de barre sys
           Positioned(
             bottom: 0,
             left: 0,

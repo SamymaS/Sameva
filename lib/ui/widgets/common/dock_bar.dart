@@ -24,15 +24,16 @@ class DockBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).padding.bottom;
+    // viewPadding.bottom = hauteur barre de navigation Android (stable, indépendant du clavier)
+    final navBarHeight = MediaQuery.viewPaddingOf(context).bottom;
     return ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: Container(
-          height: 68 + bottomInset,
-          color: AppColors.backgroundDarkPanel.withValues(alpha: 0.90),
+          height: 68 + navBarHeight,
+          color: AppColors.backgroundDarkPanel.withValues(alpha: 0.92),
           child: Padding(
-            padding: EdgeInsets.only(bottom: bottomInset),
+            padding: EdgeInsets.only(bottom: navBarHeight),
             child: Row(
               children: List.generate(_items.length, (i) {
                 final item = _items[i];
@@ -82,14 +83,14 @@ class _DockItem extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
               decoration: BoxDecoration(
                 color: isActive
-                    ? AppColors.primaryTurquoise.withValues(alpha: 0.15)
+                    ? AppColors.primaryVioletLight.withValues(alpha: 0.15)
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 icon,
                 color: isActive
-                    ? AppColors.primaryTurquoise
+                    ? AppColors.primaryVioletLight
                     : AppColors.textMuted,
                 size: 22,
               ),
@@ -99,7 +100,7 @@ class _DockItem extends StatelessWidget {
               label,
               style: TextStyle(
                 color: isActive
-                    ? AppColors.primaryTurquoise
+                    ? AppColors.primaryVioletLight
                     : AppColors.textMuted,
                 fontSize: 10,
                 fontWeight:

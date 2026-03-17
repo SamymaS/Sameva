@@ -428,7 +428,15 @@ class _CosmeticSheet extends StatelessWidget {
               separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (ctx, i) {
                 final item = cosmetics[i];
-                final isEquipped = catProvider.mainCat?.equippedHat == item.id;
+                final equippedId = switch (slot) {
+                  'hat'       => catProvider.mainCat?.equippedHat,
+                  'outfit'    => catProvider.mainCat?.equippedOutfit,
+                  'aura'      => catProvider.mainCat?.equippedAura,
+                  'accessory' => catProvider.mainCat?.equippedAccessory,
+                  'title'     => catProvider.mainCat?.equippedTitle,
+                  _           => null,
+                };
+                final isEquipped = equippedId == item.id;
                 return ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                   tileColor: isEquipped

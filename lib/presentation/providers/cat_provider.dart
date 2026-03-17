@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:uuid/uuid.dart';
 import '../../data/models/cat_model.dart';
+import '../../data/models/quest_model.dart';
 
 /// Provider gérant les chats compagnons du joueur.
 /// Stockage JSON dans la boîte Hive 'cats'.
@@ -128,6 +129,59 @@ class CatProvider extends ChangeNotifier {
       _error = 'Erreur renommage : $e';
     }
     notifyListeners();
+  }
+
+  // ──────────────────────────────────────────────
+  // Gacha de chats
+  // ──────────────────────────────────────────────
+
+  /// Génère et ajoute un nouveau chat à la collection via le gacha.
+  /// La race est déterminée par la rareté [rarity].
+  /// Retourne le nouveau [CatStats] créé.
+  Future<CatStats> addRolledCat(QuestRarity rarity) async {
+    final race = _raceForRarity(rarity);
+    final cat = CatStats(
+      id: const Uuid().v4(),
+      name: _defaultNameForRace(race),
+      race: race,
+      rarity: rarity.name,
+      isMain: false,
+      obtainedAt: DateTime.now(),
+    );
+    _cats.add(cat);
+    await _persist();
+    notifyListeners();
+    return cat;
+  }
+
+  /// Définit un chat comme chat principal.
+  Future<void> setMainCat(String catId) async {
+    _cats = _cats.map((c) => c.copyWith(isMain: c.id == catId)).toList();
+    await _persist();
+    notifyListeners();
+  }
+
+  /// Sélectionne une race de chat selon la rareté du tirage.
+  static String _raceForRarity(QuestRarity rarity) {
+    switch (rarity) {
+      case QuestRarity.mythic:
+      case QuestRarity.legendary:
+        // Races mystiques — cosmos ou sakura avec une chance aléatoire
+        return _rnd(['cosmos', 'sakura', 'cosmos', 'sakura', 'cosmos']);
+      case QuestRarity.epic:
+        return _rnd(['cosmos', 'sakura']);
+      case QuestRarity.rare:
+        return _rnd(['braise', 'lune']);
+      case QuestRarity.uncommon:
+        return _rnd(['braise', 'lune', 'michi', 'neige']);
+      case QuestRarity.common:
+        return _rnd(['michi', 'neige']);
+    }
+  }
+
+  static String _rnd(List<String> choices) {
+    choices.shuffle();
+    return choices.first;
   }
 
   // ──────────────────────────────────────────────

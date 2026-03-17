@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -18,6 +19,15 @@ import 'app_new.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Rendu edge-to-edge : l'app s'étend derrière la barre de navigation Android
+  // et la barre de statut. Les insets sont ensuite gérés via MediaQuery.viewPadding.
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    systemNavigationBarColor: Colors.transparent,
+    systemNavigationBarDividerColor: Colors.transparent,
+  ));
 
   try {
     await dotenv.load(fileName: '.env');

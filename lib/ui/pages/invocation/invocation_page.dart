@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import '../../../data/models/item_model.dart';
 import '../../../data/models/quest_model.dart';
 import '../../../domain/services/item_factory.dart';
 import '../../../presentation/providers/auth_provider.dart';
+import '../../../presentation/providers/cat_provider.dart';
 import '../../../presentation/providers/inventory_provider.dart';
 import '../../../presentation/providers/player_provider.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/cat/cat_widget.dart';
+import '../../widgets/common/rarity_badge.dart';
 
 /// Page invocation gacha : 50 cristaux ou 1 gratuit/24h.
 class InvocationPage extends StatefulWidget {
@@ -132,7 +136,9 @@ class _InvocationPageState extends State<InvocationPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
       backgroundColor: AppColors.backgroundNightCosmos,
       appBar: AppBar(
         backgroundColor: AppColors.backgroundNightCosmos,
@@ -161,8 +167,21 @@ class _InvocationPageState extends State<InvocationPage>
             ),
           ),
         ],
+        bottom: TabBar(
+          labelColor: AppColors.primaryVioletLight,
+          unselectedLabelColor: AppColors.textMuted,
+          indicatorColor: AppColors.primaryVioletLight,
+          labelStyle: GoogleFonts.nunito(fontWeight: FontWeight.w700),
+          tabs: const [
+            Tab(text: '⚔️  Objets'),
+            Tab(text: '🐱  Chats'),
+          ],
+        ),
       ),
-      body: SingleChildScrollView(
+      body: TabBarView(
+        children: [
+          // ── Onglet Objets (gacha classique) ──
+          SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
@@ -417,7 +436,12 @@ class _InvocationPageState extends State<InvocationPage>
           ],
         ),
       ),
-    );
+
+          // ── Onglet Chats (gacha de compagnons) ──
+          _CatInvocationTab(),
+        ],
+      ),
+    ));
   }
 
   String _formatTimer(Duration d) {
@@ -476,6 +500,302 @@ class _PityBar extends StatelessWidget {
               color: color, fontSize: 11, fontWeight: FontWeight.bold),
         ),
       ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Section taux de drop
+// ─────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────
+// Onglet gacha de chats
+// ─────────────────────────────────────────────────────────────────
+
+class _CatInvocationTab extends StatefulWidget {
+  const _CatInvocationTab();
+
+  @override
+  State<_CatInvocationTab> createState() => _CatInvocationTabState();
+}
+
+class _CatInvocationTabState extends State<_CatInvocationTab>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _revealCtrl;
+  late Animation<double> _revealAnim;
+  bool _isRevealing = false;
+  CatStats? _lastCat;
+
+  static const _catCost = 100; // cristaux par invocation de chat
+
+  @override
+  void initState() {
+    super.initState();
+    _revealCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+    _revealAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 50),
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 50),
+    ]).animate(CurvedAnimation(parent: _revealCtrl, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _revealCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pullCat() async {
+    if (_isRevealing) return;
+    final player = context.read<PlayerProvider>();
+    final auth = context.read<AuthProvider>();
+    final catProvider = context.read<CatProvider>();
+    final userId = auth.userId ?? '';
+
+    if ((player.stats?.crystals ?? 0) < _catCost) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Pas assez de cristaux ! (100 💎 requis)'),
+        backgroundColor: AppColors.error,
+      ));
+      return;
+    }
+
+    await player.spendCrystals(userId, _catCost);
+    setState(() => _isRevealing = true);
+    _revealCtrl.reset();
+
+    final pityCount = player.stats?.pityCount ?? 0;
+    final pullResult = ItemFactory.rollGachaRarityWithPity(pityCount);
+
+    if (pullResult.pityTriggered ||
+        pullResult.rarity == QuestRarity.epic ||
+        pullResult.rarity == QuestRarity.legendary ||
+        pullResult.rarity == QuestRarity.mythic) {
+      await player.resetPity(userId);
+    } else {
+      await player.incrementPity(userId);
+    }
+
+    final newCat = await catProvider.addRolledCat(pullResult.rarity);
+    await _revealCtrl.forward();
+
+    if (mounted) {
+      setState(() {
+        _lastCat = newCat;
+        _isRevealing = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cat = _lastCat;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          // Carte résultat
+          SizedBox(
+            height: 260,
+            child: Center(
+              child: AnimatedBuilder(
+                animation: _revealAnim,
+                builder: (_, __) {
+                  final scale = _isRevealing ? _revealAnim.value : 1.0;
+                  final rarityColor = cat != null
+                      ? AppColors.getRarityColor(cat.rarity)
+                      : AppColors.primaryViolet;
+
+                  return Transform.scale(
+                    scale: scale,
+                    child: Container(
+                      width: 180,
+                      height: 240,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            rarityColor.withValues(alpha: 0.25),
+                            AppColors.backgroundDeepViolet,
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: rarityColor, width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: rarityColor.withValues(alpha: 0.45),
+                            blurRadius: 24,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                      child: cat != null
+                          ? Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                CatWidget(race: cat.race, size: 100, mood: 'excited'),
+                                const SizedBox(height: 10),
+                                Text(
+                                  cat.name,
+                                  style: GoogleFonts.nunito(
+                                    color: rarityColor,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                RarityBadge(rarity: cat.rarity, compact: true),
+                              ],
+                            )
+                          : Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Text('🐱', style: TextStyle(fontSize: 52)),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'Invoque un\nchat compagnon',
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.nunito(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Bouton invocation
+          Consumer<PlayerProvider>(
+            builder: (_, player, __) {
+              final crystals = player.stats?.crystals ?? 0;
+              final canAfford = crystals >= _catCost;
+              return SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: canAfford
+                        ? AppColors.primaryViolet
+                        : AppColors.primaryViolet.withValues(alpha: 0.3),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                  ),
+                  onPressed: (!_isRevealing && canAfford) ? _pullCat : null,
+                  icon: const Icon(Icons.diamond, size: 18),
+                  label: Text(
+                    'Invoquer un chat (100 💎)',
+                    style: GoogleFonts.nunito(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(height: 24),
+
+          // Info collection
+          Consumer<CatProvider>(
+            builder: (_, catProv, __) {
+              final total = catProv.cats.length;
+              if (total == 0) return const SizedBox.shrink();
+              return Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.backgroundDarkPanel,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: AppColors.primaryViolet.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.pets, color: AppColors.primaryVioletLight, size: 18),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Tu possèdes $total chat${total > 1 ? "s" : ""} compagnon${total > 1 ? "s" : ""}',
+                      style: GoogleFonts.nunito(
+                        color: AppColors.textSecondary,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(height: 16),
+
+          // Taux d'invocation
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.backgroundDarkPanel,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                  color: AppColors.primaryViolet.withValues(alpha: 0.3)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.pets_outlined,
+                        color: AppColors.primaryVioletLight, size: 14),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Races disponibles',
+                      style: GoogleFonts.nunito(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                ...[
+                  ('Michi · Neige', 'Commun', AppColors.rarityCommon),
+                  ('Braise · Lune', 'Rare', AppColors.rarityRare),
+                  ('Cosmos · Sakura', 'Épique', AppColors.rarityEpic),
+                  ('Cosmos (spécial)', 'Légendaire+', AppColors.rarityLegendary),
+                ].map((r) => Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 8, height: 8,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: r.$3,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(r.$1,
+                              style: TextStyle(color: r.$3, fontSize: 12))),
+                          Text(r.$2,
+                              style: TextStyle(
+                                  color: r.$3,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11)),
+                        ],
+                      ),
+                    )),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

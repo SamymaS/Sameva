@@ -110,6 +110,7 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
                             mood: mood,
                             moral: stats.moral,
                             streak: stats.streak,
+                            questCount: todayQuests.length,
                           ),
                           const SizedBox(height: 20),
                         ],
@@ -177,6 +178,7 @@ class _CatHeroSection extends StatelessWidget {
   final CatMood mood;
   final double moral;
   final int streak;
+  final int questCount;
 
   const _CatHeroSection({
     required this.catName,
@@ -185,12 +187,15 @@ class _CatHeroSection extends StatelessWidget {
     required this.mood,
     required this.moral,
     required this.streak,
+    required this.questCount,
   });
 
   @override
   Widget build(BuildContext context) {
     final bodyColor = catBodyColor(race);
-    final message = CatMoodService.getBubbleMessage(mood, streak);
+    final message = questCount > 0
+        ? _questMessage(questCount, mood)
+        : CatMoodService.getBubbleMessage(mood, streak);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
@@ -257,6 +262,12 @@ class _CatHeroSection extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  String _questMessage(int count, CatMood mood) {
+    if (count == 1) return 'Tu as 1 quête aujourd\'hui, allez ! 🐾';
+    if (count == 2) return '$count quêtes t\'attendent, courage ! ✨';
+    return '$count quêtes aujourd\'hui — je crois en toi ! 🌟';
   }
 }
 

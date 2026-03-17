@@ -60,6 +60,12 @@ class AppTheme {
         color: AppColors.primary,
       ),
       dividerTheme: const DividerThemeData(space: 1, thickness: 1),
+      snackBarTheme: const SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+        ),
+      ),
     );
   }
 
@@ -117,6 +123,12 @@ class AppTheme {
         color: AppColors.primary,
       ),
       dividerTheme: const DividerThemeData(space: 1, thickness: 1),
+      snackBarTheme: const SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+        ),
+      ),
     );
   }
 }

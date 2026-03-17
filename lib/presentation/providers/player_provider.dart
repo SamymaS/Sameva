@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../data/models/item_model.dart';
 import '../../data/models/quest_model.dart';
 import '../../domain/services/health_regeneration_service.dart';
 import '../../domain/services/item_factory.dart';
