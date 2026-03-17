@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../data/models/item_model.dart';
 import '../../../presentation/providers/auth_provider.dart';
+import '../../../presentation/providers/cat_provider.dart';
 import '../../../presentation/providers/equipment_provider.dart';
 import '../../../presentation/providers/inventory_provider.dart';
 import '../../../presentation/providers/player_provider.dart';
 import '../../../presentation/providers/quest_provider.dart';
 import '../../../presentation/view_models/profile_view_model.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/cat/cat_widget.dart';
+import '../../widgets/common/rarity_badge.dart';
 import '../minigames/minigames_page.dart';
 
 
@@ -131,6 +135,10 @@ class _ProfileContent extends StatelessWidget {
 
                 // Inventaire
                 _InventorySummary(inventory: inventory),
+                const SizedBox(height: 16),
+
+                // Chat compagnon
+                const _CatSection(),
                 const SizedBox(height: 16),
 
                 // Statistiques
@@ -705,6 +713,108 @@ class _AchievementsSection extends StatelessWidget {
       _ => Icons.star_outline,
     };
   }
+}
+
+// ─── Chat compagnon ───────────────────────────────────────────────────────────
+
+class _CatSection extends StatelessWidget {
+  const _CatSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final cat = context.watch<CatProvider>().mainCat;
+    if (cat == null) return const SizedBox.shrink();
+
+    final slots = [
+      (label: 'Chapeau', id: cat.equippedHat, emoji: '🎩'),
+      (label: 'Tenue', id: cat.equippedOutfit, emoji: '👘'),
+      (label: 'Aura', id: cat.equippedAura, emoji: '✨'),
+      (label: 'Accessoire', id: cat.equippedAccessory, emoji: '💎'),
+    ];
+    final wornCount = slots.where((s) => s.id != null).length;
+
+    return _SectionCard(
+      title: 'Mon chat',
+      icon: Icons.pets,
+      trailing: RarityBadge(rarity: cat.rarity, compact: true),
+      child: Row(
+        children: [
+          // Avatar du chat
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.primaryViolet.withValues(alpha: 0.12),
+              border: Border.all(
+                  color: AppColors.primaryViolet.withValues(alpha: 0.4)),
+            ),
+            child: Center(
+              child: CatWidget(race: cat.race, size: 56, mood: 'happy'),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  cat.name.isNotEmpty ? cat.name : cat.race,
+                  style: GoogleFonts.nunito(
+                    color: AppColors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  _raceLabel(cat.race),
+                  style: const TextStyle(
+                      color: AppColors.textMuted, fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(Icons.checkroom_outlined,
+                        color: AppColors.primaryVioletLight, size: 13),
+                    const SizedBox(width: 4),
+                    Text(
+                      '$wornCount/4 cosmétiques équipés',
+                      style: const TextStyle(
+                          color: AppColors.textSecondary, fontSize: 11),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 4,
+                  children: slots.map((s) {
+                    final worn = s.id != null;
+                    return Text(
+                      s.emoji,
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: worn ? null : const Color(0x33FFFFFF),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _raceLabel(String race) => switch (race) {
+        'michi' => 'Michi — Sage & calme',
+        'lune' => 'Lune — Mystérieux',
+        'braise' => 'Braise — Énergique',
+        'neige' => 'Neige — Doux & timide',
+        'cosmos' => 'Cosmos — Mystique',
+        'sakura' => 'Sakura — Joyeux',
+        _ => race,
+      };
 }
 
 // ─── Déconnexion ──────────────────────────────────────────────────────────────

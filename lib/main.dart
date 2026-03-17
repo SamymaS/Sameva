@@ -13,6 +13,7 @@ import 'presentation/providers/inventory_provider.dart';
 import 'presentation/providers/equipment_provider.dart';
 import 'presentation/providers/notification_provider.dart';
 import 'presentation/providers/character_provider.dart';
+import 'presentation/providers/cat_provider.dart';
 import 'app_new.dart';
 
 void main() async {
@@ -35,6 +36,7 @@ void main() async {
   await Hive.openBox('settings');
   await Hive.openBox('inventory');
   await Hive.openBox('equipment');
+  await Hive.openBox('cats');
 
   // Notifications locales (best-effort)
   await NotificationService.init();
@@ -43,6 +45,7 @@ void main() async {
   final playerProvider = PlayerProvider();
   final inventoryProvider = InventoryProvider()..loadInventory();
   final equipmentProvider = EquipmentProvider()..loadEquipment();
+  final catProvider = CatProvider()..loadCats();
 
   runApp(
     MultiProvider(
@@ -55,6 +58,7 @@ void main() async {
         ChangeNotifierProvider.value(value: playerProvider),
         ChangeNotifierProvider.value(value: inventoryProvider),
         ChangeNotifierProvider.value(value: equipmentProvider),
+        ChangeNotifierProvider.value(value: catProvider),
       ],
       child: const SamevaApp(),
     ),

@@ -8,10 +8,11 @@ class DockBar extends StatelessWidget {
   final ValueChanged<int> onTap;
 
   static const _items = [
-    (icon: Icons.cottage_outlined,     label: 'Sanctuaire'),
-    (icon: Icons.assignment_outlined,  label: 'Quêtes'),
-    (icon: Icons.inventory_2_outlined, label: 'Inventaire'),
-    (icon: Icons.store_outlined,       label: 'Marché'),
+    (icon: Icons.cottage_outlined,        label: 'Sanctuaire'),
+    (icon: Icons.assignment_outlined,     label: 'Quêtes'),
+    (icon: Icons.inventory_2_outlined,    label: 'Inventaire'),
+    (icon: Icons.pets_outlined,           label: 'Chat'),
+    (icon: Icons.store_outlined,          label: 'Marché'),
     (icon: Icons.account_circle_outlined, label: 'Profil'),
   ];
 

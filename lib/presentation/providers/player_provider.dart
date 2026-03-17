@@ -1,7 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../data/models/item_model.dart';
+import '../../data/models/quest_model.dart';
 import '../../domain/services/health_regeneration_service.dart';
+import '../../domain/services/item_factory.dart';
+import '../../domain/services/notification_service.dart';
+import '../providers/inventory_provider.dart';
 
 class PlayerStats {
   final int level;
@@ -17,6 +22,7 @@ class PlayerStats {
   final DateTime? lastActiveDate;
   final Map<String, int> achievements;
   final int totalQuestsCompleted;
+  final int pityCount; // Compteur pity gacha
 
   PlayerStats({
     this.level = 1,
@@ -32,6 +38,7 @@ class PlayerStats {
     DateTime? lastActiveDate,
     Map<String, int>? achievements,
     this.totalQuestsCompleted = 0,
+    this.pityCount = 0,
   })  : lastActiveDate = lastActiveDate,
         achievements = achievements ?? {};
 
@@ -49,6 +56,7 @@ class PlayerStats {
         'lastActiveDate': lastActiveDate?.toIso8601String(),
         'achievements': achievements,
         'totalQuestsCompleted': totalQuestsCompleted,
+        'pityCount': pityCount,
       };
 
   // P1.3 : sérialisation pour Supabase (snake_case)
@@ -87,6 +95,7 @@ class PlayerStats {
             ? Map<String, int>.from(json['achievements'] as Map)
             : {},
         totalQuestsCompleted: json['totalQuestsCompleted'] as int? ?? 0,
+        pityCount: json['pityCount'] as int? ?? 0,
       );
 
   // P1.3 : lecture depuis Supabase (snake_case)
@@ -124,6 +133,7 @@ class PlayerStats {
     DateTime? lastActiveDate,
     Map<String, int>? achievements,
     int? totalQuestsCompleted,
+    int? pityCount,
   }) =>
       PlayerStats(
         level: level ?? this.level,
@@ -139,6 +149,7 @@ class PlayerStats {
         lastActiveDate: lastActiveDate ?? this.lastActiveDate,
         achievements: achievements ?? this.achievements,
         totalQuestsCompleted: totalQuestsCompleted ?? this.totalQuestsCompleted,
+        pityCount: pityCount ?? this.pityCount,
       );
 }
 
@@ -285,11 +296,13 @@ class PlayerProvider with ChangeNotifier {
     await savePlayerStats(userId);
   }
 
-  Future<void> updateStreak(String userId) async {
+  Future<void> updateStreak(String userId,
+      {InventoryProvider? inventory}) async {
     if (_stats == null) return;
 
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
+    final previousStreak = _stats!.streak;
 
     if (_stats!.lastActiveDate == null) {
       _stats = _stats!.copyWith(
@@ -310,7 +323,8 @@ class PlayerProvider with ChangeNotifier {
         final newStreak = _stats!.streak + 1;
         _stats = _stats!.copyWith(
           streak: newStreak,
-          maxStreak: newStreak > _stats!.maxStreak ? newStreak : _stats!.maxStreak,
+          maxStreak:
+              newStreak > _stats!.maxStreak ? newStreak : _stats!.maxStreak,
           lastActiveDate: today,
         );
       } else {
@@ -320,7 +334,63 @@ class PlayerProvider with ChangeNotifier {
 
     notifyListeners();
     await savePlayerStats(userId);
+
+    // Vérifier les jalons de streak
+    if (inventory != null) {
+      await _checkStreakMilestones(userId, previousStreak, _stats!.streak,
+          inventory);
+    }
   }
+
+  /// Distribue les récompenses cosmétiques aux jalons de streak.
+  Future<void> _checkStreakMilestones(
+    String userId,
+    int oldStreak,
+    int newStreak,
+    InventoryProvider inventory,
+  ) async {
+    final milestones = <int, ({String rarity, String? title, int crystals})>{
+      7:   (rarity: 'common',    title: null,                        crystals: 5),
+      14:  (rarity: 'rare',      title: null,                        crystals: 0),
+      30:  (rarity: 'epic',      title: 'Sorcier du Quotidien',      crystals: 0),
+      100: (rarity: 'legendary', title: 'Gardien des Étoiles',       crystals: 0),
+    };
+
+    for (final entry in milestones.entries) {
+      final days = entry.key;
+      if (oldStreak < days && newStreak >= days) {
+        final reward = entry.value;
+
+        // Cosmétique aléatoire de la rareté
+        final rarity = _rarityFromString(reward.rarity);
+        final item = ItemFactory.generateRandomItem(rarity);
+        inventory.addItem(item);
+
+        // Cristaux bonus
+        if (reward.crystals > 0) {
+          await addCrystals(userId, reward.crystals);
+        }
+
+        // Notification locale
+        try {
+          await NotificationService.showStreakMilestone(days, reward.rarity);
+        } catch (_) {
+          // Notifications best-effort
+        }
+
+        debugPrint('Streak $days j : récompense ${reward.rarity} débloquée');
+      }
+    }
+  }
+
+  static QuestRarity _rarityFromString(String r) => switch (r) {
+        'uncommon'  => QuestRarity.uncommon,
+        'rare'      => QuestRarity.rare,
+        'epic'      => QuestRarity.epic,
+        'legendary' => QuestRarity.legendary,
+        'mythic'    => QuestRarity.mythic,
+        _           => QuestRarity.common,
+      };
 
   bool get hasStreakBonus => _stats != null && _stats!.streak >= 7;
 
@@ -365,6 +435,22 @@ class PlayerProvider with ChangeNotifier {
       maxStreak: _stats?.maxStreak ?? 0,
       totalQuestsCompleted: _stats?.totalQuestsCompleted ?? 0,
     );
+    notifyListeners();
+    await savePlayerStats(userId);
+  }
+
+  /// Incrémente le compteur pity gacha de 1.
+  Future<void> incrementPity(String userId) async {
+    if (_stats == null) return;
+    _stats = _stats!.copyWith(pityCount: _stats!.pityCount + 1);
+    notifyListeners();
+    await savePlayerStats(userId);
+  }
+
+  /// Remet le compteur pity à zéro (après déclenchement).
+  Future<void> resetPity(String userId) async {
+    if (_stats == null) return;
+    _stats = _stats!.copyWith(pityCount: 0);
     notifyListeners();
     await savePlayerStats(userId);
   }

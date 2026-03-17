@@ -1,34 +1,41 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import '../../../data/models/item_model.dart';
 import '../../../domain/services/item_factory.dart';
 import '../../../presentation/providers/auth_provider.dart';
+import '../../../presentation/providers/cat_provider.dart';
 import '../../../presentation/providers/inventory_provider.dart';
 import '../../../presentation/providers/player_provider.dart';
 import '../../theme/app_colors.dart';
-import '../../widgets/common/item_icon.dart';
+import '../../widgets/cat/cat_widget.dart';
+import '../../widgets/common/rarity_badge.dart';
 import '../invocation/invocation_page.dart';
 
-/// Page marché : boutique filtrée par catégorie + vente d'items.
+/// Page marché : boutique cosmétiques pour chats + vente d'items.
 class MarketPage extends StatelessWidget {
   const MarketPage({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.backgroundNightBlue,
+      backgroundColor: AppColors.backgroundNightCosmos,
       appBar: AppBar(
-        backgroundColor: AppColors.backgroundNightBlue,
-        title: const Text(
+        backgroundColor: AppColors.backgroundNightCosmos,
+        elevation: 0,
+        title: Text(
           'Marché',
-          style: TextStyle(
-              color: AppColors.primaryTurquoise, fontWeight: FontWeight.bold),
+          style: GoogleFonts.nunito(
+            color: AppColors.primaryVioletLight,
+            fontWeight: FontWeight.w800,
+            fontSize: 20,
+          ),
         ),
         actions: [
           Consumer<PlayerProvider>(
             builder: (_, player, __) => Padding(
-              padding: const EdgeInsets.only(left: 4, right: 4),
+              padding: const EdgeInsets.only(right: 4),
               child: Center(
                 child: Row(
                   children: [
@@ -37,10 +44,11 @@ class MarketPage extends StatelessWidget {
                     const SizedBox(width: 4),
                     Text(
                       '${player.stats?.gold ?? 0}',
-                      style: const TextStyle(
-                          color: AppColors.gold,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14),
+                      style: GoogleFonts.nunito(
+                        color: AppColors.gold,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
                     ),
                   ],
                 ),
@@ -61,20 +69,21 @@ class MarketPage extends StatelessWidget {
         length: 2,
         child: Column(
           children: [
-            const TabBar(
-              labelColor: AppColors.primaryTurquoise,
+            TabBar(
+              labelColor: AppColors.primaryVioletLight,
               unselectedLabelColor: AppColors.textMuted,
-              indicatorColor: AppColors.primaryTurquoise,
-              tabs: [
+              indicatorColor: AppColors.primaryVioletLight,
+              labelStyle: GoogleFonts.nunito(fontWeight: FontWeight.w700),
+              tabs: const [
                 Tab(text: 'Boutique'),
                 Tab(text: 'Vendre'),
               ],
             ),
-            Expanded(
+            const Expanded(
               child: TabBarView(
                 children: [
                   _ShopTab(),
-                  const _SellTab(),
+                  _SellTab(),
                 ],
               ),
             ),
@@ -85,81 +94,96 @@ class MarketPage extends StatelessWidget {
   }
 }
 
-/// Libellés et types de filtre pour la boutique.
-enum _ShopFilter {
-  all,
-  weapon,
-  armor,
-  accessory,
-  potion,
-  cosmetic,
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// Filtres boutique — slots cosmétiques chat
+// ─────────────────────────────────────────────────────────────────────────────
 
-extension _ShopFilterLabel on _ShopFilter {
+enum _CosmeticFilter { all, hat, outfit, aura, accessory, title }
+
+extension _CosmeticFilterExt on _CosmeticFilter {
   String get label => switch (this) {
-        _ShopFilter.all => 'Tout',
-        _ShopFilter.weapon => 'Armes',
-        _ShopFilter.armor => 'Armures',
-        _ShopFilter.accessory => 'Accessoires',
-        _ShopFilter.potion => 'Potions',
-        _ShopFilter.cosmetic => 'Cosmétiques',
+        _CosmeticFilter.all       => 'Tout',
+        _CosmeticFilter.hat       => 'Chapeau',
+        _CosmeticFilter.outfit    => 'Tenue',
+        _CosmeticFilter.aura      => 'Aura',
+        _CosmeticFilter.accessory => 'Accessoire',
+        _CosmeticFilter.title     => 'Titre',
       };
 
-  bool matches(ItemType type) => switch (this) {
-        _ShopFilter.all => true,
-        _ShopFilter.weapon => type == ItemType.weapon,
-        _ShopFilter.armor =>
-          type == ItemType.armor || type == ItemType.helmet || type == ItemType.boots,
-        _ShopFilter.accessory => type == ItemType.ring,
-        _ShopFilter.potion => type == ItemType.potion,
-        _ShopFilter.cosmetic => type == ItemType.cosmetic,
+  String? get slot => switch (this) {
+        _CosmeticFilter.all       => null,
+        _CosmeticFilter.hat       => 'hat',
+        _CosmeticFilter.outfit    => 'outfit',
+        _CosmeticFilter.aura      => 'aura',
+        _CosmeticFilter.accessory => 'accessory',
+        _CosmeticFilter.title     => 'title',
+      };
+
+  String get emoji => switch (this) {
+        _CosmeticFilter.all       => '✨',
+        _CosmeticFilter.hat       => '🎩',
+        _CosmeticFilter.outfit    => '👘',
+        _CosmeticFilter.aura      => '🌟',
+        _CosmeticFilter.accessory => '💎',
+        _CosmeticFilter.title     => '🏆',
       };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Onglet boutique
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _ShopTab extends StatefulWidget {
-  _ShopTab();
+  const _ShopTab();
 
   @override
   State<_ShopTab> createState() => _ShopTabState();
 }
 
 class _ShopTabState extends State<_ShopTab> {
-  final List<Item> _catalog = ItemFactory.getMarketCatalog();
-  _ShopFilter _activeFilter = _ShopFilter.all;
+  // Catalogue filtré : cosmétiques uniquement
+  final List<Item> _catalog = ItemFactory.getMarketCatalog()
+      .where((i) => i.type == ItemType.cosmetic)
+      .toList();
 
-  List<Item> get _filtered =>
-      _catalog.where((item) => _activeFilter.matches(item.type)).toList();
+  _CosmeticFilter _filter = _CosmeticFilter.all;
+
+  List<Item> get _filtered => _filter.slot == null
+      ? _catalog
+      : _catalog.where((i) => i.cosmeticSlot == _filter.slot).toList();
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Filtres catégorie
+        // Filtres
         SizedBox(
-          height: 44,
+          height: 48,
           child: ListView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            children: _ShopFilter.values.map((f) {
-              final active = f == _activeFilter;
+            children: _CosmeticFilter.values.map((f) {
+              final active = f == _filter;
               return Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: FilterChip(
-                  label: Text(f.label,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: active
-                            ? AppColors.backgroundNightBlue
-                            : AppColors.textSecondary,
-                      )),
+                  label: Text(
+                    '${f.emoji}  ${f.label}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: active
+                          ? AppColors.backgroundNightCosmos
+                          : AppColors.textSecondary,
+                    ),
+                  ),
                   selected: active,
-                  onSelected: (_) => setState(() => _activeFilter = f),
-                  selectedColor: AppColors.primaryTurquoise,
+                  onSelected: (_) => setState(() => _filter = f),
+                  selectedColor: AppColors.primaryVioletLight,
                   backgroundColor: AppColors.backgroundDarkPanel,
-                  checkmarkColor: AppColors.backgroundNightBlue,
+                  checkmarkColor: AppColors.backgroundNightCosmos,
                   side: BorderSide(
                     color: active
-                        ? AppColors.primaryTurquoise
+                        ? AppColors.primaryVioletLight
                         : AppColors.textMuted.withValues(alpha: 0.3),
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -168,45 +192,54 @@ class _ShopTabState extends State<_ShopTab> {
             }).toList(),
           ),
         ),
-        // Indicateur inventaire plein
+
+        // Inventaire plein
         Consumer<InventoryProvider>(
           builder: (_, inventory, __) {
             if (!inventory.isFull) return const SizedBox.shrink();
             return Container(
               margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: AppColors.error.withValues(alpha: 0.15),
+                color: AppColors.coralRare.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.error.withValues(alpha: 0.4)),
+                border: Border.all(
+                    color: AppColors.coralRare.withValues(alpha: 0.4)),
               ),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.warning_amber_rounded,
-                      color: AppColors.error, size: 14),
+                      color: AppColors.coralRare, size: 14),
                   SizedBox(width: 6),
-                  Text(
-                    'Inventaire plein — vendez des objets pour faire de la place.',
-                    style: TextStyle(color: AppColors.error, fontSize: 11),
+                  Flexible(
+                    child: Text(
+                      'Inventaire plein — vendez des objets pour faire de la place.',
+                      style:
+                          TextStyle(color: AppColors.coralRare, fontSize: 11),
+                    ),
                   ),
                 ],
               ),
             );
           },
         ),
-        // Liste d'items
+
+        // Liste cosmétiques
         Expanded(
           child: _filtered.isEmpty
-              ? const Center(
-                  child: Text('Aucun objet dans cette catégorie.',
-                      style: TextStyle(color: AppColors.textMuted)),
+              ? Center(
+                  child: Text(
+                    'Aucun cosmétique dans cette catégorie.',
+                    style: GoogleFonts.nunito(color: AppColors.textMuted),
+                  ),
                 )
               : ListView.builder(
                   padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
                   itemCount: _filtered.length,
-                  itemBuilder: (context, i) =>
-                      _ShopItemTile(item: _filtered[i]),
+                  itemBuilder: (ctx, i) =>
+                      _CosmeticTile(item: _filtered[i]),
                 ),
         ),
       ],
@@ -214,192 +247,339 @@ class _ShopTabState extends State<_ShopTab> {
   }
 }
 
-class _ShopItemTile extends StatelessWidget {
+// ─────────────────────────────────────────────────────────────────────────────
+// Tuile cosmétique
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CosmeticTile extends StatelessWidget {
   final Item item;
 
-  const _ShopItemTile({required this.item});
+  const _CosmeticTile({required this.item});
 
   Color get _rarityColor => AppColors.getRarityColor(item.rarity.name);
 
-  String get _typeLabel => switch (item.type) {
-        ItemType.weapon => 'Arme',
-        ItemType.armor => 'Armure',
-        ItemType.helmet => 'Casque',
-        ItemType.boots => 'Bottes',
-        ItemType.ring => 'Anneau',
-        ItemType.potion => 'Potion',
-        ItemType.cosmetic => 'Cosmétique',
-        ItemType.material => 'Matériau',
+  String get _slotEmoji => switch (item.cosmeticSlot) {
+        'hat'       => '🎩',
+        'outfit'    => '👘',
+        'aura'      => '🌟',
+        'accessory' => '💎',
+        'title'     => '🏆',
+        _           => '✨',
       };
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.backgroundDarkPanel,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _rarityColor.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        children: [
-          ItemIcon(item: item, size: 44, showRarityGlow: true),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return GestureDetector(
+      onTap: () => _showPreviewSheet(context),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.backgroundDarkPanel,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _rarityColor.withValues(alpha: 0.35)),
+        ),
+        child: Row(
+          children: [
+            // Emoji slot
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: _rarityColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Center(
+                child: Text(_slotEmoji,
+                    style: const TextStyle(fontSize: 24)),
+              ),
+            ),
+            const SizedBox(width: 12),
+
+            // Infos
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.name,
+                    style: GoogleFonts.nunito(
+                      color: _rarityColor,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    item.description,
+                    style: GoogleFonts.nunito(
+                        color: AppColors.textMuted, fontSize: 11),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  RarityBadge(rarity: item.rarity.name, compact: true),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+
+            // Prix + bouton
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Row(
                   children: [
-                    Text(item.name,
-                        style: TextStyle(
-                            color: _rarityColor, fontWeight: FontWeight.bold)),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 5, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: _rarityColor.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        _typeLabel,
-                        style: TextStyle(color: _rarityColor, fontSize: 10),
+                    const Icon(Icons.monetization_on,
+                        color: AppColors.gold, size: 14),
+                    const SizedBox(width: 2),
+                    Text(
+                      '${item.goldValue}',
+                      style: GoogleFonts.nunito(
+                        color: AppColors.gold,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
                       ),
                     ),
                   ],
                 ),
-                Text(item.description,
-                    style: const TextStyle(
-                        color: AppColors.textMuted, fontSize: 11),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
-                if (item.stats.isNotEmpty)
-                  Text(
-                    item.stats.entries
-                        .map((e) => '+${e.value} ${_label(e.key)}')
-                        .join(' · '),
-                    style: const TextStyle(
-                        color: AppColors.primaryTurquoise, fontSize: 11),
-                  ),
+                const SizedBox(height: 6),
+                Consumer2<PlayerProvider, InventoryProvider>(
+                  builder: (ctx, player, inventory, _) {
+                    final canAfford =
+                        (player.stats?.gold ?? 0) >= item.goldValue;
+                    final hasSpace = !inventory.isFull;
+                    return GestureDetector(
+                      onTap: canAfford && hasSpace
+                          ? () => _buy(ctx, player, inventory)
+                          : null,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: canAfford && hasSpace
+                              ? AppColors.primaryViolet.withValues(alpha: 0.20)
+                              : AppColors.textMuted.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: canAfford && hasSpace
+                                ? AppColors.primaryVioletLight
+                                : AppColors.inputBorder,
+                          ),
+                        ),
+                        child: Text(
+                          'Acheter',
+                          style: GoogleFonts.nunito(
+                            color: canAfford && hasSpace
+                                ? AppColors.primaryVioletLight
+                                : AppColors.textMuted,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ],
             ),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.monetization_on,
-                      color: AppColors.gold, size: 14),
-                  const SizedBox(width: 2),
-                  Text('${item.goldValue}',
-                      style: const TextStyle(
-                          color: AppColors.gold,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13)),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Consumer2<PlayerProvider, InventoryProvider>(
-                builder: (ctx, player, inventory, _) {
-                  final canAfford =
-                      (player.stats?.gold ?? 0) >= item.goldValue;
-                  final hasSpace = !inventory.isFull;
-                  return TextButton(
-                    onPressed: canAfford && hasSpace
-                        ? () => _confirmBuy(ctx, player, inventory, item)
-                        : null,
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 4),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: const Text('Acheter',
-                        style: TextStyle(fontSize: 12)),
-                  );
-                },
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  /// Demande confirmation pour les achats coûteux (≥ 200 or).
-  Future<void> _confirmBuy(BuildContext context, PlayerProvider player,
-      InventoryProvider inventory, Item item) async {
-    if (item.goldValue >= 200) {
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: AppColors.backgroundDarkPanel,
-          title: const Text('Confirmer l\'achat',
-              style: TextStyle(color: AppColors.textPrimary)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Acheter "${item.name}" pour',
-                  style: const TextStyle(color: AppColors.textSecondary)),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Icon(Icons.monetization_on,
-                      color: AppColors.gold, size: 16),
-                  const SizedBox(width: 4),
-                  Text('${item.goldValue} pièces d\'or',
-                      style: const TextStyle(
-                          color: AppColors.gold, fontWeight: FontWeight.bold)),
-                ],
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Annuler',
-                  style: TextStyle(color: AppColors.textMuted)),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryTurquoise),
-              child: const Text('Acheter',
-                  style: TextStyle(color: AppColors.backgroundNightBlue)),
-            ),
-          ],
-        ),
-      );
-      if (confirmed != true) return;
-      if (!context.mounted) return;
-    }
-    _buy(context, player, inventory, item);
-  }
-
   void _buy(BuildContext context, PlayerProvider player,
-      InventoryProvider inventory, Item item) {
+      InventoryProvider inventory) {
     final auth = context.read<AuthProvider>();
     final userId = auth.userId ?? '';
     player.addGold(userId, -item.goldValue);
     final newItem = item.copyWith(id: const Uuid().v4());
     inventory.addItem(newItem);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${item.name} acheté !')),
+      SnackBar(
+        content: Text('${item.name} acheté !'),
+        backgroundColor: AppColors.mintMagic.withValues(alpha: 0.9),
+      ),
     );
   }
 
-  String _label(String key) => switch (key) {
-        'xpBonus' => 'XP',
-        'goldBonus' => 'Or',
-        'hpBonus' => 'HP',
-        'moralBonus' => 'Moral',
-        _ => key,
+  void _showPreviewSheet(BuildContext context) {
+    final cat = context.read<CatProvider>().mainCat;
+    final race = cat?.race ?? 'cosmos';
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.backgroundDarkPanel,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => _CosmeticPreviewSheet(item: item, race: race),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BottomSheet aperçu cosmétique sur le chat
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CosmeticPreviewSheet extends StatelessWidget {
+  final Item item;
+  final String race;
+
+  const _CosmeticPreviewSheet({required this.item, required this.race});
+
+  @override
+  Widget build(BuildContext context) {
+    final rarityColor = AppColors.getRarityColor(item.rarity.name);
+
+    // Preview : chapeau uniquement (autres slots → emoji + message)
+    final showCatPreview = item.cosmeticSlot == 'hat';
+    final hatId = showCatPreview ? item.id : null;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Poignée
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.inputBorder,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Aperçu chat
+          if (showCatPreview) ...[
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  width: 160,
+                  height: 160,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: rarityColor.withValues(alpha: 0.30),
+                        blurRadius: 40,
+                        spreadRadius: 12,
+                      ),
+                    ],
+                  ),
+                ),
+                CatWidget(race: race, equippedHat: hatId, size: 150),
+              ],
+            ),
+          ] else ...[
+            // Pour les autres slots, afficher un grand emoji
+            Text(
+              _slotEmoji(item.cosmeticSlot),
+              style: const TextStyle(fontSize: 64),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Aperçu disponible\naprès équipement',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.nunito(
+                color: AppColors.textMuted,
+                fontSize: 13,
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 20),
+
+          // Nom + rareté
+          Text(
+            item.name,
+            style: GoogleFonts.nunito(
+              color: rarityColor,
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          RarityBadge(rarity: item.rarity.name),
+          const SizedBox(height: 10),
+          Text(
+            item.description,
+            textAlign: TextAlign.center,
+            style:
+                GoogleFonts.nunito(color: AppColors.textSecondary, fontSize: 13),
+          ),
+          const SizedBox(height: 20),
+
+          // Bouton acheter
+          Consumer2<PlayerProvider, InventoryProvider>(
+            builder: (ctx, player, inventory, _) {
+              final canAfford =
+                  (player.stats?.gold ?? 0) >= item.goldValue;
+              final hasSpace = !inventory.isFull;
+
+              return SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: canAfford && hasSpace
+                        ? AppColors.primaryViolet
+                        : AppColors.textMuted.withValues(alpha: 0.3),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                  ),
+                  onPressed: canAfford && hasSpace
+                      ? () {
+                          final auth = ctx.read<AuthProvider>();
+                          final userId = auth.userId ?? '';
+                          player.addGold(userId, -item.goldValue);
+                          inventory.addItem(item.copyWith(id: const Uuid().v4()));
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            SnackBar(
+                              content: Text('${item.name} acheté !'),
+                              backgroundColor:
+                                  AppColors.mintMagic.withValues(alpha: 0.9),
+                            ),
+                          );
+                        }
+                      : null,
+                  icon: const Icon(Icons.monetization_on,
+                      color: AppColors.gold, size: 18),
+                  label: Text(
+                    '${item.goldValue} pièces d\'or',
+                    style: GoogleFonts.nunito(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _slotEmoji(String? slot) => switch (slot) {
+        'outfit'    => '👘',
+        'aura'      => '🌟',
+        'accessory' => '💎',
+        'title'     => '🏆',
+        _           => '✨',
       };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Onglet vente
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _SellTab extends StatelessWidget {
   const _SellTab();
@@ -409,10 +589,10 @@ class _SellTab extends StatelessWidget {
     return Consumer<InventoryProvider>(
       builder: (context, inventory, _) {
         if (inventory.items.isEmpty) {
-          return const Center(
+          return Center(
             child: Text(
-              'Votre inventaire est vide.',
-              style: TextStyle(color: AppColors.textMuted),
+              'Ton inventaire est vide.',
+              style: GoogleFonts.nunito(color: AppColors.textMuted),
             ),
           );
         }
@@ -429,23 +609,37 @@ class _SellTab extends StatelessWidget {
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
                 color: AppColors.backgroundDarkPanel,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: color.withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [
-                  ItemIcon(item: item, size: 40, showBackground: false),
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Center(
+                      child: Icon(
+                        IconData(item.iconCodePoint, fontFamily: 'MaterialIcons'),
+                        color: color,
+                        size: 22,
+                      ),
+                    ),
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(item.name,
-                            style: TextStyle(
-                                color: color, fontWeight: FontWeight.bold)),
+                            style: GoogleFonts.nunito(
+                                color: color, fontWeight: FontWeight.w700)),
                         Text(
                           'Revente : $sellPrice pièces (50%)',
-                          style: const TextStyle(
+                          style: GoogleFonts.nunito(
                               color: AppColors.textMuted, fontSize: 11),
                         ),
                       ],
@@ -464,11 +658,15 @@ class _SellTab extends StatelessWidget {
                   TextButton(
                     onPressed: () => _sell(context, inventory, item, sellPrice),
                     style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-                    child: const Text('Vendre',
-                        style: TextStyle(fontSize: 12)),
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(
+                      'Vendre',
+                      style: TextStyle(
+                          color: AppColors.primaryVioletLight, fontSize: 12),
+                    ),
                   ),
                 ],
               ),
@@ -485,9 +683,7 @@ class _SellTab extends StatelessWidget {
     final auth = context.read<AuthProvider>();
     final userId = auth.userId ?? '';
     inventory.removeItem(item.id);
-    if (player.stats != null) {
-      player.addGold(userId, sellPrice);
-    }
+    player.addGold(userId, sellPrice);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${item.name} vendu pour $sellPrice pièces.')),
     );

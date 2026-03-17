@@ -3,6 +3,7 @@ import '../services/notification_service.dart';
 import '../../presentation/providers/quest_provider.dart';
 import '../../presentation/providers/player_provider.dart';
 import '../../presentation/providers/equipment_provider.dart';
+import '../../presentation/providers/inventory_provider.dart';
 
 /// Résultat complet de la complétion d'une quête.
 class CompleteQuestResult {
@@ -22,14 +23,17 @@ class CompleteQuestUseCase {
   final QuestProvider _questProvider;
   final PlayerProvider _playerProvider;
   final EquipmentProvider? _equipmentProvider;
+  final InventoryProvider? _inventoryProvider;
 
   CompleteQuestUseCase({
     required QuestProvider questProvider,
     required PlayerProvider playerProvider,
     EquipmentProvider? equipmentProvider,
+    InventoryProvider? inventoryProvider,
   })  : _questProvider = questProvider,
         _playerProvider = playerProvider,
-        _equipmentProvider = equipmentProvider;
+        _equipmentProvider = equipmentProvider,
+        _inventoryProvider = inventoryProvider;
 
   Future<CompleteQuestResult> execute(String questId) async {
     final quest = _questProvider.quests.firstWhere((q) => q.id == questId);
@@ -57,7 +61,7 @@ class CompleteQuestUseCase {
     if (rewards.crystals > 0) {
       await _playerProvider.addCrystals(userId, rewards.crystals);
     }
-    await _playerProvider.updateStreak(userId);
+    await _playerProvider.updateStreak(userId, inventory: _inventoryProvider);
     await _playerProvider.incrementQuestsCompleted(userId);
     await _playerProvider.checkAndUnlockAchievements(userId);
 

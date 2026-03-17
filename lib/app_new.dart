@@ -15,6 +15,7 @@ import 'ui/pages/settings/settings_page.dart';
 import 'ui/pages/home/sanctuary_page.dart';
 import 'ui/pages/inventory/inventory_page.dart';
 import 'ui/pages/market/market_page.dart';
+import 'ui/pages/cat/cat_page.dart';
 import 'ui/widgets/common/dock_bar.dart';
 import 'ui/theme/app_theme.dart';
 import 'data/models/quest_model.dart';
@@ -38,6 +39,7 @@ class _SamevaAppState extends State<SamevaApp> {
     SanctuaryPage(),
     QuestsListPage(),
     InventoryPage(),
+    CatPage(),
     MarketPage(),
     ProfilePage(),
   ];

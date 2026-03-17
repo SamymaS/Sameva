@@ -11,10 +11,14 @@ import '../../../domain/services/claude_validation_ai_service.dart';
 import '../../../domain/services/quest_rewards_calculator.dart';
 import '../../../domain/services/validation_ai_service.dart';
 import '../../../domain/use_cases/complete_quest_use_case.dart';
+import '../../../domain/services/cat_mood_service.dart';
+import '../../../presentation/providers/cat_provider.dart';
 import '../../../presentation/providers/equipment_provider.dart';
+import '../../../presentation/providers/inventory_provider.dart';
 import '../../../presentation/providers/player_provider.dart';
 import '../../../presentation/providers/quest_provider.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/cat/cat_reaction_overlay.dart';
 
 /// Page de validation de quête.
 /// La validation directe est TOUJOURS possible.
@@ -152,9 +156,29 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
         questProvider: context.read<QuestProvider>(),
         playerProvider: context.read<PlayerProvider>(),
         equipmentProvider: context.read<EquipmentProvider>(),
+        inventoryProvider: context.read<InventoryProvider>(),
       );
       final result = await useCase.execute(questId);
       final rewards = result.rewards;
+
+      if (!mounted) return;
+
+      // Réaction du chat après validation réussie
+      final catProvider = context.read<CatProvider>();
+      final playerProvider = context.read<PlayerProvider>();
+      final cat = catProvider.mainCat;
+      if (cat != null && mounted) {
+        final moral = playerProvider.stats?.moral ?? 0.7;
+        final streak = playerProvider.stats?.streak ?? 0;
+        final mood = CatMoodService.getMoodExpression(moral, streak);
+        await showCatReactionOverlay(
+          context,
+          race: cat.race,
+          equippedHat: cat.equippedHat,
+          mood: mood,
+          questResult: 'success',
+        );
+      }
 
       if (!mounted) return;
 

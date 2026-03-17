@@ -11,11 +11,11 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: AppColors.primary,
+        seedColor: AppColors.primaryViolet,
         brightness: Brightness.light,
-        primary: AppColors.primary,
+        primary: AppColors.primaryViolet,
       ),
-      scaffoldBackgroundColor: AppColors.background,
+      scaffoldBackgroundColor: AppColors.backgroundNightCosmos,
       appBarTheme: const AppBarTheme(
         centerTitle: true,
         elevation: 0,
@@ -67,12 +67,12 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: AppColors.primary,
+        seedColor: AppColors.primaryViolet,
         brightness: Brightness.dark,
-        primary: AppColors.primary,
-        surface: AppColors.backgroundDark,
+        primary: AppColors.primaryViolet,
+        surface: AppColors.backgroundNightCosmos,
       ),
-      scaffoldBackgroundColor: AppColors.backgroundDark,
+      scaffoldBackgroundColor: AppColors.backgroundNightCosmos,
       appBarTheme: const AppBarTheme(
         centerTitle: true,
         elevation: 0,

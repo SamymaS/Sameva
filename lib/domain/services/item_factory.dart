@@ -404,6 +404,25 @@ class ItemFactory {
     return QuestRarity.common;
   }
 
+  /// Comme [rollGachaRarity] mais applique le système pity.
+  /// - pityCount ≥ 80 → Légendaire garanti, reset
+  /// - pityCount ≥ 20 → Épique minimum garanti, reset
+  /// Retourne aussi un booléen indiquant si le pity a été déclenché.
+  static ({QuestRarity rarity, bool pityTriggered}) rollGachaRarityWithPity(
+      int pityCount) {
+    if (pityCount >= 80) {
+      return (rarity: QuestRarity.legendary, pityTriggered: true);
+    }
+    if (pityCount >= 20) {
+      final result = rollGachaRarity();
+      final forced = result.index < QuestRarity.epic.index
+          ? QuestRarity.epic
+          : result;
+      return (rarity: forced, pityTriggered: forced == QuestRarity.epic && result.index < QuestRarity.epic.index);
+    }
+    return (rarity: rollGachaRarity(), pityTriggered: false);
+  }
+
   /// Génère un item aléatoire de la rareté donnée.
   static Item generateRandomItem(QuestRarity rarity) {
     final matching =

@@ -121,6 +121,29 @@ class NotificationService {
     }
   }
 
+  /// Notification immédiate lors d'un jalon de streak.
+  static Future<void> showStreakMilestone(int days, String rarity) async {
+    try {
+      const channel = AndroidNotificationDetails(
+        'streak_milestone',
+        'Jalons de série',
+        channelDescription: 'Récompenses débloquées pour les séries',
+        importance: Importance.high,
+        priority: Priority.high,
+        icon: '@mipmap/ic_launcher',
+      );
+      await _plugin.show(
+        2,
+        '🎉 $days jours de suite !',
+        'Tu as débloqué un cosmétique $rarity pour ton chat !',
+        const NotificationDetails(
+            android: channel, iOS: DarwinNotificationDetails()),
+      );
+    } catch (e) {
+      debugPrint('NotificationService: erreur jalon streak: $e');
+    }
+  }
+
   /// Replanifier le streak pour le lendemain (appelé après annulation).
   static Future<void> rescheduleStreakReminder() async {
     await cancelStreakReminder();

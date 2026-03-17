@@ -100,8 +100,19 @@ class _InvocationPageState extends State<InvocationPage>
     setState(() => _isRevealing = true);
     _revealController.reset();
 
-    final rarity = ItemFactory.rollGachaRarity();
-    final item = ItemFactory.generateRandomItem(rarity);
+    final pityCount = player.stats?.pityCount ?? 0;
+    final pullResult = ItemFactory.rollGachaRarityWithPity(pityCount);
+    final item = ItemFactory.generateRandomItem(pullResult.rarity);
+
+    // Mise à jour du compteur pity
+    if (pullResult.pityTriggered ||
+        pullResult.rarity == QuestRarity.epic ||
+        pullResult.rarity == QuestRarity.legendary ||
+        pullResult.rarity == QuestRarity.mythic) {
+      await player.resetPity(userId);
+    } else {
+      await player.incrementPity(userId);
+    }
 
     await _revealController.forward();
 
@@ -122,13 +133,13 @@ class _InvocationPageState extends State<InvocationPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.backgroundNightBlue,
+      backgroundColor: AppColors.backgroundNightCosmos,
       appBar: AppBar(
-        backgroundColor: AppColors.backgroundNightBlue,
+        backgroundColor: AppColors.backgroundNightCosmos,
         title: const Text(
           'Invocation',
           style: TextStyle(
-              color: AppColors.primaryTurquoise, fontWeight: FontWeight.bold),
+              color: AppColors.primaryVioletLight, fontWeight: FontWeight.bold),
         ),
         actions: [
           Consumer<PlayerProvider>(
@@ -137,12 +148,12 @@ class _InvocationPageState extends State<InvocationPage>
               child: Row(
                 children: [
                   const Icon(Icons.diamond,
-                      color: AppColors.secondaryViolet, size: 18),
+                      color: AppColors.primaryViolet, size: 18),
                   const SizedBox(width: 4),
                   Text(
                     '${player.stats?.crystals ?? 0}',
                     style: const TextStyle(
-                        color: AppColors.secondaryVioletGlow,
+                        color: AppColors.primaryVioletLight,
                         fontWeight: FontWeight.bold),
                   ),
                 ],
@@ -179,7 +190,7 @@ class _InvocationPageState extends State<InvocationPage>
                                   ]
                                 : [
                                     AppColors.backgroundDeepViolet,
-                                    AppColors.secondaryViolet.withValues(alpha: 0.3),
+                                    AppColors.primaryViolet.withValues(alpha: 0.3),
                                   ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
@@ -188,14 +199,14 @@ class _InvocationPageState extends State<InvocationPage>
                           border: Border.all(
                             color: item != null
                                 ? _rarityColor(item.rarity)
-                                : AppColors.secondaryViolet,
+                                : AppColors.primaryViolet,
                             width: 2,
                           ),
                           boxShadow: [
                             BoxShadow(
                               color: (item != null
                                       ? _rarityColor(item.rarity)
-                                      : AppColors.secondaryViolet)
+                                      : AppColors.primaryViolet)
                                   .withValues(alpha: 0.5),
                               blurRadius: 20,
                               spreadRadius: 2,
@@ -239,7 +250,7 @@ class _InvocationPageState extends State<InvocationPage>
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Icon(Icons.auto_fix_high,
-                                      color: AppColors.secondaryVioletGlow,
+                                      color: AppColors.primaryVioletLight,
                                       size: 48),
                                   SizedBox(height: 12),
                                   Text(
@@ -268,9 +279,9 @@ class _InvocationPageState extends State<InvocationPage>
                       final crystals = player.stats?.crystals ?? 0;
                       return FilledButton.icon(
                         style: FilledButton.styleFrom(
-                          backgroundColor: AppColors.secondaryViolet,
+                          backgroundColor: AppColors.primaryViolet,
                           disabledBackgroundColor:
-                              AppColors.secondaryViolet.withValues(alpha: 0.3),
+                              AppColors.primaryViolet.withValues(alpha: 0.3),
                         ),
                         onPressed: (!_isRevealing && crystals >= 50)
                             ? () => _pull(isFree: false)
@@ -298,15 +309,15 @@ class _InvocationPageState extends State<InvocationPage>
                               }
                             : null,
                         icon: const Icon(Icons.star, size: 16,
-                            color: AppColors.backgroundNightBlue),
+                            color: AppColors.backgroundNightCosmos),
                         label: _canUseFree
                             ? const Text('Gratuit',
                                 style: TextStyle(
-                                    color: AppColors.backgroundNightBlue))
+                                    color: AppColors.backgroundNightCosmos))
                             : Text(
                                 _formatTimer(_freeTimeRemaining),
                                 style: const TextStyle(
-                                    color: AppColors.backgroundNightBlue,
+                                    color: AppColors.backgroundNightCosmos,
                                     fontSize: 11),
                               ),
                       );
@@ -317,8 +328,55 @@ class _InvocationPageState extends State<InvocationPage>
             ),
             const SizedBox(height: 32),
 
-
-            const SizedBox(height: 24),
+            // Compteur pity
+            Consumer<PlayerProvider>(
+              builder: (_, player, __) {
+                final pity = player.stats?.pityCount ?? 0;
+                return Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.backgroundDarkPanel,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                        color: AppColors.primaryViolet.withValues(alpha: 0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.shield_outlined,
+                              color: AppColors.primaryVioletLight, size: 14),
+                          SizedBox(width: 6),
+                          Text(
+                            'Garanties Pity',
+                            style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      _PityBar(
+                        label: 'Épique garanti',
+                        current: pity,
+                        max: 20,
+                        color: AppColors.rarityEpic,
+                      ),
+                      const SizedBox(height: 8),
+                      _PityBar(
+                        label: 'Légendaire garanti',
+                        current: pity,
+                        max: 80,
+                        color: AppColors.rarityLegendary,
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 16),
 
             // Taux de drop
             _DropRatesSection(),
@@ -372,6 +430,57 @@ class _InvocationPageState extends State<InvocationPage>
 
 
 // ─────────────────────────────────────────────────────────────────
+// Barre pity
+// ─────────────────────────────────────────────────────────────────
+
+class _PityBar extends StatelessWidget {
+  final String label;
+  final int current;
+  final int max;
+  final Color color;
+
+  const _PityBar({
+    required this.label,
+    required this.current,
+    required this.max,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final ratio = (current / max).clamp(0.0, 1.0);
+    return Row(
+      children: [
+        SizedBox(
+          width: 120,
+          child: Text(
+            label,
+            style: TextStyle(color: color, fontSize: 11),
+          ),
+        ),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: ratio,
+              backgroundColor: AppColors.backgroundNightCosmos,
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+              minHeight: 7,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          '$current/$max',
+          style: TextStyle(
+              color: color, fontSize: 11, fontWeight: FontWeight.bold),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
 // Section taux de drop
 // ─────────────────────────────────────────────────────────────────
 
@@ -395,7 +504,7 @@ class _DropRatesSection extends StatelessWidget {
         color: AppColors.backgroundDarkPanel,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-            color: AppColors.secondaryViolet.withValues(alpha: 0.3)),
+            color: AppColors.primaryViolet.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -403,7 +512,7 @@ class _DropRatesSection extends StatelessWidget {
           const Row(
             children: [
               Icon(Icons.bar_chart,
-                  color: AppColors.secondaryVioletGlow, size: 16),
+                  color: AppColors.primaryVioletLight, size: 16),
               SizedBox(width: 6),
               Text(
                 'Taux d\'invocation',
@@ -442,7 +551,7 @@ class _DropRatesSection extends StatelessWidget {
                         child: LinearProgressIndicator(
                           value: r.rate / 100,
                           backgroundColor:
-                              AppColors.backgroundNightBlue,
+                              AppColors.backgroundNightCosmos,
                           valueColor:
                               AlwaysStoppedAnimation<Color>(r.color),
                           minHeight: 6,

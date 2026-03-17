@@ -8,7 +8,7 @@ import '../../../presentation/providers/inventory_provider.dart';
 import '../../../presentation/providers/player_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/common/item_icon.dart';
-import '../avatar/avatar_page.dart';
+import '../cat/cat_page.dart';
 
 /// Page inventaire — grille 4 colonnes avec cartes item visuelles.
 class InventoryPage extends StatelessWidget {
@@ -60,11 +60,11 @@ class InventoryPage extends StatelessWidget {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.person_outline,
+            icon: const Icon(Icons.pets_outlined,
                 color: AppColors.textSecondary, size: 22),
-            tooltip: 'Avatar',
+            tooltip: 'Chat',
             onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const AvatarPage()),
+              MaterialPageRoute(builder: (_) => const CatPage()),
             ),
           ),
         ],
@@ -635,7 +635,7 @@ class _ActionButtons extends StatelessWidget {
           icon: isWorn
               ? Icons.remove_circle_outline
               : Icons.face_retouching_natural,
-          color: isWorn ? AppColors.textMuted : AppColors.secondaryViolet,
+          color: isWorn ? AppColors.textMuted : AppColors.primaryViolet,
           outlined: isWorn,
           onTap: () {
             if (isWorn) {
