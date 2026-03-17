@@ -7,6 +7,8 @@ import 'package:image_picker/image_picker.dart';
 import '../../../config/supabase_config.dart';
 import '../../../data/models/quest_model.dart';
 import '../../../domain/services/api_validation_ai_service.dart';
+import '../../../domain/services/claude_validation_ai_service.dart';
+import '../../../domain/services/quest_rewards_calculator.dart';
 import '../../../domain/services/validation_ai_service.dart';
 import '../../../domain/use_cases/complete_quest_use_case.dart';
 import '../../../presentation/providers/equipment_provider.dart';
@@ -14,7 +16,9 @@ import '../../../presentation/providers/player_provider.dart';
 import '../../../presentation/providers/quest_provider.dart';
 import '../../theme/app_colors.dart';
 
-/// Validation de quête : timer si contrainte de temps, preuve photo ou vidéo.
+/// Page de validation de quête.
+/// La validation directe est TOUJOURS possible.
+/// La preuve photo/vidéo est optionnelle (analyse IA bonus).
 class QuestValidationPage extends StatefulWidget {
   final Quest quest;
 
@@ -26,6 +30,10 @@ class QuestValidationPage extends StatefulWidget {
 
 class _QuestValidationPageState extends State<QuestValidationPage> {
   late final ValidationAIService _validationService = () {
+    final apiKey = SupabaseConfig.anthropicApiKey;
+    if (apiKey != null && apiKey.isNotEmpty) {
+      return ClaudeValidationAIService(apiKey: apiKey);
+    }
     final url = SupabaseConfig.validationAiUrl;
     if (url != null && url.isNotEmpty) {
       return ApiValidationAIService(
@@ -36,19 +44,19 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
     return MockValidationAIService();
   }();
 
-  bool _consentGiven = false;
-  bool _mediaConsent = false;
+  bool _proofExpanded = false;
   bool _proofIsVideo = false;
   Uint8List? _proofImage;
   String? _proofVideoPath;
   bool _isAnalyzing = false;
   bool _isValidating = false;
-  ValidationResult? _result;
+  ValidationResult? _analysisResult;
   Timer? _timer;
 
-  bool get _isPhotoValidation => widget.quest.validationType == ValidationType.photo;
   bool get _hasDeadline => widget.quest.deadline != null;
   bool get _hasProof => _proofImage != null || _proofVideoPath != null;
+  bool get _supportsPhoto =>
+      widget.quest.validationType == ValidationType.photo;
 
   @override
   void initState() {
@@ -73,13 +81,18 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-    final file = await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+    final file = await picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 80,
+      maxWidth: 1280,
+      maxHeight: 1280,
+    );
     if (file != null) {
       final bytes = await file.readAsBytes();
       setState(() {
         _proofImage = Uint8List.fromList(bytes);
         _proofVideoPath = null;
-        _result = null;
+        _analysisResult = null;
       });
     }
   }
@@ -94,7 +107,7 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
       setState(() {
         _proofVideoPath = file.path;
         _proofImage = null;
-        _result = null;
+        _analysisResult = null;
       });
     }
   }
@@ -114,22 +127,21 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
           videoPath: _proofVideoPath!,
         );
       }
-      if (mounted) setState(() => _result = r);
+      if (mounted) setState(() => _analysisResult = r);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur analyse : $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isAnalyzing = false);
     }
   }
 
-  void _clearProof() {
-    setState(() {
-      _proofImage = null;
-      _proofVideoPath = null;
-      _result = null;
-    });
-  }
-
-  /// P0.1 + P2.1 : utilise CompleteQuestUseCase — calcul des récompenses
-  /// via QuestRewardsCalculator (timing + streak), plus de contournement.
   Future<void> _completeAndNavigate() async {
     final questId = widget.quest.id;
     if (questId == null) return;
@@ -146,7 +158,6 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
 
       if (!mounted) return;
 
-      // Dialog level-up avant de naviguer
       if (result.didLevelUp) {
         await _showLevelUpDialog(result.newLevel, rewards.experience);
         if (!mounted) return;
@@ -154,19 +165,11 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
 
       Navigator.of(context).pop();
       Navigator.of(context).pushNamed('/rewards');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Quête validée · +${rewards.experience} XP · +${rewards.gold} or'
-            '${rewards.hasBonus ? ' (bonus ×${rewards.multiplier.toStringAsFixed(1)})' : ''}',
-          ),
-        ),
-      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Erreur lors de la validation : $e'),
+          content: Text('Erreur : $e'),
           backgroundColor: AppColors.error,
         ),
       );
@@ -185,270 +188,693 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
 
   @override
   Widget build(BuildContext context) {
+    final rarityColor = _rarityColor(widget.quest.rarity);
+    final base = QuestRewardsCalculator.calculateBaseRewards(widget.quest.difficulty);
+    final xp = widget.quest.xpReward ?? base.experience;
+    final gold = widget.quest.goldReward ?? base.gold;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Valider la quête')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+      backgroundColor: AppColors.backgroundNightBlue,
+      appBar: AppBar(
+        backgroundColor: AppColors.backgroundNightBlue,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new,
+              color: AppColors.textMuted, size: 18),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: const Text(
+          'Validation',
+          style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 14,
+              fontWeight: FontWeight.w500),
+        ),
+        centerTitle: true,
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── En-tête quête ───────────────────────────────────────
+                  _QuestHeader(
+                    quest: widget.quest,
+                    rarityColor: rarityColor,
+                  ),
+                  const SizedBox(height: 20),
+
+                  // ── Récompenses ─────────────────────────────────────────
+                  _RewardsPreview(xp: xp, gold: gold),
+                  const SizedBox(height: 16),
+
+                  // ── Timer ───────────────────────────────────────────────
+                  if (_hasDeadline) ...[
+                    _TimerBlock(remaining: _remainingTime),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // ── Preuve photo (optionnelle) ───────────────────────────
+                  if (_supportsPhoto) ...[
+                    _ProofSection(
+                      expanded: _proofExpanded,
+                      hasProof: _hasProof,
+                      proofIsVideo: _proofIsVideo,
+                      proofImage: _proofImage,
+                      isAnalyzing: _isAnalyzing,
+                      analysisResult: _analysisResult,
+                      onToggle: () =>
+                          setState(() => _proofExpanded = !_proofExpanded),
+                      onToggleType: (v) =>
+                          setState(() => _proofIsVideo = v),
+                      onPickImage: _pickImage,
+                      onPickVideo: _pickVideo,
+                      onClear: () => setState(() {
+                        _proofImage = null;
+                        _proofVideoPath = null;
+                        _analysisResult = null;
+                      }),
+                      onAnalyze: _analyze,
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                ],
+              ),
+            ),
+          ),
+
+          // ── Bouton valider (toujours visible) ──────────────────────────
+          _ValidateButton(
+            isValidating: _isValidating,
+            onValidate: _completeAndNavigate,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _rarityColor(QuestRarity r) => switch (r) {
+        QuestRarity.common => AppColors.rarityCommon,
+        QuestRarity.uncommon => AppColors.rarityUncommon,
+        QuestRarity.rare => AppColors.rarityRare,
+        QuestRarity.epic => AppColors.rarityEpic,
+        QuestRarity.legendary => AppColors.rarityLegendary,
+        QuestRarity.mythic => AppColors.rarityMythic,
+      };
+}
+
+// ── Widgets internes ──────────────────────────────────────────────────────────
+
+class _QuestHeader extends StatelessWidget {
+  final Quest quest;
+  final Color rarityColor;
+
+  const _QuestHeader({required this.quest, required this.rarityColor});
+
+  String _rarityLabel(QuestRarity r) => switch (r) {
+        QuestRarity.common => 'Commune',
+        QuestRarity.uncommon => 'Peu commune',
+        QuestRarity.rare => 'Rare',
+        QuestRarity.epic => 'Épique',
+        QuestRarity.legendary => 'Légendaire',
+        QuestRarity.mythic => 'Mythique',
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Badge rareté
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+          decoration: BoxDecoration(
+            color: rarityColor.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: rarityColor.withValues(alpha: 0.4)),
+          ),
+          child: Text(
+            _rarityLabel(quest.rarity).toUpperCase(),
+            style: TextStyle(
+                color: rarityColor,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1),
+          ),
+        ),
+        const SizedBox(height: 10),
+        // Titre
+        Text(
+          quest.title,
+          style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              height: 1.2),
+        ),
+        const SizedBox(height: 6),
+        // Méta
+        Row(
           children: [
-            Text(
-              widget.quest.title,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${widget.quest.category} · ${widget.quest.estimatedDurationMinutes} min',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+            const Icon(Icons.category_outlined,
+                color: AppColors.textMuted, size: 13),
+            const SizedBox(width: 4),
+            Text(quest.category,
+                style: const TextStyle(
+                    color: AppColors.textMuted, fontSize: 12)),
+            const SizedBox(width: 12),
+            const Icon(Icons.timer_outlined,
+                color: AppColors.textMuted, size: 13),
+            const SizedBox(width: 4),
+            Text('${quest.estimatedDurationMinutes} min',
+                style: const TextStyle(
+                    color: AppColors.textMuted, fontSize: 12)),
+            const SizedBox(width: 12),
+            // Difficulté — points colorés
+            Row(
+              children: List.generate(
+                5,
+                (i) => Container(
+                  margin: const EdgeInsets.only(right: 3),
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: i < quest.difficulty
+                        ? rarityColor
+                        : AppColors.textMuted.withValues(alpha: 0.3),
                   ),
+                ),
+              ),
             ),
-            if (_hasDeadline) ...[
-              const SizedBox(height: 16),
-              _TimerBlock(remaining: _remainingTime),
-            ],
-            const SizedBox(height: 24),
-            if (_isPhotoValidation) ...[
-              const Text('Preuve visuelle', style: TextStyle(fontWeight: FontWeight.w500)),
-              const SizedBox(height: 8),
-              Text(
-                'Cadrez la zone liée à la quête (ex : lit, bureau, pièce rangée). '
-                'Photo ou courte vidéo pour montrer la tâche réalisée.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-              ),
-              const SizedBox(height: 12),
-              CheckboxListTile(
-                value: _mediaConsent,
-                onChanged: (v) => setState(() => _mediaConsent = v ?? false),
-                title: const Text(
-                  "J'accepte que la preuve soit utilisée uniquement pour la validation puis supprimée.",
-                ),
-                controlAffinity: ListTileControlAffinity.leading,
-              ),
-              const SizedBox(height: 8),
-              if (!_hasProof) ...[
-                SegmentedButton<bool>(
-                  segments: const [
-                    ButtonSegment(value: false, label: Text('Photo'), icon: Icon(Icons.camera_alt)),
-                    ButtonSegment(value: true, label: Text('Vidéo'), icon: Icon(Icons.videocam)),
-                  ],
-                  selected: {_proofIsVideo},
-                  onSelectionChanged: (s) => setState(() => _proofIsVideo = s.first),
-                ),
-                const SizedBox(height: 12),
-                if (_mediaConsent)
-                  _proofIsVideo
-                      ? OutlinedButton.icon(
-                          onPressed: _pickVideo,
-                          icon: const Icon(Icons.videocam),
-                          label: const Text('Prendre une vidéo (max 30 s)'),
-                        )
-                      : OutlinedButton.icon(
-                          onPressed: _pickImage,
-                          icon: const Icon(Icons.camera_alt),
-                          label: const Text('Prendre une photo'),
-                        ),
-              ] else ...[
-                if (_proofImage != null)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.memory(
-                      _proofImage!,
-                      height: 200,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                    ),
-                  )
-                else
-                  Container(
-                    height: 200,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    alignment: Alignment.center,
-                    child: const Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.videocam, size: 48),
-                        SizedBox(height: 8),
-                        Text('Vidéo enregistrée'),
-                      ],
-                    ),
-                  ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: _clearProof,
-                      child: const Text('Reprendre'),
-                    ),
-                    const SizedBox(width: 8),
-                    FilledButton.icon(
-                      onPressed: _isAnalyzing || !_mediaConsent ? null : _analyze,
-                      icon: _isAnalyzing
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.psychology),
-                      label: Text(_isAnalyzing ? 'Analyse…' : 'Analyser'),
-                    ),
-                  ],
-                ),
-              ],
-              if (_result != null) ...[
-                const SizedBox(height: 24),
-                _ResultBlock(
-                  result: _result!,
-                  isValidating: _isValidating,
-                  onValidate: _completeAndNavigate,
-                ),
-              ],
-            ] else ...[
-              CheckboxListTile(
-                value: _consentGiven,
-                onChanged: (v) => setState(() => _consentGiven = v ?? false),
-                title: const Text('Je confirme avoir réalisé cette quête.'),
-                controlAffinity: ListTileControlAffinity.leading,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Récompense réduite pour la validation simple.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-              ),
-              const SizedBox(height: 24),
-              FilledButton(
-                onPressed: (_consentGiven && !_isValidating) ? _completeAndNavigate : null,
-                child: _isValidating
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Valider la quête'),
-              ),
-            ],
           ],
         ),
+        // Description si présente
+        if (quest.description != null && quest.description!.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Text(
+            quest.description!,
+            style: const TextStyle(
+                color: AppColors.textSecondary, fontSize: 14, height: 1.5),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _RewardsPreview extends StatelessWidget {
+  final int xp;
+  final int gold;
+
+  const _RewardsPreview({required this.xp, required this.gold});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundDarkPanel,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+            color: AppColors.primaryTurquoise.withValues(alpha: 0.15)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.card_giftcard_outlined,
+              color: AppColors.textMuted, size: 16),
+          const SizedBox(width: 10),
+          const Text('Récompenses',
+              style:
+                  TextStyle(color: AppColors.textMuted, fontSize: 12)),
+          const Spacer(),
+          const Icon(Icons.star, color: AppColors.primaryTurquoise, size: 16),
+          const SizedBox(width: 4),
+          Text('+$xp XP',
+              style: const TextStyle(
+                  color: AppColors.primaryTurquoise,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14)),
+          const SizedBox(width: 16),
+          const Icon(Icons.monetization_on, color: AppColors.gold, size: 16),
+          const SizedBox(width: 4),
+          Text('+$gold',
+              style: const TextStyle(
+                  color: AppColors.gold,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14)),
+        ],
       ),
     );
   }
 }
 
 class _TimerBlock extends StatelessWidget {
-  const _TimerBlock({this.remaining});
   final Duration? remaining;
+
+  const _TimerBlock({this.remaining});
 
   @override
   Widget build(BuildContext context) {
     if (remaining == null) return const SizedBox.shrink();
     final r = remaining!;
     final isOver = r == Duration.zero;
-    final text = isOver
+
+    final String text = isOver
         ? 'Échéance dépassée'
-        : 'Temps restant : ${r.inHours}:${(r.inMinutes % 60).toString().padLeft(2, '0')}:${(r.inSeconds % 60).toString().padLeft(2, '0')}';
+        : '${r.inHours.toString().padLeft(2, '0')}:${(r.inMinutes % 60).toString().padLeft(2, '0')}:${(r.inSeconds % 60).toString().padLeft(2, '0')}';
+
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: isOver
-            ? Theme.of(context).colorScheme.errorContainer
-            : Theme.of(context).colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(8),
+        color: (isOver ? AppColors.error : AppColors.warning)
+            .withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: (isOver ? AppColors.error : AppColors.warning)
+              .withValues(alpha: 0.3),
+        ),
       ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            isOver ? Icons.schedule : Icons.timer_outlined,
-            color: isOver
-                ? Theme.of(context).colorScheme.onErrorContainer
-                : Theme.of(context).colorScheme.onPrimaryContainer,
+            isOver ? Icons.timer_off_outlined : Icons.timer_outlined,
+            color: isOver ? AppColors.error : AppColors.warning,
+            size: 18,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Text(
-            text,
+            isOver ? 'Échéance dépassée' : 'Temps restant',
             style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: isOver
-                  ? Theme.of(context).colorScheme.onErrorContainer
-                  : Theme.of(context).colorScheme.onPrimaryContainer,
-            ),
+                color: isOver ? AppColors.error : AppColors.warning,
+                fontSize: 13),
           ),
+          if (!isOver) ...[
+            const Spacer(),
+            Text(
+              text,
+              style: TextStyle(
+                  color: isOver ? AppColors.error : AppColors.warning,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  fontFamily: 'monospace'),
+            ),
+          ],
         ],
       ),
     );
   }
 }
 
-class _ResultBlock extends StatelessWidget {
-  const _ResultBlock({
-    required this.result,
-    required this.onValidate,
-    required this.isValidating,
-  });
+class _ProofSection extends StatelessWidget {
+  final bool expanded;
+  final bool hasProof;
+  final bool proofIsVideo;
+  final Uint8List? proofImage;
+  final bool isAnalyzing;
+  final ValidationResult? analysisResult;
+  final VoidCallback onToggle;
+  final ValueChanged<bool> onToggleType;
+  final VoidCallback onPickImage;
+  final VoidCallback onPickVideo;
+  final VoidCallback onClear;
+  final VoidCallback onAnalyze;
 
-  final ValidationResult result;
-  final VoidCallback onValidate;
-  final bool isValidating;
+  const _ProofSection({
+    required this.expanded,
+    required this.hasProof,
+    required this.proofIsVideo,
+    required this.proofImage,
+    required this.isAnalyzing,
+    required this.analysisResult,
+    required this.onToggle,
+    required this.onToggleType,
+    required this.onPickImage,
+    required this.onPickVideo,
+    required this.onClear,
+    required this.onAnalyze,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final int score = result.score;
-    final bool isValid = score >= 70;
-    final bool isPartial = score >= 40 && score < 70;
-    final String label =
-        isValid ? 'Validée' : isPartial ? 'Validation partielle' : 'Refusée';
-    final Color color =
-        isValid ? AppColors.success : isPartial ? AppColors.warning : AppColors.error;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(
-              isValid ? Icons.check_circle : isPartial ? Icons.hourglass_bottom : Icons.cancel,
-              color: color,
-              size: 28,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Text('Score : ${result.score}/100 (seuil 70)',
-            style: Theme.of(context).textTheme.bodyMedium),
-        const SizedBox(height: 8),
-        Text(result.explanation, style: Theme.of(context).textTheme.bodySmall),
-        if (isValid) ...[
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: isValidating ? null : onValidate,
-              child: isValidating
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Valider et recevoir les récompenses'),
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.backgroundDarkPanel,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+            color: AppColors.textMuted.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        children: [
+          // En-tête cliquable
+          InkWell(
+            onTap: onToggle,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                children: [
+                  const Icon(Icons.camera_alt_outlined,
+                      color: AppColors.textMuted, size: 18),
+                  const SizedBox(width: 10),
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Ajouter une preuve',
+                        style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500),
+                      ),
+                      Text(
+                        'Optionnel',
+                        style: TextStyle(
+                            color: AppColors.textMuted, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  Icon(
+                    expanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
+                    color: AppColors.textMuted,
+                    size: 20,
+                  ),
+                ],
+              ),
             ),
           ),
+
+          // Contenu expansible
+          if (expanded) ...[
+            Divider(
+                height: 1,
+                color: AppColors.textMuted.withValues(alpha: 0.1)),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  if (!hasProof) ...[
+                    // Toggle photo/vidéo
+                    Row(
+                      children: [
+                        _MediaTypeButton(
+                          label: 'Photo',
+                          icon: Icons.camera_alt,
+                          selected: !proofIsVideo,
+                          onTap: () => onToggleType(false),
+                        ),
+                        const SizedBox(width: 8),
+                        _MediaTypeButton(
+                          label: 'Vidéo',
+                          icon: Icons.videocam,
+                          selected: proofIsVideo,
+                          onTap: () => onToggleType(true),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed:
+                            proofIsVideo ? onPickVideo : onPickImage,
+                        icon: Icon(proofIsVideo
+                            ? Icons.videocam
+                            : Icons.camera_alt),
+                        label: Text(proofIsVideo
+                            ? 'Enregistrer (max 30 s)'
+                            : 'Prendre une photo'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primaryTurquoise,
+                          side: const BorderSide(
+                              color: AppColors.primaryTurquoise,
+                              width: 1),
+                          padding:
+                              const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ),
+                  ] else ...[
+                    // Aperçu preuve
+                    if (proofImage != null)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.memory(
+                          proofImage!,
+                          height: 180,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        ),
+                      )
+                    else
+                      Container(
+                        height: 120,
+                        decoration: BoxDecoration(
+                          color: AppColors.backgroundNightBlue,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.videocam,
+                                color: AppColors.textMuted, size: 28),
+                            SizedBox(width: 10),
+                            Text('Vidéo enregistrée',
+                                style: TextStyle(
+                                    color: AppColors.textMuted)),
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: 12),
+
+                    // Résultat analyse
+                    if (analysisResult != null) ...[
+                      _AnalysisResult(result: analysisResult!),
+                      const SizedBox(height: 12),
+                    ],
+
+                    // Actions
+                    Row(
+                      children: [
+                        TextButton(
+                          onPressed: onClear,
+                          style: TextButton.styleFrom(
+                              foregroundColor: AppColors.textMuted),
+                          child: const Text('Reprendre'),
+                        ),
+                        const Spacer(),
+                        if (analysisResult == null)
+                          FilledButton.icon(
+                            onPressed: isAnalyzing ? null : onAnalyze,
+                            icon: isAnalyzing
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white),
+                                  )
+                                : const Icon(Icons.psychology, size: 18),
+                            label: Text(
+                                isAnalyzing ? 'Analyse…' : 'Analyser'),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppColors.secondaryViolet,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 10),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius:
+                                      BorderRadius.circular(10)),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ],
-      ],
+      ),
+    );
+  }
+}
+
+class _MediaTypeButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _MediaTypeButton({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppColors.primaryTurquoise.withValues(alpha: 0.15)
+                : AppColors.backgroundNightBlue,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: selected
+                  ? AppColors.primaryTurquoise
+                  : AppColors.textMuted.withValues(alpha: 0.2),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon,
+                  size: 16,
+                  color: selected
+                      ? AppColors.primaryTurquoise
+                      : AppColors.textMuted),
+              const SizedBox(width: 6),
+              Text(label,
+                  style: TextStyle(
+                      color: selected
+                          ? AppColors.primaryTurquoise
+                          : AppColors.textMuted,
+                      fontSize: 13,
+                      fontWeight: selected
+                          ? FontWeight.w600
+                          : FontWeight.normal)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AnalysisResult extends StatelessWidget {
+  final ValidationResult result;
+
+  const _AnalysisResult({required this.result});
+
+  @override
+  Widget build(BuildContext context) {
+    final score = result.score;
+    final isValid = score >= 70;
+    final isPartial = score >= 40 && score < 70;
+    final color = isValid
+        ? AppColors.success
+        : isPartial
+            ? AppColors.warning
+            : AppColors.error;
+    final label = isValid
+        ? 'Preuve validée'
+        : isPartial
+            ? 'Preuve partielle'
+            : 'Preuve insuffisante';
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isValid
+                    ? Icons.check_circle_outline
+                    : isPartial
+                        ? Icons.info_outline
+                        : Icons.cancel_outlined,
+                color: color,
+                size: 16,
+              ),
+              const SizedBox(width: 8),
+              Text(label,
+                  style: TextStyle(
+                      color: color,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13)),
+              const Spacer(),
+              Text('$score/100',
+                  style: TextStyle(
+                      color: color.withValues(alpha: 0.7),
+                      fontSize: 12)),
+            ],
+          ),
+          if (result.explanation.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              result.explanation,
+              style: const TextStyle(
+                  color: AppColors.textMuted, fontSize: 12, height: 1.4),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ValidateButton extends StatelessWidget {
+  final bool isValidating;
+  final VoidCallback onValidate;
+
+  const _ValidateButton(
+      {required this.isValidating, required this.onValidate});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundNightBlue,
+        border: Border(
+          top: BorderSide(
+              color: AppColors.textMuted.withValues(alpha: 0.1)),
+        ),
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        height: 54,
+        child: FilledButton(
+          onPressed: isValidating ? null : onValidate,
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.primaryTurquoise,
+            foregroundColor: AppColors.backgroundNightBlue,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14)),
+            textStyle: const TextStyle(
+                fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          child: isValidating
+              ? const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2.5, color: AppColors.backgroundNightBlue),
+                )
+              : const Text('Valider la quête'),
+        ),
+      ),
     );
   }
 }
@@ -503,13 +929,17 @@ class _LevelUpDialogState extends State<_LevelUpDialog>
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [AppColors.backgroundDeepViolet, AppColors.backgroundDarkPanel],
+                colors: [
+                  AppColors.backgroundDeepViolet,
+                  AppColors.backgroundDarkPanel
+                ],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
-                color: AppColors.gold.withValues(alpha: 0.6 + _glow.value * 0.4),
+                color:
+                    AppColors.gold.withValues(alpha: 0.6 + _glow.value * 0.4),
                 width: 2,
               ),
               boxShadow: [
@@ -523,12 +953,8 @@ class _LevelUpDialogState extends State<_LevelUpDialog>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Étoile animée
-                Icon(
-                  Icons.auto_awesome,
-                  color: AppColors.gold,
-                  size: 56 + _glow.value * 8,
-                ),
+                Icon(Icons.auto_awesome,
+                    color: AppColors.gold, size: 56 + _glow.value * 8),
                 const SizedBox(height: 16),
                 const Text(
                   'NIVEAU SUPÉRIEUR !',
@@ -567,10 +993,8 @@ class _LevelUpDialogState extends State<_LevelUpDialog>
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                     onPressed: () => Navigator.of(context).pop(),
-                    child: const Text(
-                      'Continuer',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
+                    child: const Text('Continuer',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],

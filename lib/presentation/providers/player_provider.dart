@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../domain/services/health_regeneration_service.dart';
 
 class PlayerStats {
   final int level;
@@ -216,6 +217,17 @@ class PlayerProvider with ChangeNotifier {
     } catch (e) {
       debugPrint('PlayerProvider: erreur sync depuis Supabase: $e');
       // Stats locales déjà chargées, pas de blocage
+    }
+
+    // Régénération HP nocturne (après chargement des stats)
+    if (_stats != null) {
+      final regenHp = HealthRegenerationService.computeRegen(
+        currentHp: _stats!.healthPoints,
+        maxHp: _stats!.maxHealthPoints,
+      );
+      if (regenHp > 0) {
+        await heal(userId, regenHp);
+      }
     }
   }
 

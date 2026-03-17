@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'create_quest_by_theme_page.dart';
 import 'create_quest_page.dart';
+import 'generate_quests_page.dart';
 
 /// Écran de choix : Par thème (tâches préconfigurées) ou Quête personnalisée.
 class CreateQuestChoicePage extends StatelessWidget {
@@ -40,6 +41,28 @@ class CreateQuestChoicePage extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               'Choisissez une tâche préconfigurée dans un thème.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+            const SizedBox(height: 32),
+            FilledButton.tonalIcon(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const GenerateQuestsPage(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.auto_awesome),
+              label: const Text('Générer avec IA'),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Laissez Claude IA créer des quêtes adaptées à votre profil.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),

@@ -1,10 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest_all.dart' as tz_data;
 
 /// Service de notifications locales.
-/// - ID 0 : rappel quêtes du matin (9h quotidien)
+/// - ID 0 : rappel quêtes du matin (heure configurable, défaut 9h)
 /// - ID 1 : rappel streak du soir (20h quotidien, annulable si quête complétée)
 class NotificationService {
   static final _plugin = FlutterLocalNotificationsPlugin();
@@ -48,26 +49,27 @@ class NotificationService {
               AndroidFlutterLocalNotificationsPlugin>()
           ?.requestNotificationsPermission();
 
-      await _scheduleAll();
+      // Lecture de l'heure configurée (Hive settings, défaut 9h00)
+      final box = Hive.box('settings');
+      final hour = box.get('reminder_hour', defaultValue: 9) as int;
+      final minute = box.get('reminder_minute', defaultValue: 0) as int;
+
+      await scheduleQuestReminder(hour: hour, minute: minute);
+      await scheduleStreakReminder();
     } catch (e) {
       debugPrint('NotificationService: erreur init: $e');
     }
   }
 
-  /// Planifie le rappel quêtes (9h) et le rappel streak (20h).
-  static Future<void> _scheduleAll() async {
-    await scheduleQuestReminder();
-    await scheduleStreakReminder();
-  }
-
-  /// Rappel quotidien à 9h : "Vos quêtes vous attendent !"
-  static Future<void> scheduleQuestReminder() async {
+  /// Rappel quotidien à l'heure donnée (défaut 9h00).
+  static Future<void> scheduleQuestReminder({int hour = 9, int minute = 0}) async {
     try {
+      await _plugin.cancel(0);
       await _plugin.zonedSchedule(
         0,
         'Vos quêtes vous attendent !',
         'Complétez vos quêtes du jour pour maintenir votre série.',
-        _nextTime(9, 0),
+        _nextTime(hour, minute),
         NotificationDetails(android: _channelQuests, iOS: const DarwinNotificationDetails()),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
@@ -76,6 +78,18 @@ class NotificationService {
       );
     } catch (e) {
       debugPrint('NotificationService: erreur rappel quêtes: $e');
+    }
+  }
+
+  /// Met à jour l'heure du rappel quêtes et sauvegarde dans Hive.
+  static Future<void> updateQuestReminderTime(int hour, int minute) async {
+    try {
+      final box = Hive.box('settings');
+      await box.put('reminder_hour', hour);
+      await box.put('reminder_minute', minute);
+      await scheduleQuestReminder(hour: hour, minute: minute);
+    } catch (e) {
+      debugPrint('NotificationService: erreur mise à jour heure rappel: $e');
     }
   }
 

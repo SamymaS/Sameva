@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import 'presentation/providers/auth_provider.dart';
 import 'presentation/providers/theme_provider.dart';
 import 'ui/pages/auth/login_page.dart';
+import 'ui/pages/onboarding/onboarding_page.dart';
 import 'ui/pages/auth/register_page.dart';
 import 'ui/pages/quest/create_quest_page.dart';
 import 'ui/pages/quest/quest_validation_page.dart';
@@ -12,15 +14,12 @@ import 'ui/pages/rewards/rewards_page.dart';
 import 'ui/pages/settings/settings_page.dart';
 import 'ui/pages/home/sanctuary_page.dart';
 import 'ui/pages/inventory/inventory_page.dart';
-import 'ui/pages/avatar/avatar_page.dart';
 import 'ui/pages/market/market_page.dart';
-import 'ui/pages/invocation/invocation_page.dart';
-import 'ui/pages/minigames/minigames_page.dart';
 import 'ui/widgets/common/dock_bar.dart';
 import 'ui/theme/app_theme.dart';
 import 'data/models/quest_model.dart';
 
-/// Sameva — navigation 8 pages avec DockBar flottant + swipe horizontal.
+/// Sameva — navigation 5 pages avec DockBar flottant + swipe horizontal.
 class SamevaApp extends StatefulWidget {
   const SamevaApp({super.key});
 
@@ -39,10 +38,7 @@ class _SamevaAppState extends State<SamevaApp> {
     SanctuaryPage(),
     QuestsListPage(),
     InventoryPage(),
-    AvatarPage(),
     MarketPage(),
-    InvocationPage(),
-    MinigamesPage(),
     ProfilePage(),
   ];
 
@@ -79,6 +75,7 @@ class _SamevaAppState extends State<SamevaApp> {
           themeMode: themeProvider.themeMode,
           debugShowCheckedModeBanner: false,
           routes: {
+            '/login': (context) => const LoginPage(),
             '/profile': (context) => const ProfilePage(),
             '/settings': (context) => const SettingsPage(),
             '/quests': (context) => const QuestsListPage(),
@@ -98,6 +95,12 @@ class _SamevaAppState extends State<SamevaApp> {
           },
           home: Consumer<AuthProvider>(
             builder: (context, authProvider, _) {
+              // Afficher l'onboarding une seule fois (flag Hive 'has_onboarded')
+              final hasOnboarded =
+                  Hive.box('settings').get('has_onboarded', defaultValue: false) as bool;
+              if (!hasOnboarded) {
+                return const OnboardingPage();
+              }
               if (!authProvider.isAuthenticated) {
                 return const LoginPage();
               }
@@ -116,7 +119,7 @@ class _SamevaAppState extends State<SamevaApp> {
         children: [
           // Padding pour que le contenu ne passe pas derrière la DockBar
           Padding(
-            padding: EdgeInsets.only(bottom: 64 + bottomInset),
+            padding: EdgeInsets.only(bottom: 68 + bottomInset),
             child: PageView(
               controller: _pageController,
               onPageChanged: (i) => setState(() => _currentIndex = i),

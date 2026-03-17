@@ -69,12 +69,12 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
                         child: Row(
                           children: [
                             const Icon(Icons.local_fire_department,
-                                color: Colors.orange, size: 20),
+                                color: AppColors.warning, size: 20),
                             const SizedBox(width: 4),
                             Text(
                               '${stats.streak}',
                               style: const TextStyle(
-                                color: Colors.orange,
+                                color: AppColors.warning,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -104,7 +104,7 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
                                       fontWeight: FontWeight.bold),
                             ),
                             TextButton(
-                              onPressed: () {},
+                              onPressed: () => Navigator.of(context).pushNamed('/quests'),
                               child: const Text(
                                 'Voir tout',
                                 style: TextStyle(color: AppColors.primaryTurquoise),
@@ -145,6 +145,39 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
   }
 }
 
+/// Barre de progression animée réutilisable.
+class _AnimatedBar extends StatelessWidget {
+  final double value;
+  final Color color;
+  final Color backgroundColor;
+  final double height;
+
+  const _AnimatedBar({
+    required this.value,
+    required this.color,
+    required this.backgroundColor,
+    this.height = 8,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: value),
+      duration: const Duration(milliseconds: 800),
+      curve: Curves.easeOutCubic,
+      builder: (_, v, __) => ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: LinearProgressIndicator(
+          value: v,
+          backgroundColor: backgroundColor,
+          valueColor: AlwaysStoppedAnimation<Color>(color),
+          minHeight: height,
+        ),
+      ),
+    );
+  }
+}
+
 class _StatsCard extends StatelessWidget {
   final PlayerStats stats;
   final int xpForNext;
@@ -155,6 +188,9 @@ class _StatsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final xpProgress =
         xpForNext > 0 ? (stats.experience / xpForNext).clamp(0.0, 1.0) : 0.0;
+    final hpProgress = stats.maxHealthPoints > 0
+        ? (stats.healthPoints / stats.maxHealthPoints).clamp(0.0, 1.0)
+        : 0.0;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -211,27 +247,48 @@ class _StatsCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: xpProgress,
-              backgroundColor: AppColors.backgroundNightBlue,
-              valueColor: const AlwaysStoppedAnimation<Color>(
-                  AppColors.primaryTurquoise),
-              minHeight: 8,
-            ),
+          // Barre XP animée
+          _AnimatedBar(
+            value: xpProgress,
+            color: AppColors.primaryTurquoise,
+            backgroundColor: AppColors.backgroundNightBlue,
           ),
           const SizedBox(height: 12),
+          // Ligne HP + streak
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Icon(Icons.favorite, color: Colors.redAccent, size: 16),
-              const SizedBox(width: 4),
-              Text(
-                '${stats.healthPoints} / ${stats.maxHealthPoints} HP',
-                style: const TextStyle(
-                    color: AppColors.textSecondary, fontSize: 12),
+              Row(
+                children: [
+                  const Icon(Icons.favorite, color: AppColors.error, size: 14),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${stats.healthPoints} / ${stats.maxHealthPoints} HP',
+                    style: const TextStyle(
+                        color: AppColors.textSecondary, fontSize: 12),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  const Icon(Icons.local_fire_department,
+                      color: AppColors.warning, size: 14),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${stats.streak} jour${stats.streak > 1 ? 's' : ''}',
+                    style: const TextStyle(color: AppColors.warning, fontSize: 12),
+                  ),
+                ],
               ),
             ],
+          ),
+          const SizedBox(height: 6),
+          // Barre HP animée
+          _AnimatedBar(
+            value: hpProgress,
+            color: AppColors.error,
+            backgroundColor: AppColors.backgroundNightBlue,
+            height: 6,
           ),
         ],
       ),
@@ -269,14 +326,11 @@ class _MoralBar extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 6),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(
-            value: moral,
-            backgroundColor: AppColors.backgroundDarkPanel,
-            valueColor: AlwaysStoppedAnimation<Color>(color),
-            minHeight: 6,
-          ),
+        _AnimatedBar(
+          value: moral,
+          color: color,
+          backgroundColor: AppColors.backgroundDarkPanel,
+          height: 6,
         ),
       ],
     );

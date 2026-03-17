@@ -4,7 +4,6 @@ import '../providers/auth_provider.dart';
 import '../providers/quest_provider.dart';
 
 /// MVVM — ViewModel pour la création de quête.
-/// Hick : champs essentiels uniquement (titre, catégorie, type de validation).
 class CreateQuestViewModel extends ChangeNotifier {
   CreateQuestViewModel(this._questProvider, this._authProvider);
 
@@ -20,6 +19,7 @@ class CreateQuestViewModel extends ChangeNotifier {
     'Loisir',
     'Études',
     'Travail',
+    'Santé',
     'Autre',
   ];
 
@@ -32,6 +32,9 @@ class CreateQuestViewModel extends ChangeNotifier {
     required ValidationType validationType,
     int durationMinutes = 30,
     DateTime? deadline,
+    String? description,
+    int difficulty = 1,
+    QuestFrequency frequency = QuestFrequency.oneOff,
   }) async {
     final userId = _authProvider.userId;
     if (userId == null || userId.isEmpty) {
@@ -45,12 +48,14 @@ class CreateQuestViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
+      final desc = description?.trim();
       final quest = Quest(
         userId: userId,
         title: title.trim(),
+        description: (desc != null && desc.isNotEmpty) ? desc : null,
         estimatedDurationMinutes: durationMinutes,
-        frequency: QuestFrequency.oneOff,
-        difficulty: 1,
+        frequency: frequency,
+        difficulty: difficulty,
         category: category,
         rarity: QuestRarity.common,
         status: QuestStatus.active,

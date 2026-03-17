@@ -317,6 +317,11 @@ class _InvocationPageState extends State<InvocationPage>
             ),
             const SizedBox(height: 32),
 
+
+            const SizedBox(height: 24),
+
+            // Taux de drop
+            _DropRatesSection(),
             // Historique
             if (_history.isNotEmpty) ...[
               const Align(
@@ -362,5 +367,105 @@ class _InvocationPageState extends State<InvocationPage>
     final m = d.inMinutes % 60;
     if (h > 0) return '${h}h ${m}min';
     return '${m}min';
+  }
+}
+
+
+// ─────────────────────────────────────────────────────────────────
+// Section taux de drop
+// ─────────────────────────────────────────────────────────────────
+
+class _DropRatesSection extends StatelessWidget {
+  const _DropRatesSection();
+
+  static const _rates = [
+    (rarity: 'Commune', rate: 60.0, color: AppColors.rarityCommon),
+    (rarity: 'Peu commune', rate: 25.0, color: AppColors.rarityUncommon),
+    (rarity: 'Rare', rate: 10.0, color: AppColors.rarityRare),
+    (rarity: 'Épique', rate: 4.9, color: AppColors.rarityEpic),
+    (rarity: 'Légendaire', rate: 0.9, color: AppColors.rarityLegendary),
+    (rarity: 'Mythique', rate: 0.1, color: AppColors.rarityMythic),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundDarkPanel,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+            color: AppColors.secondaryViolet.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.bar_chart,
+                  color: AppColors.secondaryVioletGlow, size: 16),
+              SizedBox(width: 6),
+              Text(
+                'Taux d\'invocation',
+                style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ..._rates.map((r) => Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: r.color,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 90,
+                      child: Text(
+                        r.rarity,
+                        style: TextStyle(
+                            color: r.color, fontSize: 12),
+                      ),
+                    ),
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(3),
+                        child: LinearProgressIndicator(
+                          value: r.rate / 100,
+                          backgroundColor:
+                              AppColors.backgroundNightBlue,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(r.color),
+                          minHeight: 6,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 44,
+                      child: Text(
+                        '${r.rate}%',
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                            color: r.color,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+        ],
+      ),
+    );
   }
 }

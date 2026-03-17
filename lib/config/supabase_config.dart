@@ -40,5 +40,13 @@ class SupabaseConfig {
   /// Si défini, l'app utilisera l'IA réelle au lieu du mock.
   /// Ex. https://VOTRE_PROJECT_REF.supabase.co/functions/v1/analyze-quest-proof
   static String? get validationAiUrl => dotenv.env['VALIDATION_AI_URL'];
+
+  /// Clé API Anthropic (optionnel). Si définie, active Claude Vision pour
+  /// la validation de preuves et la génération de quêtes.
+  static String? get anthropicApiKey {
+    final key = dotenv.env['ANTHROPIC_API_KEY'];
+    if (key == null || key.isEmpty) return null;
+    return key;
+  }
 }
 
