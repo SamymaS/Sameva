@@ -91,7 +91,7 @@ class FantasyButton extends StatelessWidget {
             ? null
             : [
                 BoxShadow(
-                  color: bgColor.withOpacity(0.3),
+                  color: bgColor.withValues(alpha: 0.3),
                   blurRadius: 8,
                   offset: const Offset(0, 4),
                 ),

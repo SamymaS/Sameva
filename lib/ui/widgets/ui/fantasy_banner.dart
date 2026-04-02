@@ -26,7 +26,7 @@ class FantasyBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = backgroundColor ?? AppColors.primary.withOpacity(0.1);
+    final bgColor = backgroundColor ?? AppColors.primary.withValues(alpha: 0.1);
     final border = borderColor ?? AppColors.primary;
 
     Widget content = Container(
@@ -116,7 +116,7 @@ class SuccessBanner extends StatelessWidget {
     return FantasyBanner(
       title: message,
       icon: Icons.check_circle,
-      backgroundColor: AppColors.success.withOpacity(0.1),
+      backgroundColor: AppColors.success.withValues(alpha: 0.1),
       borderColor: AppColors.success,
       onTap: onTap,
     );
@@ -139,7 +139,7 @@ class WarningBanner extends StatelessWidget {
     return FantasyBanner(
       title: message,
       icon: Icons.warning,
-      backgroundColor: AppColors.warning.withOpacity(0.1),
+      backgroundColor: AppColors.warning.withValues(alpha: 0.1),
       borderColor: AppColors.warning,
       onTap: onTap,
     );
@@ -162,7 +162,7 @@ class InfoBanner extends StatelessWidget {
     return FantasyBanner(
       title: message,
       icon: Icons.info,
-      backgroundColor: AppColors.info.withOpacity(0.1),
+      backgroundColor: AppColors.info.withValues(alpha: 0.1),
       borderColor: AppColors.info,
       onTap: onTap,
     );

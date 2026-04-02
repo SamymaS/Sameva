@@ -21,14 +21,14 @@ class PlayerStatsCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            AppColors.primaryTurquoise.withOpacity(0.8),
-            AppColors.secondaryViolet.withOpacity(0.8),
+            AppColors.primaryTurquoise.withValues(alpha: 0.8),
+            AppColors.secondaryViolet.withValues(alpha: 0.8),
           ],
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primaryTurquoise.withOpacity(0.2),
+            color: AppColors.primaryTurquoise.withValues(alpha: 0.2),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
