@@ -6,7 +6,7 @@ import '../../data/models/quest_model.dart';
 
 /// Fabrique d'items : catalogue prédéfini, gacha et marché.
 class ItemFactory {
-  static final _uuid = Uuid();
+  static const _uuid = Uuid();
   static final _random = Random();
 
   // Non-const pour pouvoir utiliser Icons.xxx.codePoint

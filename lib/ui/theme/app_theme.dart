@@ -39,10 +39,10 @@ class AppTheme {
           minimumSize: const Size(88, _minTouchTarget),
         ),
       ),
-      inputDecorationTheme: InputDecorationTheme(
+      inputDecorationTheme: const InputDecorationTheme(
         filled: true,
-        border: const OutlineInputBorder(),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        border: OutlineInputBorder(),
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
       listTileTheme: const ListTileThemeData(
         minLeadingWidth: 24,
@@ -102,10 +102,10 @@ class AppTheme {
           minimumSize: const Size(88, _minTouchTarget),
         ),
       ),
-      inputDecorationTheme: InputDecorationTheme(
+      inputDecorationTheme: const InputDecorationTheme(
         filled: true,
-        border: const OutlineInputBorder(),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        border: OutlineInputBorder(),
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
       listTileTheme: const ListTileThemeData(
         minLeadingWidth: 24,

@@ -81,7 +81,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
           if (_currentPage < pages.length - 1)
             TextButton(
               onPressed: _finishOnboarding,
-              child: Text('Ignorer',
+              child: const Text('Ignorer',
                   style: TextStyle(color: AppColors.textMuted)),
             ),
         ],

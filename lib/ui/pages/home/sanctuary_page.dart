@@ -27,10 +27,13 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
   }
 
   Future<void> _load() async {
+    final questVM = context.read<QuestViewModel>();
+    final playerVM = context.read<PlayerViewModel>();
     final userId = context.read<AuthViewModel>().userId;
     if (userId == null) return;
-    await context.read<QuestViewModel>().loadQuests(userId);
-    await context.read<PlayerViewModel>().loadPlayerStats(userId);
+    await questVM.loadQuests(userId);
+    if (!mounted) return;
+    await playerVM.loadPlayerStats(userId);
   }
 
   @override
@@ -138,7 +141,7 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
                             TextButton(
                               onPressed: () =>
                                   Navigator.of(context).pushNamed('/quests'),
-                              child: Text(
+                              child: const Text(
                                 'Voir tout',
                                 style: TextStyle(
                                     color: AppColors.primaryVioletLight),

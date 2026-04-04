@@ -95,7 +95,7 @@ class CharacterAppearance {
   Map<String, dynamic> toJson() => {
         'gender': gender.name,
         'skinTone': skinTone.name,
-        'hairColor': hairColor.value,
+        'hairColor': hairColor.toARGB32(),
         'hairStyle': hairStyle.name,
       };
 

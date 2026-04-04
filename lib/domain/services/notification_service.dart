@@ -70,7 +70,7 @@ class NotificationService {
         'Vos quêtes vous attendent !',
         'Complétez vos quêtes du jour pour maintenir votre série.',
         _nextTime(hour, minute),
-        NotificationDetails(android: _channelQuests, iOS: const DarwinNotificationDetails()),
+        const NotificationDetails(android: _channelQuests, iOS: DarwinNotificationDetails()),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
@@ -101,7 +101,7 @@ class NotificationService {
         'Ne brisez pas votre série !',
         "Vous n'avez pas encore complété de quête aujourd'hui.",
         _nextTime(20, 0),
-        NotificationDetails(android: _channelStreak, iOS: const DarwinNotificationDetails()),
+        const NotificationDetails(android: _channelStreak, iOS: DarwinNotificationDetails()),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,

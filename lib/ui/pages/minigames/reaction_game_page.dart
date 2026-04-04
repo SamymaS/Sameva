@@ -202,11 +202,11 @@ class _ReactionGamePageState extends State<ReactionGamePage>
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(12),
+          const Padding(
+            padding: EdgeInsets.all(12),
             child: Text(
               'Touchez les cibles dès qu\'elles apparaissent !',
-              style: const TextStyle(
+              style: TextStyle(
                   color: AppColors.textSecondary, fontSize: 13),
             ),
           ),

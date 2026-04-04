@@ -82,7 +82,7 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       // ── Titre ──────────────────────────────────────────
-                      _SectionLabel(label: 'Titre *'),
+                      const _SectionLabel(label: 'Titre *'),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _titleController,
@@ -114,15 +114,16 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
                                 style: const TextStyle(
                                     color: AppColors.textMuted, fontSize: 11)),
                         validator: (v) {
-                          if (v == null || v.trim().isEmpty)
+                          if (v == null || v.trim().isEmpty) {
                             return 'Indiquez un titre';
+                          }
                           return null;
                         },
                       ),
                       const SizedBox(height: 16),
 
                       // ── Description ────────────────────────────────────
-                      _SectionLabel(label: 'Description (optionnel)'),
+                      const _SectionLabel(label: 'Description (optionnel)'),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _descriptionController,
@@ -158,7 +159,7 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
                       const SizedBox(height: 16),
 
                       // ── Catégorie ──────────────────────────────────────
-                      _SectionLabel(label: 'Catégorie'),
+                      const _SectionLabel(label: 'Catégorie'),
                       const SizedBox(height: 8),
                       _CategoryPicker(
                         categories: vm.categories,
@@ -168,7 +169,7 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
                       const SizedBox(height: 20),
 
                       // ── Difficulté ─────────────────────────────────────
-                      _SectionLabel(label: 'Difficulté'),
+                      const _SectionLabel(label: 'Difficulté'),
                       const SizedBox(height: 8),
                       _DifficultyPicker(
                         value: _difficulty,
@@ -177,7 +178,7 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
                       const SizedBox(height: 20),
 
                       // ── Type de validation ─────────────────────────────
-                      _SectionLabel(label: 'Validation'),
+                      const _SectionLabel(label: 'Validation'),
                       const SizedBox(height: 8),
                       _ValidationTypePicker(
                         selected: _validationType,
@@ -187,7 +188,7 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
                       const SizedBox(height: 20),
 
                       // ── Fréquence ──────────────────────────────────────
-                      _SectionLabel(label: 'Fréquence'),
+                      const _SectionLabel(label: 'Fréquence'),
                       const SizedBox(height: 8),
                       _FrequencyPicker(
                         selected: _frequency,
@@ -196,7 +197,7 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
                       const SizedBox(height: 20),
 
                       // ── Durée estimée ──────────────────────────────────
-                      _SectionLabel(label: 'Durée estimée'),
+                      const _SectionLabel(label: 'Durée estimée'),
                       const SizedBox(height: 8),
                       _DurationPicker(
                         value: _durationMinutes,
@@ -206,7 +207,7 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
                       const SizedBox(height: 20),
 
                       // ── Échéance ───────────────────────────────────────
-                      _SectionLabel(label: 'Quand ?'),
+                      const _SectionLabel(label: 'Quand ?'),
                       const SizedBox(height: 8),
                       _SchedulePicker(
                         scheduleOption: _scheduleOption,

@@ -127,7 +127,7 @@ class _CatPageContent extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Annuler',
+            child: const Text('Annuler',
                 style: TextStyle(color: AppColors.textMuted)),
           ),
           TextButton(
@@ -138,7 +138,7 @@ class _CatPageContent extends StatelessWidget {
               }
               if (ctx.mounted) Navigator.pop(ctx);
             },
-            child: Text('Renommer',
+            child: const Text('Renommer',
                 style: TextStyle(color: AppColors.primaryVioletLight)),
           ),
         ],

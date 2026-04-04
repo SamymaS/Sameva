@@ -596,7 +596,7 @@ class _AchievementsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final unlocked = stats?.achievements ?? {};
-    final definitions = PlayerStats.achievementDefinitions;
+    const definitions = PlayerStats.achievementDefinitions;
     final unlockedCount = unlocked.length;
 
     return _SectionCard(
@@ -772,7 +772,7 @@ class _CatSection extends StatelessWidget {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Icon(Icons.checkroom_outlined,
+                    const Icon(Icons.checkroom_outlined,
                         color: AppColors.primaryVioletLight, size: 13),
                     const SizedBox(width: 4),
                     Text(

@@ -399,7 +399,7 @@ class _InvocationPageState extends State<InvocationPage>
             const SizedBox(height: 16),
 
             // Taux de drop
-            _DropRatesSection(),
+            const _DropRatesSection(),
             // Historique
             if (_history.isNotEmpty) ...[
               const Align(
@@ -439,7 +439,7 @@ class _InvocationPageState extends State<InvocationPage>
       ),
 
           // ── Onglet Chats (gacha de compagnons) ──
-          _CatInvocationTab(),
+          const _CatInvocationTab(),
         ],
       ),
     ));

@@ -27,12 +27,11 @@ class PlayerStats {
     this.moral = 1.0,
     this.streak = 0,
     this.maxStreak = 0,
-    DateTime? lastActiveDate,
+    this.lastActiveDate,
     Map<String, int>? achievements,
     this.totalQuestsCompleted = 0,
     this.pityCount = 0,
-  })  : lastActiveDate = lastActiveDate,
-        achievements = achievements ?? {};
+  }) : achievements = achievements ?? {};
 
   // Sérialisation Hive (camelCase)
   Map<String, dynamic> toJson() => {

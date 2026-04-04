@@ -186,9 +186,7 @@ class _CatReactionOverlayState extends State<_CatReactionOverlay>
 
                           // Humeur
                           Text(
-                            CatMoodService.moodEmoji(widget.mood) +
-                                '  ' +
-                                CatMoodService.moodLabel(widget.mood),
+                            '${CatMoodService.moodEmoji(widget.mood)}  ${CatMoodService.moodLabel(widget.mood)}',
                             style: GoogleFonts.nunito(
                               color: AppColors.textMuted,
                               fontSize: 12,

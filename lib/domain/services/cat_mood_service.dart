@@ -36,7 +36,7 @@ class CatMoodService {
   static String getBubbleMessage(CatMood mood, int streak) {
     switch (mood) {
       case CatMood.excited:
-        if (streak >= 30) return '${streak} jours de suite ! Je suis immensément fier de toi ! 🌟';
+        if (streak >= 30) return '$streak jours de suite ! Je suis immensément fier de toi ! 🌟';
         if (streak >= 14) return 'Deux semaines d\'affilée ! Tu es inarrêtable ! ⚡';
         return 'Une semaine parfaite ! Continue comme ça, champion ! 🎉';
 

@@ -672,7 +672,7 @@ class _SellTab extends StatelessWidget {
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    child: Text(
+                    child: const Text(
                       'Vendre',
                       style: TextStyle(
                           color: AppColors.primaryVioletLight, fontSize: 12),

@@ -81,7 +81,7 @@ class _LoginPageState extends State<LoginPage> {
                   const SizedBox(height: 16),
                   Text(
                     context.watch<AuthViewModel>().errorMessage!,
-                    style: TextStyle(color: AppColors.error, fontSize: 14),
+                    style: const TextStyle(color: AppColors.error, fontSize: 14),
                   ),
                 ],
                 const SizedBox(height: 32),
