@@ -7,7 +7,7 @@ import '../../../data/models/item_model.dart';
 import '../../../data/models/quest_model.dart';
 import '../../../domain/services/item_factory.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
-import '../../../presentation/providers/cat_provider.dart';
+import '../../../presentation/view_models/cat_view_model.dart';
 import '../../../presentation/view_models/inventory_view_model.dart';
 import '../../../presentation/view_models/player_view_model.dart';
 import '../../theme/app_colors.dart';
@@ -552,7 +552,7 @@ class _CatInvocationTabState extends State<_CatInvocationTab>
     if (_isRevealing) return;
     final player = context.read<PlayerViewModel>();
     final auth = context.read<AuthViewModel>();
-    final catProvider = context.read<CatProvider>();
+    final catProvider = context.read<CatViewModel>();
     final userId = auth.userId ?? '';
 
     if ((player.stats?.crystals ?? 0) < _catCost) {
@@ -706,7 +706,7 @@ class _CatInvocationTabState extends State<_CatInvocationTab>
           const SizedBox(height: 24),
 
           // Info collection
-          Consumer<CatProvider>(
+          Consumer<CatViewModel>(
             builder: (_, catProv, __) {
               final total = catProv.cats.length;
               if (total == 0) return const SizedBox.shrink();

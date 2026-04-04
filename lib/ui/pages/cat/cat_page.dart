@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../data/models/cat_model.dart';
-import '../../../presentation/providers/cat_provider.dart';
+import '../../../presentation/view_models/cat_view_model.dart';
 import '../../../presentation/view_models/inventory_view_model.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/cat/cat_widget.dart';
@@ -14,7 +14,7 @@ class CatPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<CatProvider>(
+    return Consumer<CatViewModel>(
       builder: (context, catProvider, _) {
         final cat = catProvider.mainCat;
 
@@ -34,7 +34,7 @@ class CatPage extends StatelessWidget {
 
 class _CatPageContent extends StatelessWidget {
   final CatStats cat;
-  final CatProvider catProvider;
+  final CatViewModel catProvider;
 
   const _CatPageContent({required this.cat, required this.catProvider});
 
@@ -234,7 +234,7 @@ class _CatHeroSection extends StatelessWidget {
 
 class _CosmeticSlots extends StatelessWidget {
   final CatStats cat;
-  final CatProvider catProvider;
+  final CatViewModel catProvider;
 
   const _CosmeticSlots({required this.cat, required this.catProvider});
 
@@ -366,7 +366,7 @@ class _CosmeticSheet extends StatelessWidget {
   final String slot;
   final List cosmetics;
   final CatStats cat;
-  final CatProvider catProvider;
+  final CatViewModel catProvider;
 
   const _CosmeticSheet({
     required this.label,

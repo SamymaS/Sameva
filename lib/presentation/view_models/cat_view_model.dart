@@ -4,21 +4,23 @@ import 'package:uuid/uuid.dart';
 import '../../data/models/cat_model.dart';
 import '../../data/models/quest_model.dart';
 
-/// Provider gérant les chats compagnons du joueur.
+/// ViewModel gérant les chats compagnons du joueur.
 /// Stockage JSON dans la boîte Hive 'cats'.
-class CatProvider extends ChangeNotifier {
-  static const _boxName = 'cats';
+class CatViewModel extends ChangeNotifier {
   static const _catsKey = 'cats_list';
+
+  final Box _box;
 
   List<CatStats> _cats = [];
   String? _error;
   bool _loading = false;
 
+  CatViewModel(this._box);
+
   List<CatStats> get cats => List.unmodifiable(_cats);
   String? get error => _error;
   bool get loading => _loading;
 
-  /// Chat principal du joueur (isMain == true).
   CatStats? get mainCat {
     try {
       return _cats.firstWhere((c) => c.isMain);
@@ -27,15 +29,9 @@ class CatProvider extends ChangeNotifier {
     }
   }
 
-  // ──────────────────────────────────────────────
-  // Chargement
-  // ──────────────────────────────────────────────
-
-  /// Charge les chats depuis Hive.
   void loadCats() {
     try {
-      final box = Hive.box(_boxName);
-      final raw = box.get(_catsKey);
+      final raw = _box.get(_catsKey);
       if (raw == null) {
         _cats = [];
       } else {
@@ -50,18 +46,12 @@ class CatProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ──────────────────────────────────────────────
-  // Création
-  // ──────────────────────────────────────────────
-
-  /// Crée le chat principal du joueur (appelé à la fin de l'onboarding).
   Future<void> createMainCat(String race, String name) async {
     _loading = true;
     _error = null;
     notifyListeners();
 
     try {
-      // Désigner tous les chats existants comme non-principaux
       _cats = _cats.map((c) => c.copyWith(isMain: false)).toList();
 
       final cat = CatStats(
@@ -83,14 +73,7 @@ class CatProvider extends ChangeNotifier {
     }
   }
 
-  // ──────────────────────────────────────────────
-  // Cosmétiques
-  // ──────────────────────────────────────────────
-
-  /// Équipe un cosmétique sur un chat.
-  /// [slot] : 'hat' | 'outfit' | 'aura' | 'accessory' | 'title'
-  Future<void> equipCosmetic(
-      String catId, String slot, String? cosmeticId) async {
+  Future<void> equipCosmetic(String catId, String slot, String? cosmeticId) async {
     _error = null;
     try {
       final index = _cats.indexWhere((c) => c.id == catId);
@@ -114,10 +97,6 @@ class CatProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ──────────────────────────────────────────────
-  // Renommage
-  // ──────────────────────────────────────────────
-
   Future<void> renameCat(String catId, String newName) async {
     _error = null;
     try {
@@ -131,13 +110,6 @@ class CatProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ──────────────────────────────────────────────
-  // Gacha de chats
-  // ──────────────────────────────────────────────
-
-  /// Génère et ajoute un nouveau chat à la collection via le gacha.
-  /// La race est déterminée par la rareté [rarity].
-  /// Retourne le nouveau [CatStats] créé.
   Future<CatStats> addRolledCat(QuestRarity rarity) async {
     final race = _raceForRarity(rarity);
     final cat = CatStats(
@@ -154,19 +126,24 @@ class CatProvider extends ChangeNotifier {
     return cat;
   }
 
-  /// Définit un chat comme chat principal.
   Future<void> setMainCat(String catId) async {
     _cats = _cats.map((c) => c.copyWith(isMain: c.id == catId)).toList();
     await _persist();
     notifyListeners();
   }
 
-  /// Sélectionne une race de chat selon la rareté du tirage.
+  String getCatMoodExpression(double moral, int streak) {
+    if (streak >= 7 && moral >= 0.8) return 'excited';
+    if (moral >= 0.7) return 'happy';
+    if (moral >= 0.4) return 'neutral';
+    if (moral >= 0.2) return 'sad';
+    return 'sleepy';
+  }
+
   static String _raceForRarity(QuestRarity rarity) {
     switch (rarity) {
       case QuestRarity.mythic:
       case QuestRarity.legendary:
-        // Races mystiques — cosmos ou sakura avec une chance aléatoire
         return _rnd(['cosmos', 'sakura', 'cosmos', 'sakura', 'cosmos']);
       case QuestRarity.epic:
         return _rnd(['cosmos', 'sakura']);
@@ -184,31 +161,9 @@ class CatProvider extends ChangeNotifier {
     return choices.first;
   }
 
-  // ──────────────────────────────────────────────
-  // Expression / humeur
-  // ──────────────────────────────────────────────
-
-  /// Retourne l'expression idle du chat selon le moral et le streak.
-  String getCatMoodExpression(double moral, int streak) {
-    if (streak >= 7 && moral >= 0.8) return 'excited';
-    if (moral >= 0.7) return 'happy';
-    if (moral >= 0.4) return 'neutral';
-    if (moral >= 0.2) return 'sad';
-    return 'sleepy';
-  }
-
-  // ──────────────────────────────────────────────
-  // Persistance
-  // ──────────────────────────────────────────────
-
   Future<void> _persist() async {
-    final box = Hive.box(_boxName);
-    await box.put(_catsKey, _cats.map((c) => c.toJson()).toList());
+    await _box.put(_catsKey, _cats.map((c) => c.toJson()).toList());
   }
-
-  // ──────────────────────────────────────────────
-  // Helpers
-  // ──────────────────────────────────────────────
 
   String _defaultNameForRace(String race) => switch (race) {
         'michi'  => 'Michi',

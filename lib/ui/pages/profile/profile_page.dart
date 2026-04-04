@@ -6,7 +6,7 @@ import '../../../data/models/player_stats_model.dart';
 import '../../../data/repositories/player_repository.dart';
 import '../../../data/repositories/quest_repository.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
-import '../../../presentation/providers/cat_provider.dart';
+import '../../../presentation/view_models/cat_view_model.dart';
 import '../../../presentation/view_models/equipment_view_model.dart';
 import '../../../presentation/view_models/inventory_view_model.dart';
 import '../../../presentation/view_models/profile_view_model.dart';
@@ -720,7 +720,7 @@ class _CatSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cat = context.watch<CatProvider>().mainCat;
+    final cat = context.watch<CatViewModel>().mainCat;
     if (cat == null) return const SizedBox.shrink();
 
     final slots = [

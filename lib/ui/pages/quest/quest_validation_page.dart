@@ -12,7 +12,7 @@ import '../../../domain/services/quest_rewards_calculator.dart';
 import '../../../domain/services/validation_ai_service.dart';
 import '../../../presentation/use_cases/complete_quest_use_case.dart';
 import '../../../domain/services/cat_mood_service.dart';
-import '../../../presentation/providers/cat_provider.dart';
+import '../../../presentation/view_models/cat_view_model.dart';
 import '../../../presentation/view_models/equipment_view_model.dart';
 import '../../../presentation/view_models/inventory_view_model.dart';
 import '../../../presentation/view_models/player_view_model.dart';
@@ -164,7 +164,7 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
       if (!mounted) return;
 
       // Réaction du chat après validation réussie
-      final catProvider = context.read<CatProvider>();
+      final catProvider = context.read<CatViewModel>();
       final playerProvider = context.read<PlayerViewModel>();
       final cat = catProvider.mainCat;
       if (cat != null && mounted) {

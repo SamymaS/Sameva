@@ -14,8 +14,8 @@ import 'presentation/view_models/quest_view_model.dart';
 import 'presentation/view_models/player_view_model.dart';
 import 'presentation/view_models/inventory_view_model.dart';
 import 'presentation/view_models/equipment_view_model.dart';
-import 'presentation/providers/notification_provider.dart';
-import 'presentation/providers/cat_provider.dart';
+import 'presentation/view_models/cat_view_model.dart';
+import 'presentation/view_models/notification_view_model.dart';
 import 'presentation/view_models/theme_view_model.dart';
 import 'presentation/view_models/auth_view_model.dart';
 import 'app.dart';
@@ -58,13 +58,14 @@ void main() async {
   final questRepo  = QuestRepository(supabase, userRepo);
   final playerRepo = PlayerRepository(statsBox, supabase);
 
-  final inventoryBox      = Hive.box('inventory');
-  final equipmentBox      = Hive.box('equipment');
-  final questViewModel     = QuestViewModel(questRepo);
-  final playerViewModel    = PlayerViewModel(playerRepo);
-  final inventoryViewModel = InventoryViewModel(inventoryBox)..loadInventory();
-  final equipmentViewModel = EquipmentViewModel(equipmentBox)..loadEquipment();
-  final catProvider        = CatProvider()..loadCats();
+  final inventoryBox       = Hive.box('inventory');
+  final equipmentBox       = Hive.box('equipment');
+  final catsBox            = Hive.box('cats');
+  final questViewModel      = QuestViewModel(questRepo);
+  final playerViewModel     = PlayerViewModel(playerRepo);
+  final inventoryViewModel  = InventoryViewModel(inventoryBox)..loadInventory();
+  final equipmentViewModel  = EquipmentViewModel(equipmentBox)..loadEquipment();
+  final catViewModel        = CatViewModel(catsBox)..loadCats();
 
   runApp(
     MultiProvider(
@@ -77,12 +78,12 @@ void main() async {
         Provider<QuestRepository>.value(value: questRepo),
         Provider<PlayerRepository>.value(value: playerRepo),
 
-        ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationViewModel(settingsBox)),
         ChangeNotifierProvider.value(value: questViewModel),
         ChangeNotifierProvider.value(value: playerViewModel),
         ChangeNotifierProvider.value(value: inventoryViewModel),
         ChangeNotifierProvider.value(value: equipmentViewModel),
-        ChangeNotifierProvider.value(value: catProvider),
+        ChangeNotifierProvider.value(value: catViewModel),
       ],
       child: const SamevaApp(),
     ),

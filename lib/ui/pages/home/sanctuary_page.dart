@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../data/models/quest_model.dart';
 import '../../../domain/services/cat_mood_service.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
-import '../../../presentation/providers/cat_provider.dart';
+import '../../../presentation/view_models/cat_view_model.dart';
 import '../../../presentation/view_models/player_view_model.dart';
 import '../../../presentation/view_models/quest_view_model.dart';
 import '../../theme/app_colors.dart';
@@ -38,7 +38,7 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
     return Scaffold(
       backgroundColor: AppColors.backgroundNightCosmos,
       body: SafeArea(
-        child: Consumer3<PlayerViewModel, QuestViewModel, CatProvider>(
+        child: Consumer3<PlayerViewModel, QuestViewModel, CatViewModel>(
           builder: (context, player, quests, catProvider, _) {
             final stats = player.stats;
             if (stats == null) {

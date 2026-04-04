@@ -5,7 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../../../data/models/item_model.dart';
 import '../../../domain/services/item_factory.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
-import '../../../presentation/providers/cat_provider.dart';
+import '../../../presentation/view_models/cat_view_model.dart';
 import '../../../presentation/view_models/inventory_view_model.dart';
 import '../../../presentation/view_models/player_view_model.dart';
 import '../../theme/app_colors.dart';
@@ -405,7 +405,7 @@ class _CosmeticTile extends StatelessWidget {
   }
 
   void _showPreviewSheet(BuildContext context) {
-    final cat = context.read<CatProvider>().mainCat;
+    final cat = context.read<CatViewModel>().mainCat;
     final race = cat?.race ?? 'cosmos';
 
     showModalBottomSheet<void>(

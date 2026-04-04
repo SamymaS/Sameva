@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
-import '../../../presentation/providers/cat_provider.dart';
+import '../../../presentation/view_models/cat_view_model.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/cat/cat_widget.dart';
 
@@ -32,7 +32,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     // Créer le chat compagnon
     final catName = _catNameCtrl.text.trim();
     if (mounted) {
-      await context.read<CatProvider>().createMainCat(_selectedRace, catName);
+      await context.read<CatViewModel>().createMainCat(_selectedRace, catName);
     }
 
     await Hive.box('settings').put('has_onboarded', true);

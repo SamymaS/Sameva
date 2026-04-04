@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../presentation/providers/notification_provider.dart';
+import '../../../presentation/view_models/notification_view_model.dart';
 import '../../../presentation/view_models/player_view_model.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/view_models/theme_view_model.dart';
@@ -96,7 +96,7 @@ class _ThemeTile extends StatelessWidget {
 class _NotificationTimeTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final notifProvider = context.watch<NotificationProvider>();
+    final notifProvider = context.watch<NotificationViewModel>();
 
     return ListTile(
       tileColor: AppColors.backgroundDarkPanel,
@@ -130,7 +130,7 @@ class _NotificationTimeTile extends StatelessWidget {
         if (picked == null) return;
         if (!context.mounted) return;
         await context
-            .read<NotificationProvider>()
+            .read<NotificationViewModel>()
             .setReminderTime(picked.hour, picked.minute);
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
