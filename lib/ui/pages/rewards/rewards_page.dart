@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../presentation/view_models/player_view_model.dart';
+import '../../../presentation/view_models/rewards_view_model.dart';
 import '../../theme/app_colors.dart';
 
 /// Page de récompenses animée.
@@ -36,8 +37,15 @@ class _RewardsPageState extends State<RewardsPage>
   late AnimationController _particleCtrl;
   late AnimationController _countCtrl;
   late Animation<double> _countAnimation;
+  RewardsViewModel? _vm;
 
   RewardsArgs? _args;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _vm ??= RewardsViewModel(context.read<PlayerViewModel>());
+  }
 
   @override
   void initState() {
@@ -69,28 +77,37 @@ class _RewardsPageState extends State<RewardsPage>
   void dispose() {
     _particleCtrl.dispose();
     _countCtrl.dispose();
+    _vm?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.backgroundNightBlue,
-      appBar: AppBar(
+    final vm = _vm;
+    final body = vm == null
+        ? const SizedBox.shrink()
+        : _args != null
+            ? _CelebrationView(
+                args: _args!,
+                particleCtrl: _particleCtrl,
+                countAnimation: _countAnimation,
+              )
+            : _SummaryView(countAnimation: _countAnimation);
+
+    return ChangeNotifierProvider<RewardsViewModel>.value(
+      value: vm ?? RewardsViewModel(context.read<PlayerViewModel>()),
+      child: Scaffold(
         backgroundColor: AppColors.backgroundNightBlue,
-        title: const Text(
-          'Récompenses',
-          style: TextStyle(
-              color: AppColors.primaryTurquoise, fontWeight: FontWeight.bold),
+        appBar: AppBar(
+          backgroundColor: AppColors.backgroundNightBlue,
+          title: const Text(
+            'Récompenses',
+            style: TextStyle(
+                color: AppColors.primaryTurquoise, fontWeight: FontWeight.bold),
+          ),
         ),
+        body: body,
       ),
-      body: _args != null
-          ? _CelebrationView(
-              args: _args!,
-              particleCtrl: _particleCtrl,
-              countAnimation: _countAnimation,
-            )
-          : _SummaryView(countAnimation: _countAnimation),
     );
   }
 }
@@ -224,17 +241,15 @@ class _SummaryView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<PlayerViewModel>(
-      builder: (context, player, _) {
-        final stats = player.stats;
-        if (stats == null) {
+    return Consumer<RewardsViewModel>(
+      builder: (context, vm, _) {
+        if (vm.stats == null) {
           return const Center(child: CircularProgressIndicator());
         }
-        final level = stats.level;
-        final xp = stats.experience;
-        final xpNeeded = player.experienceForLevel(level);
-        final xpProgress =
-            xpNeeded > 0 ? (xp / xpNeeded).clamp(0.0, 1.0) : 0.0;
+        final level = vm.level;
+        final xp = vm.experience;
+        final xpNeeded = vm.experienceForNextLevel;
+        final xpProgress = vm.xpProgress;
 
         return SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -324,17 +339,16 @@ class _SummaryView extends StatelessWidget {
 class _StatsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Consumer<PlayerViewModel>(
-      builder: (_, player, __) {
-        final stats = player.stats;
-        if (stats == null) return const SizedBox.shrink();
+    return Consumer<RewardsViewModel>(
+      builder: (_, vm, __) {
+        if (vm.stats == null) return const SizedBox.shrink();
         return Row(
           children: [
             Expanded(
               child: _StatTile(
                 icon: Icons.monetization_on,
                 color: AppColors.gold,
-                value: '${stats.gold}',
+                value: '${vm.gold}',
                 label: 'Or',
               ),
             ),
@@ -343,7 +357,7 @@ class _StatsSection extends StatelessWidget {
               child: _StatTile(
                 icon: Icons.local_fire_department,
                 color: AppColors.warning,
-                value: '${stats.streak}j',
+                value: '${vm.streak}j',
                 label: 'Série',
               ),
             ),
@@ -352,7 +366,7 @@ class _StatsSection extends StatelessWidget {
               child: _StatTile(
                 icon: Icons.favorite,
                 color: AppColors.error,
-                value: '${stats.healthPoints}',
+                value: '${vm.healthPoints}',
                 label: 'HP',
               ),
             ),
