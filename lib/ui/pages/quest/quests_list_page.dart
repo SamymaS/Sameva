@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../data/models/quest_model.dart';
+import '../../../data/repositories/quest_repository.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
-import '../../../presentation/providers/quest_provider.dart';
+import '../../../presentation/view_models/quests_list_view_model.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/common/quest_detail_sheet.dart';
 import 'create_quest_choice_page.dart';
@@ -17,6 +18,16 @@ class QuestsListPage extends StatefulWidget {
 
 class _QuestsListPageState extends State<QuestsListPage> {
   int _tab = 0; // 0 = À faire, 1 = Terminées
+  QuestsListViewModel? _vm;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _vm ??= QuestsListViewModel(
+      context.read<QuestRepository>(),
+      context.read<AuthViewModel>(),
+    );
+  }
 
   @override
   void initState() {
@@ -25,92 +36,94 @@ class _QuestsListPageState extends State<QuestsListPage> {
   }
 
   Future<void> _load() async {
-    final userId = context.read<AuthViewModel>().userId;
-    if (userId != null) {
-      await context.read<QuestProvider>().loadQuests(userId);
-    }
+    await _vm?.loadQuests();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.backgroundNightBlue,
-      appBar: AppBar(
+    if (_vm == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    return ChangeNotifierProvider<QuestsListViewModel>.value(
+      value: _vm!,
+      child: Scaffold(
         backgroundColor: AppColors.backgroundNightBlue,
-        elevation: 0,
-        title: const Text(
-          'Quêtes',
-          style: TextStyle(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.bold,
-              fontSize: 20),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined,
-                color: AppColors.textMuted, size: 20),
-            onPressed: () => Navigator.of(context).pushNamed('/settings'),
+        appBar: AppBar(
+          backgroundColor: AppColors.backgroundNightBlue,
+          elevation: 0,
+          title: const Text(
+            'Quêtes',
+            style: TextStyle(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.bold,
+                fontSize: 20),
           ),
-        ],
-      ),
-      body: Consumer<QuestProvider>(
-        builder: (context, qp, _) {
-          if (qp.error != null) {
-            return _ErrorState(error: qp.error!, onRetry: _load);
-          }
-          if (qp.isLoading) {
-            return const Center(
-              child: CircularProgressIndicator(
-                  color: AppColors.primaryTurquoise),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.settings_outlined,
+                  color: AppColors.textMuted, size: 20),
+              onPressed: () => Navigator.of(context).pushNamed('/settings'),
+            ),
+          ],
+        ),
+        body: Consumer<QuestsListViewModel>(
+          builder: (context, vm, _) {
+            if (vm.error != null) {
+              return _ErrorState(error: vm.error!, onRetry: _load);
+            }
+            if (vm.isLoading) {
+              return const Center(
+                child: CircularProgressIndicator(
+                    color: AppColors.primaryTurquoise),
+              );
+            }
+
+            final active = vm.activeQuests;
+            final completed = vm.completedQuests;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _TabBar(
+                  selected: _tab,
+                  activeCount: active.length,
+                  completedCount: completed.length,
+                  onChanged: (i) => setState(() => _tab = i),
+                ),
+                const SizedBox(height: 4),
+                Expanded(
+                  child: _tab == 0
+                      ? _QuestList(
+                          quests: active,
+                          emptyLabel: 'Aucune quête en cours',
+                          emptyIcon: Icons.explore_outlined,
+                          onReload: _load,
+                        )
+                      : _QuestList(
+                          quests: completed,
+                          emptyLabel: 'Aucune quête terminée',
+                          emptyIcon: Icons.check_circle_outline,
+                          completed: true,
+                          onReload: _load,
+                        ),
+                ),
+              ],
             );
-          }
-
-          final active = qp.activeQuests;
-          final completed = qp.completedQuests;
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Onglets ──────────────────────────────────────────────
-              _TabBar(
-                selected: _tab,
-                activeCount: active.length,
-                completedCount: completed.length,
-                onChanged: (i) => setState(() => _tab = i),
-              ),
-              const SizedBox(height: 4),
-              // ── Liste ────────────────────────────────────────────────
-              Expanded(
-                child: _tab == 0
-                    ? _QuestList(
-                        quests: active,
-                        emptyLabel: 'Aucune quête en cours',
-                        emptyIcon: Icons.explore_outlined,
-                        onReload: _load,
-                      )
-                    : _QuestList(
-                        quests: completed,
-                        emptyLabel: 'Aucune quête terminée',
-                        emptyIcon: Icons.check_circle_outline,
-                        completed: true,
-                        onReload: _load,
-                      ),
-              ),
-            ],
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'quests_list_fab',
-        backgroundColor: AppColors.primaryTurquoise,
-        foregroundColor: AppColors.backgroundNightBlue,
-        onPressed: () async {
-          await Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const CreateQuestChoicePage()),
-          );
-          await _load();
-        },
-        child: const Icon(Icons.add, size: 28),
+          },
+        ),
+        floatingActionButton: FloatingActionButton(
+          heroTag: 'quests_list_fab',
+          backgroundColor: AppColors.primaryTurquoise,
+          foregroundColor: AppColors.backgroundNightBlue,
+          onPressed: () async {
+            await Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const CreateQuestChoicePage()),
+            );
+            await _load();
+          },
+          child: const Icon(Icons.add, size: 28),
+        ),
       ),
     );
   }
@@ -352,7 +365,6 @@ class _QuestCard extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Titre
                             Text(
                               quest.title,
                               style: TextStyle(
@@ -369,7 +381,6 @@ class _QuestCard extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 6),
-                            // Méta : catégorie + durée + difficulté
                             Row(
                               children: [
                                 Text(
@@ -395,7 +406,6 @@ class _QuestCard extends StatelessWidget {
                                       fontSize: 11),
                                 ),
                                 const SizedBox(width: 8),
-                                // Difficulté — 5 points
                                 Row(
                                   children: List.generate(
                                     5,
@@ -417,7 +427,6 @@ class _QuestCard extends StatelessWidget {
                                 ),
                               ],
                             ),
-                            // Fréquence + type validation
                             const SizedBox(height: 6),
                             Row(
                               children: [
@@ -430,7 +439,6 @@ class _QuestCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      // Icône droite
                       Icon(
                         completed
                             ? Icons.check_circle

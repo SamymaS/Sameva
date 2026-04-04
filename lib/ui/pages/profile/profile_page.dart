@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../data/models/item_model.dart';
+import '../../../data/models/player_stats_model.dart';
+import '../../../data/repositories/player_repository.dart';
+import '../../../data/repositories/quest_repository.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/providers/cat_provider.dart';
 import '../../../presentation/providers/equipment_provider.dart';
 import '../../../presentation/providers/inventory_provider.dart';
-import '../../../presentation/providers/player_provider.dart';
-import '../../../presentation/providers/quest_provider.dart';
 import '../../../presentation/view_models/profile_view_model.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/cat/cat_widget.dart';
@@ -32,8 +33,8 @@ class _ProfilePageState extends State<ProfilePage> {
     if (userId != null && _vm == null) {
       _vm = ProfileViewModel(
         context.read<AuthViewModel>(),
-        context.read<PlayerProvider>(),
-        context.read<QuestProvider>(),
+        context.read<PlayerRepository>(),
+        context.read<QuestRepository>(),
       );
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _vm != null) _vm!.load(userId);
@@ -73,17 +74,14 @@ class _ProfileContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final player = context.watch<PlayerProvider>();
     final inventory = context.watch<InventoryProvider>();
     final equipment = context.watch<EquipmentProvider>();
-    final stats = player.stats;
+    final stats = vm.stats;
 
     final level = stats?.level ?? 1;
     final experience = stats?.experience ?? 0;
-    final xpForNext = player.experienceForLevel(level);
+    final xpForNext = vm.experienceForLevel(level);
     final xpProgress = xpForNext > 0 ? (experience / xpForNext).clamp(0.0, 1.0) : 0.0;
-
-    final quests = context.watch<QuestProvider>();
 
     return Scaffold(
       backgroundColor: AppColors.backgroundNightBlue,
@@ -142,7 +140,7 @@ class _ProfileContent extends StatelessWidget {
                 const SizedBox(height: 16),
 
                 // Statistiques
-                _StatisticsSection(quests: quests),
+                _StatisticsSection(vm: vm),
                 const SizedBox(height: 16),
 
                 // Achievements
@@ -598,7 +596,7 @@ class _AchievementsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final unlocked = stats?.achievements ?? {};
-    final definitions = PlayerProvider.achievementDefinitions;
+    final definitions = PlayerStats.achievementDefinitions;
     final unlockedCount = unlocked.length;
 
     return _SectionCard(
@@ -866,13 +864,13 @@ class _LogoutButton extends StatelessWidget {
 // ─── Statistiques ─────────────────────────────────────────────────────────────
 
 class _StatisticsSection extends StatelessWidget {
-  final QuestProvider quests;
+  final ProfileViewModel vm;
 
-  const _StatisticsSection({required this.quests});
+  const _StatisticsSection({required this.vm});
 
   @override
   Widget build(BuildContext context) {
-    final completed = quests.completedQuests;
+    final completed = vm.completedQuests;
 
     // Quêtes par catégorie
     final byCategory = <String, int>{};
@@ -1015,10 +1013,10 @@ class _StatisticsSection extends StatelessWidget {
           ],
 
           // Taux de réussite
-          if (quests.quests.isNotEmpty) ...[
+          if (vm.quests.isNotEmpty) ...[
             const SizedBox(height: 12),
             Builder(builder: (context) {
-              final total = quests.quests.length;
+              final total = vm.quests.length;
               final rate = completed.length / total;
               return Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,

@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 import '../../data/models/quest_model.dart';
+import '../../data/repositories/quest_repository.dart';
 import './auth_view_model.dart';
-import '../providers/quest_provider.dart';
 
-/// MVVM — ViewModel pour la création de quête.
+/// ViewModel pour la création de quête.
+/// Délègue la persistance à QuestRepository.
 class CreateQuestViewModel extends ChangeNotifier {
-  CreateQuestViewModel(this._questProvider, this._authProvider);
-
-  final QuestProvider _questProvider;
-  final AuthViewModel _authProvider;
+  final QuestRepository _questRepo;
+  final AuthViewModel _auth;
 
   bool _isLoading = false;
   String? _errorMessage;
+
+  CreateQuestViewModel(this._questRepo, this._auth);
 
   final List<String> categories = [
     'Maison',
@@ -36,7 +37,7 @@ class CreateQuestViewModel extends ChangeNotifier {
     int difficulty = 1,
     QuestFrequency frequency = QuestFrequency.oneOff,
   }) async {
-    final userId = _authProvider.userId;
+    final userId = _auth.userId;
     if (userId == null || userId.isEmpty) {
       _errorMessage = 'Non connecté';
       notifyListeners();
@@ -62,7 +63,7 @@ class CreateQuestViewModel extends ChangeNotifier {
         validationType: validationType,
         deadline: deadline,
       );
-      await _questProvider.addQuest(quest);
+      await _questRepo.addQuest(quest);
       _isLoading = false;
       notifyListeners();
       return true;
