@@ -2,7 +2,7 @@
 
 ## Vue d'ensemble
 
-Architecture MVVM en 3 couches :
+Architecture **MVVM** en 3 couches strictes, avec Provider/ChangeNotifier comme gestion d'état.
 
 ```
 lib/
@@ -11,6 +11,9 @@ lib/
 ├── presentation/   # ViewModels — état UI (ChangeNotifier)
 └── ui/             # Pages + Widgets
 ```
+
+**Règle absolue** : les dépendances ne vont que vers l'intérieur.
+`ui` → `presentation` → `domain` ← `data`
 
 ---
 
@@ -21,84 +24,65 @@ Accès aux données uniquement. Pas de `notifyListeners()`, pas de logique méti
 | Fichier | Rôle |
 |---|---|
 | `auth_repository.dart` | Supabase Auth (signIn, signUp, signOut) |
-| `user_repository.dart` | Table `users` Supabase (création profil) |
+| `user_repository.dart` | Table `users` Supabase (création/lecture profil) |
 | `quest_repository.dart` | CRUD quêtes Supabase + reset daily |
 | `player_repository.dart` | Stats joueur (Hive offline-first + sync Supabase) |
 
-**Règle** : les repositories prennent leurs dépendances par constructeur (`SupabaseClient`, `Box`), retournent des modèles ou lancent des exceptions.
+**Convention** : les repositories reçoivent leurs dépendances par constructeur (`SupabaseClient`, `Box`), retournent des modèles ou lancent des exceptions. Jamais d'accès global `Supabase.instance.client` en dur.
 
 ---
 
 ## Couche Domain — Services
 
-Logique métier sans dépendances UI.
+Logique métier sans dépendances UI ni repositories.
 
 | Fichier | Rôle |
 |---|---|
 | `quest_rewards_calculator.dart` | XP = 10 × difficulté, bonus timing/streak |
 | `validation_ai_service.dart` | Interface + mock validation par preuve photo |
 | `claude_validation_ai_service.dart` | Implémentation Claude API |
+| `item_factory.dart` | Génération d'items par rareté, catalogue marché |
 | `health_regeneration_service.dart` | Récupération HP nocturne |
-| `item_factory.dart` | Génération d'items par rareté |
-| `notification_service.dart` | Notifications locales |
 | `cat_mood_service.dart` | Humeur des chats compagnons |
+| `notification_service.dart` | Notifications locales |
 
 ---
 
-## Couche Presentation — ViewModels migrés
+## Couche Presentation — ViewModels
 
-Chaque ViewModel est un `ChangeNotifier`. Il consomme des Repositories et expose l'état à la vue.
+Chaque ViewModel est un `ChangeNotifier`. Il consomme des Repositories ou Services et expose l'état à la vue.
 
-| ViewModel | Repositories | Pages |
+| ViewModel | Dépendances | Pages |
 |---|---|---|
-| `ThemeViewModel` | Hive `settings` box | `app.dart`, `settings_page.dart` |
-| `AuthViewModel` | `AuthRepository` | `app.dart`, `login_page.dart`, `register_page.dart` |
+| `ThemeViewModel` | Hive `settings` | `app.dart`, `settings_page.dart` |
+| `AuthViewModel` | `AuthRepository` | `login_page.dart`, `register_page.dart` |
+| `QuestViewModel` | `QuestRepository` | toutes les pages quêtes |
+| `PlayerViewModel` | `PlayerRepository` | sanctuary, profil, récompenses |
+| `InventoryViewModel` | Hive `inventory` | `inventory_page.dart`, `market_page.dart` |
+| `EquipmentViewModel` | Hive `equipment` | `inventory_page.dart` |
+| `CatViewModel` | Hive `cats` | `cat_page.dart`, `sanctuary_page.dart` |
+| `NotificationViewModel` | Hive `settings` | `settings_page.dart` |
 | `ProfileViewModel` | `PlayerRepository`, `QuestRepository` | `profile_page.dart` |
 | `QuestsListViewModel` | `QuestRepository` | `quests_list_page.dart` |
 | `CreateQuestViewModel` | `QuestRepository` | `create_quest_page.dart` |
-| `QuestValidationViewModel` | `QuestRepository` | *(prêt — migration page à faire)* |
+| `QuestValidationViewModel` | `QuestRepository` | `quest_validation_page.dart` |
 
----
+### ViewModels globaux vs locaux
 
-## Providers en cours de migration
-
-Ces providers existent encore dans `lib/presentation/providers/` et sont utilisés directement par des pages non encore migrées.
-
-| Provider | Pages qui l'utilisent encore |
-|---|---|
-| `PlayerProvider` | sanctuary, inventory, invocation, market, rewards, minigames, quest_validation |
-| `QuestProvider` | sanctuary, create_quest_by_theme, generate_quests, quest_validation |
-| `InventoryProvider` | inventory, invocation, cat, quest_validation |
-| `EquipmentProvider` | inventory, quest_validation |
-| `CatProvider` | cat, sanctuary, invocation, market |
-| `NotificationProvider` | settings |
-
-**Prochain chantier** : créer des ViewModels pour chacune de ces pages et supprimer `providers/`.
-
----
-
-## Violation architecturale connue
-
-`domain/use_cases/complete_quest_use_case.dart` dépend de providers de la couche présentation.
-À corriger en extrayant la logique joueur (XP, streak, achievements) dans un `PlayerService` de domaine.
-
----
-
-## Injection de dépendances (main.dart)
-
-Les repositories sont instanciés une fois dans `main.dart` et exposés via `Provider.value` :
+Les ViewModels à état partagé entre plusieurs pages sont enregistrés dans `main.dart` via `MultiProvider` :
 
 ```dart
-// Repositories globaux
-Provider<QuestRepository>.value(value: questRepo)
-Provider<PlayerRepository>.value(value: playerRepo)
-
-// ViewModels globaux (état partagé entre pages)
 ChangeNotifierProvider(create: (_) => ThemeViewModel(settingsBox))
 ChangeNotifierProvider(create: (_) => AuthViewModel(authRepo))
+ChangeNotifierProvider.value(value: questViewModel)
+ChangeNotifierProvider.value(value: playerViewModel)
+ChangeNotifierProvider.value(value: inventoryViewModel)
+ChangeNotifierProvider.value(value: equipmentViewModel)
+ChangeNotifierProvider.value(value: catViewModel)
+ChangeNotifierProvider(create: (_) => NotificationViewModel(settingsBox))
 ```
 
-Les ViewModels de page sont créés localement dans `didChangeDependencies()` :
+Les ViewModels spécifiques à une seule page sont créés localement dans `didChangeDependencies()` :
 
 ```dart
 _vm ??= QuestsListViewModel(
@@ -106,3 +90,36 @@ _vm ??= QuestsListViewModel(
   context.read<AuthViewModel>(),
 );
 ```
+
+---
+
+## Use Cases
+
+`lib/presentation/use_cases/complete_quest_use_case.dart` orchestre la complétion d'une quête :
+1. Marquer la quête complète (`QuestViewModel`)
+2. Calculer les récompenses (`QuestRewardsCalculator`)
+3. Distribuer XP, or, cristaux (`PlayerViewModel`)
+4. Mettre à jour le streak et les achievements
+5. Annuler le rappel de notification
+
+---
+
+## Injection de dépendances (main.dart)
+
+Les repositories sont instanciés une fois dans `main.dart` et exposés via `Provider.value` pour permettre l'injection dans les ViewModels de page :
+
+```dart
+Provider<QuestRepository>.value(value: questRepo)
+Provider<PlayerRepository>.value(value: playerRepo)
+```
+
+---
+
+## Conventions
+
+- Fichiers : `snake_case`
+- Classes : `PascalCase`
+- Variables/méthodes : `camelCase`
+- Commentaires : `///` en tête de classe (1–2 lignes)
+- Imports : relatifs (pas de `package:sameva/...`)
+- Pas de `print()` : utiliser `debugPrint()` si nécessaire

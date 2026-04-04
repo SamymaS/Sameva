@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../data/models/item_model.dart';
-import '../../../data/models/quest_model.dart';
 import '../../theme/app_colors.dart';
 
 /// Widget d'icône d'item universel.

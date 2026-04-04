@@ -98,13 +98,15 @@ class MarketPage extends StatelessWidget {
 // Filtres boutique — slots cosmétiques chat
 // ─────────────────────────────────────────────────────────────────────────────
 
-enum _CosmeticFilter { all, hat, outfit, aura, accessory, title }
+enum _CosmeticFilter { all, hat, outfit, pants, shoes, aura, accessory, title }
 
 extension _CosmeticFilterExt on _CosmeticFilter {
   String get label => switch (this) {
         _CosmeticFilter.all       => 'Tout',
         _CosmeticFilter.hat       => 'Chapeau',
         _CosmeticFilter.outfit    => 'Tenue',
+        _CosmeticFilter.pants     => 'Pantalon',
+        _CosmeticFilter.shoes     => 'Chaussures',
         _CosmeticFilter.aura      => 'Aura',
         _CosmeticFilter.accessory => 'Accessoire',
         _CosmeticFilter.title     => 'Titre',
@@ -114,6 +116,8 @@ extension _CosmeticFilterExt on _CosmeticFilter {
         _CosmeticFilter.all       => null,
         _CosmeticFilter.hat       => 'hat',
         _CosmeticFilter.outfit    => 'outfit',
+        _CosmeticFilter.pants     => 'pants',
+        _CosmeticFilter.shoes     => 'shoes',
         _CosmeticFilter.aura      => 'aura',
         _CosmeticFilter.accessory => 'accessory',
         _CosmeticFilter.title     => 'title',
@@ -123,6 +127,8 @@ extension _CosmeticFilterExt on _CosmeticFilter {
         _CosmeticFilter.all       => '✨',
         _CosmeticFilter.hat       => '🎩',
         _CosmeticFilter.outfit    => '👘',
+        _CosmeticFilter.pants     => '👖',
+        _CosmeticFilter.shoes     => '👟',
         _CosmeticFilter.aura      => '🌟',
         _CosmeticFilter.accessory => '💎',
         _CosmeticFilter.title     => '🏆',
@@ -261,6 +267,8 @@ class _CosmeticTile extends StatelessWidget {
   String get _slotEmoji => switch (item.cosmeticSlot) {
         'hat'       => '🎩',
         'outfit'    => '👘',
+        'pants'     => '👖',
+        'shoes'     => '👟',
         'aura'      => '🌟',
         'accessory' => '💎',
         'title'     => '🏆',
@@ -570,6 +578,8 @@ class _CosmeticPreviewSheet extends StatelessWidget {
 
   String _slotEmoji(String? slot) => switch (slot) {
         'outfit'    => '👘',
+        'pants'     => '👖',
+        'shoes'     => '👟',
         'aura'      => '🌟',
         'accessory' => '💎',
         'title'     => '🏆',
