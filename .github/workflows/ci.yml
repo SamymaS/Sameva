@@ -1,0 +1,38 @@
+name: Sameva CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Flutter (stable)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Dépendances
+        run: flutter pub get
+
+      - name: Analyse statique
+        run: flutter analyze
+
+      - name: Tests unitaires
+        run: flutter test
+
+      - name: Tests avec couverture
+        run: flutter test --coverage
+
+      - name: Résumé couverture (lcov)
+        continue-on-error: true
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq lcov
+          lcov --summary coverage/lcov.info
