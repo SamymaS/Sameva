@@ -15,7 +15,7 @@ import 'presentation/providers/equipment_provider.dart';
 import 'presentation/providers/notification_provider.dart';
 import 'presentation/providers/character_provider.dart';
 import 'presentation/providers/cat_provider.dart';
-import 'app_new.dart';
+import 'app.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
