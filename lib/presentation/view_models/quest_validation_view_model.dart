@@ -2,37 +2,35 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import '../../data/models/quest_model.dart';
+import '../../data/repositories/quest_repository.dart';
 import '../../domain/services/validation_ai_service.dart';
 import './auth_view_model.dart';
-import '../providers/quest_provider.dart';
-import '../providers/player_provider.dart';
 
-/// MVVM — ViewModel pour la validation de quête.
-/// Gère validation simple (checkbox) ou preuve visuelle + IA.
+/// ViewModel pour la validation de quête.
+/// Gère la preuve photo + analyse IA, et délègue la complétion à QuestRepository.
+/// Note : la logique de récompenses joueur (XP, streak) reste dans CompleteQuestUseCase
+/// jusqu'à l'extraction de PlayerProvider en service de domaine.
 class QuestValidationViewModel extends ChangeNotifier {
-  QuestValidationViewModel(
-    this._authProvider,
-    this._questProvider,
-    this._playerProvider, {
-    ValidationAIService? validationService,
-  }) : _validationService = validationService ?? MockValidationAIService();
-
-  final AuthViewModel _authProvider;
-  final QuestProvider _questProvider;
-  final PlayerProvider _playerProvider;
+  final AuthViewModel _auth;
+  final QuestRepository _questRepo;
   final ValidationAIService _validationService;
 
   Uint8List? proofImage;
   bool isAnalyzing = false;
   ValidationResult? result;
 
-  bool get isPhotoValidation => false; // sera overridé par la vue avec quest.validationType
+  QuestValidationViewModel(
+    this._auth,
+    this._questRepo, {
+    ValidationAIService? validationService,
+  }) : _validationService = validationService ?? MockValidationAIService();
 
   Future<void> analyzeProof(Quest quest, Uint8List imageBytes) async {
     isAnalyzing = true;
     notifyListeners();
     try {
-      result = await _validationService.analyzeProof(quest: quest, imageBytes: imageBytes);
+      result = await _validationService.analyzeProof(
+          quest: quest, imageBytes: imageBytes);
     } finally {
       isAnalyzing = false;
       notifyListeners();
@@ -45,16 +43,17 @@ class QuestValidationViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Marque la quête comme complétée dans Supabase.
+  /// Les récompenses joueur (XP, streak) doivent être gérées par la page
+  /// via CompleteQuestUseCase jusqu'à migration complète de PlayerProvider.
   Future<bool> completeQuest(Quest quest) async {
-    final questId = quest.id;
-    final userId = _authProvider.userId;
-    if (questId == null || userId == null || userId.isEmpty) return false;
-
-    await _questProvider.completeQuest(questId);
-    final xp = quest.xpReward ?? 10;
-    await _playerProvider.addExperience(userId, xp);
-    await _playerProvider.updateStreak(userId);
-    notifyListeners();
-    return true;
+    if (quest.id == null || _auth.userId == null) return false;
+    try {
+      await _questRepo.completeQuest(quest);
+      notifyListeners();
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 }

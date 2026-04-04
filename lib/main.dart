@@ -15,7 +15,6 @@ import 'presentation/providers/player_provider.dart';
 import 'presentation/providers/inventory_provider.dart';
 import 'presentation/providers/equipment_provider.dart';
 import 'presentation/providers/notification_provider.dart';
-import 'presentation/providers/character_provider.dart';
 import 'presentation/providers/cat_provider.dart';
 import 'presentation/view_models/theme_view_model.dart';
 import 'presentation/view_models/auth_view_model.dart';
@@ -79,7 +78,6 @@ void main() async {
 
         // Providers en cours de migration (supprimés à l'Étape 4)
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
-        ChangeNotifierProvider(create: (_) => CharacterProvider()),
         ChangeNotifierProvider.value(value: questProvider),
         ChangeNotifierProvider.value(value: playerProvider),
         ChangeNotifierProvider.value(value: inventoryProvider),
