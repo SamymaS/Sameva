@@ -21,7 +21,7 @@ Sur Windows, installer lcov ou utiliser WSL pour ces commandes.
 |------|------------------|--------|
 | `domain/services` | `test/domain/quest_rewards_calculator_test.dart`, `test/domain/cat_mood_service_test.dart` | Logique pure (récompenses, humeur chat) |
 | `data/models` | `test/data/player_stats_model_test.dart`, `test/data/quest_model_enums_test.dart` | Sérialisation et enums |
-| `presentation/view_models` | `test/presentation/theme_view_model_test.dart`, `test/presentation/create_quest_view_model_test.dart` | Orchestration avec dépendances mockées (`mocktail`) |
+| `presentation/view_models` | `theme_view_model_test.dart`, `create_quest_view_model_test.dart`, `auth_view_model_test.dart`, `quests_list_view_model_test.dart`, `player_view_model_test.dart` | Orchestration avec mocks ; `PlayerViewModel` utilise une Hive `settings` temporaire pour la régénération HP |
 | Widget | `test/widget_test.dart` | Démarrage minimal de l’app |
 
 ## Zones volontairement hors tests unitaires
