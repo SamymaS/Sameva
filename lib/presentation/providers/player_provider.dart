@@ -2,155 +2,14 @@ import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/models/quest_model.dart';
+import '../../data/models/player_stats_model.dart';
 import '../../domain/services/health_regeneration_service.dart';
 import '../../domain/services/item_factory.dart';
 import '../../domain/services/notification_service.dart';
 import '../providers/inventory_provider.dart';
 
-class PlayerStats {
-  final int level;
-  final int experience;
-  final int gold;
-  final int crystals;
-  final int healthPoints;
-  final int maxHealthPoints;
-  final double credibilityScore;
-  final double moral;
-  final int streak;
-  final int maxStreak;
-  final DateTime? lastActiveDate;
-  final Map<String, int> achievements;
-  final int totalQuestsCompleted;
-  final int pityCount; // Compteur pity gacha
-
-  PlayerStats({
-    this.level = 1,
-    this.experience = 0,
-    this.gold = 0,
-    this.crystals = 0,
-    this.healthPoints = 100,
-    this.maxHealthPoints = 100,
-    this.credibilityScore = 1.0,
-    this.moral = 1.0,
-    this.streak = 0,
-    this.maxStreak = 0,
-    DateTime? lastActiveDate,
-    Map<String, int>? achievements,
-    this.totalQuestsCompleted = 0,
-    this.pityCount = 0,
-  })  : lastActiveDate = lastActiveDate,
-        achievements = achievements ?? {};
-
-  Map<String, dynamic> toJson() => {
-        'level': level,
-        'experience': experience,
-        'gold': gold,
-        'crystals': crystals,
-        'healthPoints': healthPoints,
-        'maxHealthPoints': maxHealthPoints,
-        'credibilityScore': credibilityScore,
-        'moral': moral,
-        'streak': streak,
-        'maxStreak': maxStreak,
-        'lastActiveDate': lastActiveDate?.toIso8601String(),
-        'achievements': achievements,
-        'totalQuestsCompleted': totalQuestsCompleted,
-        'pityCount': pityCount,
-      };
-
-  // P1.3 : sérialisation pour Supabase (snake_case)
-  Map<String, dynamic> toSupabaseMap() => {
-        'level': level,
-        'experience': experience,
-        'gold': gold,
-        'crystals': crystals,
-        'health_points': healthPoints,
-        'max_health_points': maxHealthPoints,
-        'credibility_score': credibilityScore,
-        'moral': moral,
-        'streak': streak,
-        'max_streak': maxStreak,
-        'last_active_date': lastActiveDate?.toIso8601String(),
-        'achievements': achievements,
-        'total_quests_completed': totalQuestsCompleted,
-        'updated_at': DateTime.now().toIso8601String(),
-      };
-
-  factory PlayerStats.fromJson(Map<String, dynamic> json) => PlayerStats(
-        level: json['level'] as int? ?? 1,
-        experience: json['experience'] as int? ?? 0,
-        gold: json['gold'] as int? ?? 0,
-        crystals: json['crystals'] as int? ?? 0,
-        healthPoints: json['healthPoints'] as int? ?? 100,
-        maxHealthPoints: json['maxHealthPoints'] as int? ?? 100,
-        credibilityScore: (json['credibilityScore'] as num?)?.toDouble() ?? 1.0,
-        moral: (json['moral'] as num?)?.toDouble() ?? 1.0,
-        streak: json['streak'] as int? ?? 0,
-        maxStreak: json['maxStreak'] as int? ?? 0,
-        lastActiveDate: json['lastActiveDate'] != null
-            ? DateTime.parse(json['lastActiveDate'] as String)
-            : null,
-        achievements: json['achievements'] != null
-            ? Map<String, int>.from(json['achievements'] as Map)
-            : {},
-        totalQuestsCompleted: json['totalQuestsCompleted'] as int? ?? 0,
-        pityCount: json['pityCount'] as int? ?? 0,
-      );
-
-  // P1.3 : lecture depuis Supabase (snake_case)
-  factory PlayerStats.fromSupabaseMap(Map<String, dynamic> map) => PlayerStats(
-        level: map['level'] as int? ?? 1,
-        experience: map['experience'] as int? ?? 0,
-        gold: map['gold'] as int? ?? 0,
-        crystals: map['crystals'] as int? ?? 0,
-        healthPoints: map['health_points'] as int? ?? 100,
-        maxHealthPoints: map['max_health_points'] as int? ?? 100,
-        credibilityScore: (map['credibility_score'] as num?)?.toDouble() ?? 1.0,
-        moral: (map['moral'] as num?)?.toDouble() ?? 1.0,
-        streak: map['streak'] as int? ?? 0,
-        maxStreak: map['max_streak'] as int? ?? 0,
-        lastActiveDate: map['last_active_date'] != null
-            ? DateTime.parse(map['last_active_date'] as String)
-            : null,
-        achievements: map['achievements'] != null
-            ? Map<String, int>.from(map['achievements'] as Map)
-            : {},
-        totalQuestsCompleted: map['total_quests_completed'] as int? ?? 0,
-      );
-
-  PlayerStats copyWith({
-    int? level,
-    int? experience,
-    int? gold,
-    int? crystals,
-    int? healthPoints,
-    int? maxHealthPoints,
-    double? credibilityScore,
-    double? moral,
-    int? streak,
-    int? maxStreak,
-    DateTime? lastActiveDate,
-    Map<String, int>? achievements,
-    int? totalQuestsCompleted,
-    int? pityCount,
-  }) =>
-      PlayerStats(
-        level: level ?? this.level,
-        experience: experience ?? this.experience,
-        gold: gold ?? this.gold,
-        crystals: crystals ?? this.crystals,
-        healthPoints: healthPoints ?? this.healthPoints,
-        maxHealthPoints: maxHealthPoints ?? this.maxHealthPoints,
-        credibilityScore: credibilityScore ?? this.credibilityScore,
-        moral: moral ?? this.moral,
-        streak: streak ?? this.streak,
-        maxStreak: maxStreak ?? this.maxStreak,
-        lastActiveDate: lastActiveDate ?? this.lastActiveDate,
-        achievements: achievements ?? this.achievements,
-        totalQuestsCompleted: totalQuestsCompleted ?? this.totalQuestsCompleted,
-        pityCount: pityCount ?? this.pityCount,
-      );
-}
+// Re-export pour la compatibilité avec les fichiers qui importent PlayerStats via player_provider.dart
+export '../../data/models/player_stats_model.dart';
 
 class PlayerProvider with ChangeNotifier {
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -499,22 +358,4 @@ class PlayerProvider with ChangeNotifier {
 
     return newlyUnlocked;
   }
-
-  static const List<Map<String, String>> achievementDefinitions = [
-    {'id': 'first_quest', 'name': 'Premiers Pas', 'description': 'Compléter sa première quête', 'icon': 'star'},
-    {'id': 'quest_10', 'name': 'Aventurier', 'description': 'Compléter 10 quêtes', 'icon': 'military_tech'},
-    {'id': 'quest_50', 'name': 'Héros', 'description': 'Compléter 50 quêtes', 'icon': 'emoji_events'},
-    {'id': 'quest_100', 'name': 'Légende', 'description': 'Compléter 100 quêtes', 'icon': 'workspace_premium'},
-    {'id': 'streak_3', 'name': 'Régulier', 'description': '3 jours consécutifs', 'icon': 'local_fire_department'},
-    {'id': 'streak_7', 'name': 'Persévérant', 'description': '7 jours consécutifs', 'icon': 'whatshot'},
-    {'id': 'streak_30', 'name': 'Inarrêtable', 'description': '30 jours consécutifs', 'icon': 'bolt'},
-    {'id': 'level_5', 'name': 'Apprenti', 'description': 'Atteindre le niveau 5', 'icon': 'trending_up'},
-    {'id': 'level_10', 'name': 'Expert', 'description': 'Atteindre le niveau 10', 'icon': 'school'},
-    {'id': 'level_25', 'name': 'Maître', 'description': 'Atteindre le niveau 25', 'icon': 'psychology'},
-    {'id': 'rich_1000', 'name': 'Fortuné', 'description': "Accumuler 1000 pièces d'or", 'icon': 'paid'},
-    {'id': 'rich_5000', 'name': 'Magnat', 'description': "Accumuler 5000 pièces d'or", 'icon': 'diamond'},
-    {'id': 'collector_10', 'name': 'Collectionneur', 'description': 'Posséder 10 objets', 'icon': 'inventory_2'},
-    {'id': 'collector_25', 'name': 'Thésauriseur', 'description': 'Posséder 25 objets', 'icon': 'warehouse'},
-    {'id': 'zen_master', 'name': 'Maître Zen', 'description': 'Moral au maximum', 'icon': 'self_improvement'},
-  ];
 }

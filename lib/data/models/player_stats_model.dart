@@ -1,3 +1,5 @@
+/// Modèle immuable représentant les statistiques du joueur.
+/// Persisté localement via Hive (JSON) et synchronisé avec Supabase.
 class PlayerStats {
   final int level;
   final int experience;
@@ -12,8 +14,9 @@ class PlayerStats {
   final DateTime? lastActiveDate;
   final Map<String, int> achievements;
   final int totalQuestsCompleted;
+  final int pityCount;
 
-  const PlayerStats({
+  PlayerStats({
     this.level = 1,
     this.experience = 0,
     this.gold = 0,
@@ -24,11 +27,14 @@ class PlayerStats {
     this.moral = 1.0,
     this.streak = 0,
     this.maxStreak = 0,
-    this.lastActiveDate,
-    this.achievements = const {},
+    DateTime? lastActiveDate,
+    Map<String, int>? achievements,
     this.totalQuestsCompleted = 0,
-  });
+    this.pityCount = 0,
+  })  : lastActiveDate = lastActiveDate,
+        achievements = achievements ?? {};
 
+  // Sérialisation Hive (camelCase)
   Map<String, dynamic> toJson() => {
         'level': level,
         'experience': experience,
@@ -43,6 +49,7 @@ class PlayerStats {
         'lastActiveDate': lastActiveDate?.toIso8601String(),
         'achievements': achievements,
         'totalQuestsCompleted': totalQuestsCompleted,
+        'pityCount': pityCount,
       };
 
   factory PlayerStats.fromJson(Map<String, dynamic> json) => PlayerStats(
@@ -52,8 +59,7 @@ class PlayerStats {
         crystals: json['crystals'] as int? ?? 0,
         healthPoints: json['healthPoints'] as int? ?? 100,
         maxHealthPoints: json['maxHealthPoints'] as int? ?? 100,
-        credibilityScore:
-            (json['credibilityScore'] as num?)?.toDouble() ?? 1.0,
+        credibilityScore: (json['credibilityScore'] as num?)?.toDouble() ?? 1.0,
         moral: (json['moral'] as num?)?.toDouble() ?? 1.0,
         streak: json['streak'] as int? ?? 0,
         maxStreak: json['maxStreak'] as int? ?? 0,
@@ -64,6 +70,45 @@ class PlayerStats {
             ? Map<String, int>.from(json['achievements'] as Map)
             : {},
         totalQuestsCompleted: json['totalQuestsCompleted'] as int? ?? 0,
+        pityCount: json['pityCount'] as int? ?? 0,
+      );
+
+  // Sérialisation Supabase (snake_case)
+  Map<String, dynamic> toSupabaseMap() => {
+        'level': level,
+        'experience': experience,
+        'gold': gold,
+        'crystals': crystals,
+        'health_points': healthPoints,
+        'max_health_points': maxHealthPoints,
+        'credibility_score': credibilityScore,
+        'moral': moral,
+        'streak': streak,
+        'max_streak': maxStreak,
+        'last_active_date': lastActiveDate?.toIso8601String(),
+        'achievements': achievements,
+        'total_quests_completed': totalQuestsCompleted,
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+
+  factory PlayerStats.fromSupabaseMap(Map<String, dynamic> map) => PlayerStats(
+        level: map['level'] as int? ?? 1,
+        experience: map['experience'] as int? ?? 0,
+        gold: map['gold'] as int? ?? 0,
+        crystals: map['crystals'] as int? ?? 0,
+        healthPoints: map['health_points'] as int? ?? 100,
+        maxHealthPoints: map['max_health_points'] as int? ?? 100,
+        credibilityScore: (map['credibility_score'] as num?)?.toDouble() ?? 1.0,
+        moral: (map['moral'] as num?)?.toDouble() ?? 1.0,
+        streak: map['streak'] as int? ?? 0,
+        maxStreak: map['max_streak'] as int? ?? 0,
+        lastActiveDate: map['last_active_date'] != null
+            ? DateTime.parse(map['last_active_date'] as String)
+            : null,
+        achievements: map['achievements'] != null
+            ? Map<String, int>.from(map['achievements'] as Map)
+            : {},
+        totalQuestsCompleted: map['total_quests_completed'] as int? ?? 0,
       );
 
   PlayerStats copyWith({
@@ -80,6 +125,7 @@ class PlayerStats {
     DateTime? lastActiveDate,
     Map<String, int>? achievements,
     int? totalQuestsCompleted,
+    int? pityCount,
   }) =>
       PlayerStats(
         level: level ?? this.level,
@@ -94,8 +140,8 @@ class PlayerStats {
         maxStreak: maxStreak ?? this.maxStreak,
         lastActiveDate: lastActiveDate ?? this.lastActiveDate,
         achievements: achievements ?? this.achievements,
-        totalQuestsCompleted:
-            totalQuestsCompleted ?? this.totalQuestsCompleted,
+        totalQuestsCompleted: totalQuestsCompleted ?? this.totalQuestsCompleted,
+        pityCount: pityCount ?? this.pityCount,
       );
 
   static const List<Map<String, String>> achievementDefinitions = [
@@ -109,8 +155,8 @@ class PlayerStats {
     {'id': 'level_5', 'name': 'Apprenti', 'description': 'Atteindre le niveau 5', 'icon': 'trending_up'},
     {'id': 'level_10', 'name': 'Expert', 'description': 'Atteindre le niveau 10', 'icon': 'school'},
     {'id': 'level_25', 'name': 'Maître', 'description': 'Atteindre le niveau 25', 'icon': 'psychology'},
-    {'id': 'rich_1000', 'name': 'Fortuné', 'description': 'Accumuler 1000 pièces d\'or', 'icon': 'paid'},
-    {'id': 'rich_5000', 'name': 'Magnat', 'description': 'Accumuler 5000 pièces d\'or', 'icon': 'diamond'},
+    {'id': 'rich_1000', 'name': 'Fortuné', 'description': "Accumuler 1000 pièces d'or", 'icon': 'paid'},
+    {'id': 'rich_5000', 'name': 'Magnat', 'description': "Accumuler 5000 pièces d'or", 'icon': 'diamond'},
     {'id': 'collector_10', 'name': 'Collectionneur', 'description': 'Posséder 10 objets', 'icon': 'inventory_2'},
     {'id': 'collector_25', 'name': 'Thésauriseur', 'description': 'Posséder 25 objets', 'icon': 'warehouse'},
     {'id': 'zen_master', 'name': 'Maître Zen', 'description': 'Moral au maximum', 'icon': 'self_improvement'},
