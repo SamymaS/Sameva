@@ -10,7 +10,7 @@ import '../../../domain/services/api_validation_ai_service.dart';
 import '../../../domain/services/claude_validation_ai_service.dart';
 import '../../../domain/services/quest_rewards_calculator.dart';
 import '../../../domain/services/validation_ai_service.dart';
-import '../../../domain/use_cases/complete_quest_use_case.dart';
+import '../../../presentation/use_cases/complete_quest_use_case.dart';
 import '../../../domain/services/cat_mood_service.dart';
 import '../../../presentation/providers/cat_provider.dart';
 import '../../../presentation/view_models/equipment_view_model.dart';

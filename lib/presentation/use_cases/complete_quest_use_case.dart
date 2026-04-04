@@ -1,9 +1,9 @@
-import '../services/quest_rewards_calculator.dart';
-import '../services/notification_service.dart';
-import '../../presentation/view_models/quest_view_model.dart';
-import '../../presentation/view_models/player_view_model.dart';
-import '../../presentation/view_models/equipment_view_model.dart';
-import '../../presentation/view_models/inventory_view_model.dart';
+import '../../domain/services/quest_rewards_calculator.dart';
+import '../../domain/services/notification_service.dart';
+import '../view_models/quest_view_model.dart';
+import '../view_models/player_view_model.dart';
+import '../view_models/equipment_view_model.dart';
+import '../view_models/inventory_view_model.dart';
 
 /// Résultat complet de la complétion d'une quête.
 class CompleteQuestResult {

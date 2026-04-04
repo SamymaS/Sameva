@@ -12,7 +12,8 @@
       "Bash(npx supabase:*)",
       "Bash(node --version 2>&1 && npm --version 2>&1)",
       "Bash(curl:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(ls:*)"
     ]
   }
 }
