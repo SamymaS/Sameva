@@ -10,10 +10,10 @@ import 'data/repositories/quest_repository.dart';
 import 'data/repositories/player_repository.dart';
 import 'data/repositories/user_repository.dart';
 import 'domain/services/notification_service.dart';
-import 'presentation/providers/quest_provider.dart';
-import 'presentation/providers/player_provider.dart';
-import 'presentation/providers/inventory_provider.dart';
-import 'presentation/providers/equipment_provider.dart';
+import 'presentation/view_models/quest_view_model.dart';
+import 'presentation/view_models/player_view_model.dart';
+import 'presentation/view_models/inventory_view_model.dart';
+import 'presentation/view_models/equipment_view_model.dart';
 import 'presentation/providers/notification_provider.dart';
 import 'presentation/providers/cat_provider.dart';
 import 'presentation/view_models/theme_view_model.dart';
@@ -58,12 +58,13 @@ void main() async {
   final questRepo  = QuestRepository(supabase, userRepo);
   final playerRepo = PlayerRepository(statsBox, supabase);
 
-  // Providers encore nécessaires (pages non encore migrées vers ViewModels)
-  final questProvider     = QuestProvider();
-  final playerProvider    = PlayerProvider();
-  final inventoryProvider = InventoryProvider()..loadInventory();
-  final equipmentProvider = EquipmentProvider()..loadEquipment();
-  final catProvider       = CatProvider()..loadCats();
+  final inventoryBox      = Hive.box('inventory');
+  final equipmentBox      = Hive.box('equipment');
+  final questViewModel     = QuestViewModel(questRepo);
+  final playerViewModel    = PlayerViewModel(playerRepo);
+  final inventoryViewModel = InventoryViewModel(inventoryBox)..loadInventory();
+  final equipmentViewModel = EquipmentViewModel(equipmentBox)..loadEquipment();
+  final catProvider        = CatProvider()..loadCats();
 
   runApp(
     MultiProvider(
@@ -76,12 +77,11 @@ void main() async {
         Provider<QuestRepository>.value(value: questRepo),
         Provider<PlayerRepository>.value(value: playerRepo),
 
-        // Providers en cours de migration (supprimés à l'Étape 4)
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
-        ChangeNotifierProvider.value(value: questProvider),
-        ChangeNotifierProvider.value(value: playerProvider),
-        ChangeNotifierProvider.value(value: inventoryProvider),
-        ChangeNotifierProvider.value(value: equipmentProvider),
+        ChangeNotifierProvider.value(value: questViewModel),
+        ChangeNotifierProvider.value(value: playerViewModel),
+        ChangeNotifierProvider.value(value: inventoryViewModel),
+        ChangeNotifierProvider.value(value: equipmentViewModel),
         ChangeNotifierProvider.value(value: catProvider),
       ],
       child: const SamevaApp(),

@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
-import '../../../presentation/providers/player_provider.dart';
+import '../../../presentation/view_models/player_view_model.dart';
 import '../../theme/app_colors.dart';
 
 /// Mini-jeu Réaction rapide : toucher 10 cibles dans le temps imparti.
@@ -162,7 +162,7 @@ class _ReactionGamePageState extends State<ReactionGamePage>
                 backgroundColor: AppColors.primaryTurquoise),
             onPressed: () {
               if (gold > 0) {
-                final player = context.read<PlayerProvider>();
+                final player = context.read<PlayerViewModel>();
                 final auth = context.read<AuthViewModel>();
                 if (player.stats != null) {
                   player.addGold(auth.userId ?? '', gold);

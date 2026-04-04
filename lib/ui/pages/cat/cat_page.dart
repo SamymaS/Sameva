@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../data/models/cat_model.dart';
 import '../../../presentation/providers/cat_provider.dart';
-import '../../../presentation/providers/inventory_provider.dart';
+import '../../../presentation/view_models/inventory_view_model.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/cat/cat_widget.dart';
 
@@ -276,7 +276,7 @@ class _CosmeticSlots extends StatelessWidget {
 
   void _showCosmeticSheet(
       BuildContext context, String slot, String label) {
-    final inventory = context.read<InventoryProvider>();
+    final inventory = context.read<InventoryViewModel>();
     // Filtrer les items cosmétiques correspondant au slot
     final cosmetics = inventory.items
         .where((item) => item.cosmeticSlot == slot)

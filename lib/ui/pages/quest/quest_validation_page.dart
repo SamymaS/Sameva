@@ -13,10 +13,10 @@ import '../../../domain/services/validation_ai_service.dart';
 import '../../../domain/use_cases/complete_quest_use_case.dart';
 import '../../../domain/services/cat_mood_service.dart';
 import '../../../presentation/providers/cat_provider.dart';
-import '../../../presentation/providers/equipment_provider.dart';
-import '../../../presentation/providers/inventory_provider.dart';
-import '../../../presentation/providers/player_provider.dart';
-import '../../../presentation/providers/quest_provider.dart';
+import '../../../presentation/view_models/equipment_view_model.dart';
+import '../../../presentation/view_models/inventory_view_model.dart';
+import '../../../presentation/view_models/player_view_model.dart';
+import '../../../presentation/view_models/quest_view_model.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/cat/cat_reaction_overlay.dart';
 
@@ -153,10 +153,10 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
     setState(() => _isValidating = true);
     try {
       final useCase = CompleteQuestUseCase(
-        questProvider: context.read<QuestProvider>(),
-        playerProvider: context.read<PlayerProvider>(),
-        equipmentProvider: context.read<EquipmentProvider>(),
-        inventoryProvider: context.read<InventoryProvider>(),
+        questProvider: context.read<QuestViewModel>(),
+        playerProvider: context.read<PlayerViewModel>(),
+        equipmentProvider: context.read<EquipmentViewModel>(),
+        inventoryProvider: context.read<InventoryViewModel>(),
       );
       final result = await useCase.execute(questId);
       final rewards = result.rewards;
@@ -165,7 +165,7 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
 
       // Réaction du chat après validation réussie
       final catProvider = context.read<CatProvider>();
-      final playerProvider = context.read<PlayerProvider>();
+      final playerProvider = context.read<PlayerViewModel>();
       final cat = catProvider.mainCat;
       if (cat != null && mounted) {
         final moral = playerProvider.stats?.moral ?? 0.7;

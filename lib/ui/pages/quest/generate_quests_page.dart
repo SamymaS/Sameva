@@ -5,8 +5,8 @@ import '../../../config/supabase_config.dart';
 import '../../../data/models/quest_model.dart';
 import '../../../domain/services/claude_quest_generator_service.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
-import '../../../presentation/providers/player_provider.dart';
-import '../../../presentation/providers/quest_provider.dart';
+import '../../../presentation/view_models/player_view_model.dart';
+import '../../../presentation/view_models/quest_view_model.dart';
 import '../../theme/app_colors.dart';
 
 /// Page de génération de quêtes personnalisées via Claude IA.
@@ -30,7 +30,7 @@ class _GenerateQuestsPageState extends State<GenerateQuestsPage> {
       return;
     }
 
-    final player = context.read<PlayerProvider>().stats;
+    final player = context.read<PlayerViewModel>().stats;
     final userId = context.read<AuthViewModel>().userId;
     if (userId == null) {
       setState(() => _error = 'Utilisateur non connecté.');
@@ -62,7 +62,7 @@ class _GenerateQuestsPageState extends State<GenerateQuestsPage> {
   Future<void> _addQuest(int index) async {
     setState(() => _addingIndices.add(index));
     try {
-      await context.read<QuestProvider>().addQuest(_quests[index]);
+      await context.read<QuestViewModel>().addQuest(_quests[index]);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('« ${_quests[index].title} » ajoutée !')),
@@ -84,7 +84,7 @@ class _GenerateQuestsPageState extends State<GenerateQuestsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final player = context.watch<PlayerProvider>().stats;
+    final player = context.watch<PlayerViewModel>().stats;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Générer des quêtes avec IA')),

@@ -3,9 +3,9 @@ import 'package:provider/provider.dart';
 import '../../../data/models/item_model.dart';
 import '../../../data/models/quest_model.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
-import '../../../presentation/providers/equipment_provider.dart';
-import '../../../presentation/providers/inventory_provider.dart';
-import '../../../presentation/providers/player_provider.dart';
+import '../../../presentation/view_models/equipment_view_model.dart';
+import '../../../presentation/view_models/inventory_view_model.dart';
+import '../../../presentation/view_models/player_view_model.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/common/item_icon.dart';
 import '../cat/cat_page.dart';
@@ -26,7 +26,7 @@ class InventoryPage extends StatelessWidget {
               color: AppColors.primaryTurquoise, fontWeight: FontWeight.bold),
         ),
         actions: [
-          Consumer<InventoryProvider>(
+          Consumer<InventoryViewModel>(
             builder: (_, inv, __) => Padding(
               padding: const EdgeInsets.only(right: 8),
               child: Center(
@@ -69,7 +69,7 @@ class InventoryPage extends StatelessWidget {
           ),
         ],
       ),
-      body: Consumer2<InventoryProvider, EquipmentProvider>(
+      body: Consumer2<InventoryViewModel, EquipmentViewModel>(
         builder: (context, inventory, equipment, _) {
           if (inventory.items.isEmpty) {
             return _EmptyInventory();
@@ -103,7 +103,7 @@ class InventoryPage extends StatelessWidget {
   }
 
   void _showItemSheet(BuildContext context, Item item,
-      InventoryProvider inventory, EquipmentProvider equipment) {
+      InventoryViewModel inventory, EquipmentViewModel equipment) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -315,8 +315,8 @@ class _EmptyInventory extends StatelessWidget {
 
 class _ItemSheet extends StatelessWidget {
   final Item item;
-  final InventoryProvider inventory;
-  final EquipmentProvider equipment;
+  final InventoryViewModel inventory;
+  final EquipmentViewModel equipment;
 
   const _ItemSheet({
     required this.item,
@@ -342,7 +342,7 @@ class _ItemSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final slot = Item.slotForItem(item);
     final cosSlot = Item.cosmeticSlotForItem(item);
-    final player = context.read<PlayerProvider>();
+    final player = context.read<PlayerViewModel>();
     final userId = context.read<AuthViewModel>().userId ?? '';
 
     return Container(
@@ -571,9 +571,9 @@ class _ActionButtons extends StatelessWidget {
   final EquipmentSlot? slot;
   final String? cosSlot;
   final bool isEquipped;
-  final EquipmentProvider equipment;
-  final InventoryProvider inventory;
-  final PlayerProvider player;
+  final EquipmentViewModel equipment;
+  final InventoryViewModel inventory;
+  final PlayerViewModel player;
   final String userId;
 
   const _ActionButtons({

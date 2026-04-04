@@ -5,8 +5,8 @@ import '../../../data/models/quest_model.dart';
 import '../../../domain/services/cat_mood_service.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/providers/cat_provider.dart';
-import '../../../presentation/providers/player_provider.dart';
-import '../../../presentation/providers/quest_provider.dart';
+import '../../../presentation/view_models/player_view_model.dart';
+import '../../../presentation/view_models/quest_view_model.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/cat/cat_widget.dart';
 
@@ -29,8 +29,8 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
   Future<void> _load() async {
     final userId = context.read<AuthViewModel>().userId;
     if (userId == null) return;
-    await context.read<QuestProvider>().loadQuests(userId);
-    await context.read<PlayerProvider>().loadPlayerStats(userId);
+    await context.read<QuestViewModel>().loadQuests(userId);
+    await context.read<PlayerViewModel>().loadPlayerStats(userId);
   }
 
   @override
@@ -38,7 +38,7 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
     return Scaffold(
       backgroundColor: AppColors.backgroundNightCosmos,
       body: SafeArea(
-        child: Consumer3<PlayerProvider, QuestProvider, CatProvider>(
+        child: Consumer3<PlayerViewModel, QuestViewModel, CatProvider>(
           builder: (context, player, quests, catProvider, _) {
             final stats = player.stats;
             if (stats == null) {

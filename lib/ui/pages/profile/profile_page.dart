@@ -7,8 +7,8 @@ import '../../../data/repositories/player_repository.dart';
 import '../../../data/repositories/quest_repository.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/providers/cat_provider.dart';
-import '../../../presentation/providers/equipment_provider.dart';
-import '../../../presentation/providers/inventory_provider.dart';
+import '../../../presentation/view_models/equipment_view_model.dart';
+import '../../../presentation/view_models/inventory_view_model.dart';
 import '../../../presentation/view_models/profile_view_model.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/cat/cat_widget.dart';
@@ -74,8 +74,8 @@ class _ProfileContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final inventory = context.watch<InventoryProvider>();
-    final equipment = context.watch<EquipmentProvider>();
+    final inventory = context.watch<InventoryViewModel>();
+    final equipment = context.watch<EquipmentViewModel>();
     final stats = vm.stats;
 
     final level = stats?.level ?? 1;
@@ -404,7 +404,7 @@ class _StatChip extends StatelessWidget {
 // ─── Équipement ───────────────────────────────────────────────────────────────
 
 class _EquipmentSummary extends StatelessWidget {
-  final EquipmentProvider equipment;
+  final EquipmentViewModel equipment;
 
   const _EquipmentSummary({required this.equipment});
 
@@ -505,7 +505,7 @@ class _BonusBadge extends StatelessWidget {
 // ─── Inventaire ───────────────────────────────────────────────────────────────
 
 class _InventorySummary extends StatelessWidget {
-  final InventoryProvider inventory;
+  final InventoryViewModel inventory;
 
   const _InventorySummary({required this.inventory});
 

@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../presentation/providers/player_provider.dart';
+import '../../../presentation/view_models/player_view_model.dart';
 import '../../theme/app_colors.dart';
 
 /// Page de récompenses animée.
@@ -224,7 +224,7 @@ class _SummaryView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<PlayerProvider>(
+    return Consumer<PlayerViewModel>(
       builder: (context, player, _) {
         final stats = player.stats;
         if (stats == null) {
@@ -324,7 +324,7 @@ class _SummaryView extends StatelessWidget {
 class _StatsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Consumer<PlayerProvider>(
+    return Consumer<PlayerViewModel>(
       builder: (_, player, __) {
         final stats = player.stats;
         if (stats == null) return const SizedBox.shrink();

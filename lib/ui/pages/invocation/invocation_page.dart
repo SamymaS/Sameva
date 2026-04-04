@@ -8,8 +8,8 @@ import '../../../data/models/quest_model.dart';
 import '../../../domain/services/item_factory.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/providers/cat_provider.dart';
-import '../../../presentation/providers/inventory_provider.dart';
-import '../../../presentation/providers/player_provider.dart';
+import '../../../presentation/view_models/inventory_view_model.dart';
+import '../../../presentation/view_models/player_view_model.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/cat/cat_widget.dart';
 import '../../widgets/common/rarity_badge.dart';
@@ -84,8 +84,8 @@ class _InvocationPageState extends State<InvocationPage>
   Future<void> _pull({required bool isFree}) async {
     if (_isRevealing) return;
 
-    final player = context.read<PlayerProvider>();
-    final inventory = context.read<InventoryProvider>();
+    final player = context.read<PlayerViewModel>();
+    final inventory = context.read<InventoryViewModel>();
     final auth = context.read<AuthViewModel>();
     final userId = auth.userId ?? '';
 
@@ -149,7 +149,7 @@ class _InvocationPageState extends State<InvocationPage>
               color: AppColors.primaryVioletLight, fontWeight: FontWeight.bold),
         ),
         actions: [
-          Consumer<PlayerProvider>(
+          Consumer<PlayerViewModel>(
             builder: (_, player, __) => Padding(
               padding: const EdgeInsets.only(right: 16),
               child: Row(
@@ -294,7 +294,7 @@ class _InvocationPageState extends State<InvocationPage>
             Row(
               children: [
                 Expanded(
-                  child: Consumer<PlayerProvider>(
+                  child: Consumer<PlayerViewModel>(
                     builder: (ctx, player, _) {
                       final crystals = player.stats?.crystals ?? 0;
                       return FilledButton.icon(
@@ -349,7 +349,7 @@ class _InvocationPageState extends State<InvocationPage>
             const SizedBox(height: 32),
 
             // Compteur pity
-            Consumer<PlayerProvider>(
+            Consumer<PlayerViewModel>(
               builder: (_, player, __) {
                 final pity = player.stats?.pityCount ?? 0;
                 return Container(
@@ -550,7 +550,7 @@ class _CatInvocationTabState extends State<_CatInvocationTab>
 
   Future<void> _pullCat() async {
     if (_isRevealing) return;
-    final player = context.read<PlayerProvider>();
+    final player = context.read<PlayerViewModel>();
     final auth = context.read<AuthViewModel>();
     final catProvider = context.read<CatProvider>();
     final userId = auth.userId ?? '';
@@ -677,7 +677,7 @@ class _CatInvocationTabState extends State<_CatInvocationTab>
           const SizedBox(height: 16),
 
           // Bouton invocation
-          Consumer<PlayerProvider>(
+          Consumer<PlayerViewModel>(
             builder: (_, player, __) {
               final crystals = player.stats?.crystals ?? 0;
               final canAfford = crystals >= _catCost;

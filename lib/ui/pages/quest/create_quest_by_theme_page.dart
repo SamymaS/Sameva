@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../data/models/quest_model.dart';
 import '../../../data/quest_templates.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
-import '../../../presentation/providers/quest_provider.dart';
+import '../../../presentation/view_models/quest_view_model.dart';
 
 /// Mode "Par thème" : choix du thème (Sport, Loisir, Maison) puis liste de tâches préconfigurées.
 class CreateQuestByThemePage extends StatefulWidget {
@@ -165,7 +165,7 @@ class _CreateQuestByThemePageState extends State<CreateQuestByThemePage> {
       deadline: deadline,
     );
 
-    await context.read<QuestProvider>().addQuest(quest);
+    await context.read<QuestViewModel>().addQuest(quest);
     if (!mounted) return;
     Navigator.of(context).pop(); // back to choice page
     Navigator.of(context).pop(); // back to list

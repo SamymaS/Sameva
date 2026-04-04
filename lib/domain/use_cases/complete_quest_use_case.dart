@@ -1,9 +1,9 @@
 import '../services/quest_rewards_calculator.dart';
 import '../services/notification_service.dart';
-import '../../presentation/providers/quest_provider.dart';
-import '../../presentation/providers/player_provider.dart';
-import '../../presentation/providers/equipment_provider.dart';
-import '../../presentation/providers/inventory_provider.dart';
+import '../../presentation/view_models/quest_view_model.dart';
+import '../../presentation/view_models/player_view_model.dart';
+import '../../presentation/view_models/equipment_view_model.dart';
+import '../../presentation/view_models/inventory_view_model.dart';
 
 /// Résultat complet de la complétion d'une quête.
 class CompleteQuestResult {
@@ -20,16 +20,16 @@ class CompleteQuestResult {
 
 /// P2.1 — Use case dédié à la complétion d'une quête avec récompenses.
 class CompleteQuestUseCase {
-  final QuestProvider _questProvider;
-  final PlayerProvider _playerProvider;
-  final EquipmentProvider? _equipmentProvider;
-  final InventoryProvider? _inventoryProvider;
+  final QuestViewModel _questProvider;
+  final PlayerViewModel _playerProvider;
+  final EquipmentViewModel? _equipmentProvider;
+  final InventoryViewModel? _inventoryProvider;
 
   CompleteQuestUseCase({
-    required QuestProvider questProvider,
-    required PlayerProvider playerProvider,
-    EquipmentProvider? equipmentProvider,
-    InventoryProvider? inventoryProvider,
+    required QuestViewModel questProvider,
+    required PlayerViewModel playerProvider,
+    EquipmentViewModel? equipmentProvider,
+    InventoryViewModel? inventoryProvider,
   })  : _questProvider = questProvider,
         _playerProvider = playerProvider,
         _equipmentProvider = equipmentProvider,

@@ -6,8 +6,8 @@ import '../../../data/models/item_model.dart';
 import '../../../domain/services/item_factory.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/providers/cat_provider.dart';
-import '../../../presentation/providers/inventory_provider.dart';
-import '../../../presentation/providers/player_provider.dart';
+import '../../../presentation/view_models/inventory_view_model.dart';
+import '../../../presentation/view_models/player_view_model.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/cat/cat_widget.dart';
 import '../../widgets/common/rarity_badge.dart';
@@ -33,7 +33,7 @@ class MarketPage extends StatelessWidget {
           ),
         ),
         actions: [
-          Consumer<PlayerProvider>(
+          Consumer<PlayerViewModel>(
             builder: (_, player, __) => Padding(
               padding: const EdgeInsets.only(right: 4),
               child: Center(
@@ -194,7 +194,7 @@ class _ShopTabState extends State<_ShopTab> {
         ),
 
         // Inventaire plein
-        Consumer<InventoryProvider>(
+        Consumer<InventoryViewModel>(
           builder: (_, inventory, __) {
             if (!inventory.isFull) return const SizedBox.shrink();
             return Container(
@@ -344,7 +344,7 @@ class _CosmeticTile extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 6),
-                Consumer2<PlayerProvider, InventoryProvider>(
+                Consumer2<PlayerViewModel, InventoryViewModel>(
                   builder: (ctx, player, inventory, _) {
                     final canAfford =
                         (player.stats?.gold ?? 0) >= item.goldValue;
@@ -389,8 +389,8 @@ class _CosmeticTile extends StatelessWidget {
     );
   }
 
-  void _buy(BuildContext context, PlayerProvider player,
-      InventoryProvider inventory) {
+  void _buy(BuildContext context, PlayerViewModel player,
+      InventoryViewModel inventory) {
     final auth = context.read<AuthViewModel>();
     final userId = auth.userId ?? '';
     player.addGold(userId, -item.goldValue);
@@ -517,7 +517,7 @@ class _CosmeticPreviewSheet extends StatelessWidget {
           const SizedBox(height: 20),
 
           // Bouton acheter
-          Consumer2<PlayerProvider, InventoryProvider>(
+          Consumer2<PlayerViewModel, InventoryViewModel>(
             builder: (ctx, player, inventory, _) {
               final canAfford =
                   (player.stats?.gold ?? 0) >= item.goldValue;
@@ -586,7 +586,7 @@ class _SellTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<InventoryProvider>(
+    return Consumer<InventoryViewModel>(
       builder: (context, inventory, _) {
         if (inventory.items.isEmpty) {
           return Center(
@@ -677,9 +677,9 @@ class _SellTab extends StatelessWidget {
     );
   }
 
-  void _sell(BuildContext context, InventoryProvider inventory, Item item,
+  void _sell(BuildContext context, InventoryViewModel inventory, Item item,
       int sellPrice) {
-    final player = context.read<PlayerProvider>();
+    final player = context.read<PlayerViewModel>();
     final auth = context.read<AuthViewModel>();
     final userId = auth.userId ?? '';
     inventory.removeItem(item.id);

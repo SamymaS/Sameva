@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../presentation/providers/notification_provider.dart';
-import '../../../presentation/providers/player_provider.dart';
+import '../../../presentation/view_models/player_view_model.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/view_models/theme_view_model.dart';
 import '../../theme/app_colors.dart';
@@ -189,7 +189,7 @@ class _ResetPlayerTile extends StatelessWidget {
         if (confirmed != true) return;
         if (!context.mounted) return;
         final userId = context.read<AuthViewModel>().userId ?? '';
-        await context.read<PlayerProvider>().resetPlayer(userId);
+        await context.read<PlayerViewModel>().resetPlayer(userId);
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Joueur réinitialisé.')),
