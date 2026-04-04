@@ -6,7 +6,7 @@ import '../../../data/models/cat_model.dart';
 import '../../../data/models/item_model.dart';
 import '../../../data/models/quest_model.dart';
 import '../../../domain/services/item_factory.dart';
-import '../../../presentation/providers/auth_provider.dart';
+import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/providers/cat_provider.dart';
 import '../../../presentation/providers/inventory_provider.dart';
 import '../../../presentation/providers/player_provider.dart';
@@ -86,7 +86,7 @@ class _InvocationPageState extends State<InvocationPage>
 
     final player = context.read<PlayerProvider>();
     final inventory = context.read<InventoryProvider>();
-    final auth = context.read<AuthProvider>();
+    final auth = context.read<AuthViewModel>();
     final userId = auth.userId ?? '';
 
     if (!isFree) {
@@ -551,7 +551,7 @@ class _CatInvocationTabState extends State<_CatInvocationTab>
   Future<void> _pullCat() async {
     if (_isRevealing) return;
     final player = context.read<PlayerProvider>();
-    final auth = context.read<AuthProvider>();
+    final auth = context.read<AuthViewModel>();
     final catProvider = context.read<CatProvider>();
     final userId = auth.userId ?? '';
 

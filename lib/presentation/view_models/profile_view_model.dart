@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../providers/auth_provider.dart';
+import './auth_view_model.dart';
 import '../providers/player_provider.dart';
 import '../providers/quest_provider.dart';
 
@@ -8,7 +8,7 @@ import '../providers/quest_provider.dart';
 class ProfileViewModel extends ChangeNotifier {
   ProfileViewModel(this._authProvider, this._playerProvider, this._questProvider);
 
-  final AuthProvider _authProvider;
+  final AuthViewModel _authProvider;
   final PlayerProvider _playerProvider;
   final QuestProvider _questProvider;
 

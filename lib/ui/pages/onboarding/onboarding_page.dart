@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
-import '../../../presentation/providers/auth_provider.dart';
+import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/providers/cat_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/cat/cat_widget.dart';
@@ -38,7 +38,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     await Hive.box('settings').put('has_onboarded', true);
 
     if (!mounted) return;
-    final isAuthenticated = context.read<AuthProvider>().isAuthenticated;
+    final isAuthenticated = context.read<AuthViewModel>().isAuthenticated;
     if (isAuthenticated) {
       Navigator.of(context).pushReplacementNamed('/');
     } else {

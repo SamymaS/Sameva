@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../presentation/providers/auth_provider.dart';
+import '../../../presentation/view_models/auth_view_model.dart';
 import '../../theme/app_colors.dart';
 
 /// Connexion — UX : Fitts (boutons 48dp+), Hick (2 actions : Connexion, Créer un compte), Jakob (formulaire familier).
@@ -77,15 +77,15 @@ class _LoginPageState extends State<LoginPage> {
                     return null;
                   },
                 ),
-                if (context.watch<AuthProvider>().errorMessage != null) ...[
+                if (context.watch<AuthViewModel>().errorMessage != null) ...[
                   const SizedBox(height: 16),
                   Text(
-                    context.watch<AuthProvider>().errorMessage!,
+                    context.watch<AuthViewModel>().errorMessage!,
                     style: TextStyle(color: AppColors.error, fontSize: 14),
                   ),
                 ],
                 const SizedBox(height: 32),
-                Consumer<AuthProvider>(
+                Consumer<AuthViewModel>(
                   builder: (context, auth, _) {
                     return FilledButton(
                       onPressed: auth.isLoading
@@ -122,7 +122,7 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Future<void> _submit(AuthProvider auth) async {
+  Future<void> _submit(AuthViewModel auth) async {
     if (!_formKey.currentState!.validate()) return;
     try {
       await auth.signInWithEmailAndPassword(
@@ -136,7 +136,7 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _signInAnonymously(BuildContext context) async {
     try {
-      await context.read<AuthProvider>().signInAnonymously();
+      await context.read<AuthViewModel>().signInAnonymously();
     } catch (_) {}
   }
 }

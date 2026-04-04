@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import '../../../data/models/item_model.dart';
 import '../../../domain/services/item_factory.dart';
-import '../../../presentation/providers/auth_provider.dart';
+import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/providers/cat_provider.dart';
 import '../../../presentation/providers/inventory_provider.dart';
 import '../../../presentation/providers/player_provider.dart';
@@ -391,7 +391,7 @@ class _CosmeticTile extends StatelessWidget {
 
   void _buy(BuildContext context, PlayerProvider player,
       InventoryProvider inventory) {
-    final auth = context.read<AuthProvider>();
+    final auth = context.read<AuthViewModel>();
     final userId = auth.userId ?? '';
     player.addGold(userId, -item.goldValue);
     final newItem = item.copyWith(id: const Uuid().v4());
@@ -536,7 +536,7 @@ class _CosmeticPreviewSheet extends StatelessWidget {
                   ),
                   onPressed: canAfford && hasSpace
                       ? () {
-                          final auth = ctx.read<AuthProvider>();
+                          final auth = ctx.read<AuthViewModel>();
                           final userId = auth.userId ?? '';
                           player.addGold(userId, -item.goldValue);
                           inventory.addItem(item.copyWith(id: const Uuid().v4()));
@@ -680,7 +680,7 @@ class _SellTab extends StatelessWidget {
   void _sell(BuildContext context, InventoryProvider inventory, Item item,
       int sellPrice) {
     final player = context.read<PlayerProvider>();
-    final auth = context.read<AuthProvider>();
+    final auth = context.read<AuthViewModel>();
     final userId = auth.userId ?? '';
     inventory.removeItem(item.id);
     player.addGold(userId, sellPrice);

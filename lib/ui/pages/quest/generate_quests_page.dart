@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../config/supabase_config.dart';
 import '../../../data/models/quest_model.dart';
 import '../../../domain/services/claude_quest_generator_service.dart';
-import '../../../presentation/providers/auth_provider.dart';
+import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/providers/player_provider.dart';
 import '../../../presentation/providers/quest_provider.dart';
 import '../../theme/app_colors.dart';
@@ -31,7 +31,7 @@ class _GenerateQuestsPageState extends State<GenerateQuestsPage> {
     }
 
     final player = context.read<PlayerProvider>().stats;
-    final userId = context.read<AuthProvider>().userId;
+    final userId = context.read<AuthViewModel>().userId;
     if (userId == null) {
       setState(() => _error = 'Utilisateur non connecté.');
       return;

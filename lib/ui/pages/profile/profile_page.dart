@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../data/models/item_model.dart';
-import '../../../presentation/providers/auth_provider.dart';
+import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/providers/cat_provider.dart';
 import '../../../presentation/providers/equipment_provider.dart';
 import '../../../presentation/providers/inventory_provider.dart';
@@ -28,10 +28,10 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final userId = context.read<AuthProvider>().userId;
+    final userId = context.read<AuthViewModel>().userId;
     if (userId != null && _vm == null) {
       _vm = ProfileViewModel(
-        context.read<AuthProvider>(),
+        context.read<AuthViewModel>(),
         context.read<PlayerProvider>(),
         context.read<QuestProvider>(),
       );

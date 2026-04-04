@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../data/models/quest_model.dart';
 import '../../../domain/services/cat_mood_service.dart';
-import '../../../presentation/providers/auth_provider.dart';
+import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/providers/cat_provider.dart';
 import '../../../presentation/providers/player_provider.dart';
 import '../../../presentation/providers/quest_provider.dart';
@@ -27,7 +27,7 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
   }
 
   Future<void> _load() async {
-    final userId = context.read<AuthProvider>().userId;
+    final userId = context.read<AuthViewModel>().userId;
     if (userId == null) return;
     await context.read<QuestProvider>().loadQuests(userId);
     await context.read<PlayerProvider>().loadPlayerStats(userId);

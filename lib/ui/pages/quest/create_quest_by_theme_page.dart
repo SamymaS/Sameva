@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../data/models/quest_model.dart';
 import '../../../data/quest_templates.dart';
-import '../../../presentation/providers/auth_provider.dart';
+import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/providers/quest_provider.dart';
 
 /// Mode "Par thème" : choix du thème (Sport, Loisir, Maison) puis liste de tâches préconfigurées.
@@ -146,7 +146,7 @@ class _CreateQuestByThemePageState extends State<CreateQuestByThemePage> {
   }
 
   Future<void> _createQuestFromTemplate(QuestTemplate template, int durationMinutes) async {
-    final userId = context.read<AuthProvider>().userId;
+    final userId = context.read<AuthViewModel>().userId;
     if (userId == null) return;
 
     final now = DateTime.now();

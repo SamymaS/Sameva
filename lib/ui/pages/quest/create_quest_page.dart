@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../data/models/quest_model.dart';
-import '../../../presentation/providers/auth_provider.dart';
+import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/providers/quest_provider.dart';
 import '../../../presentation/view_models/create_quest_view_model.dart';
 import '../../theme/app_colors.dart';
@@ -41,7 +41,7 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
     super.didChangeDependencies();
     _vm ??= CreateQuestViewModel(
       context.read<QuestProvider>(),
-      context.read<AuthProvider>(),
+      context.read<AuthViewModel>(),
     );
   }
 

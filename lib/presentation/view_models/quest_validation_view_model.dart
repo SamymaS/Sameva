@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../data/models/quest_model.dart';
 import '../../domain/services/validation_ai_service.dart';
-import '../providers/auth_provider.dart';
+import './auth_view_model.dart';
 import '../providers/quest_provider.dart';
 import '../providers/player_provider.dart';
 
@@ -17,7 +17,7 @@ class QuestValidationViewModel extends ChangeNotifier {
     ValidationAIService? validationService,
   }) : _validationService = validationService ?? MockValidationAIService();
 
-  final AuthProvider _authProvider;
+  final AuthViewModel _authProvider;
   final QuestProvider _questProvider;
   final PlayerProvider _playerProvider;
   final ValidationAIService _validationService;

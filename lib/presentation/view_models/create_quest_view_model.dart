@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../data/models/quest_model.dart';
-import '../providers/auth_provider.dart';
+import './auth_view_model.dart';
 import '../providers/quest_provider.dart';
 
 /// MVVM — ViewModel pour la création de quête.
@@ -8,7 +8,7 @@ class CreateQuestViewModel extends ChangeNotifier {
   CreateQuestViewModel(this._questProvider, this._authProvider);
 
   final QuestProvider _questProvider;
-  final AuthProvider _authProvider;
+  final AuthViewModel _authProvider;
 
   bool _isLoading = false;
   String? _errorMessage;

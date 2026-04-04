@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../data/models/quest_model.dart';
-import '../../../presentation/providers/auth_provider.dart';
+import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/providers/quest_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/common/quest_detail_sheet.dart';
@@ -25,7 +25,7 @@ class _QuestsListPageState extends State<QuestsListPage> {
   }
 
   Future<void> _load() async {
-    final userId = context.read<AuthProvider>().userId;
+    final userId = context.read<AuthViewModel>().userId;
     if (userId != null) {
       await context.read<QuestProvider>().loadQuests(userId);
     }

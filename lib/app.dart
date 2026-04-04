@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
-import 'presentation/providers/auth_provider.dart';
-import 'presentation/providers/theme_provider.dart';
+import 'presentation/view_models/auth_view_model.dart';
+import 'presentation/view_models/theme_view_model.dart';
 import 'ui/pages/auth/login_page.dart';
 import 'ui/pages/onboarding/onboarding_page.dart';
 import 'ui/pages/auth/register_page.dart';
@@ -68,7 +68,7 @@ class _SamevaAppState extends State<SamevaApp> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ThemeProvider>(
+    return Consumer<ThemeViewModel>(
       builder: (context, themeProvider, _) {
         return MaterialApp(
           title: 'Sameva',
@@ -95,7 +95,7 @@ class _SamevaAppState extends State<SamevaApp> {
             }
             return null;
           },
-          home: Consumer<AuthProvider>(
+          home: Consumer<AuthViewModel>(
             builder: (context, authProvider, _) {
               // Afficher l'onboarding une seule fois (flag Hive 'has_onboarded')
               final hasOnboarded =

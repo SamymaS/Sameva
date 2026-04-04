@@ -1,7 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../presentation/providers/auth_provider.dart';
+import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/providers/player_provider.dart';
 import '../../theme/app_colors.dart';
 
@@ -164,7 +164,7 @@ class _MemoryGamePageState extends State<MemoryGamePage>
                 backgroundColor: AppColors.primaryTurquoise),
             onPressed: () {
               final player = context.read<PlayerProvider>();
-              final auth = context.read<AuthProvider>();
+              final auth = context.read<AuthViewModel>();
               final userId = auth.userId ?? '';
               if (player.stats != null) {
                 player.addGold(userId, gold);

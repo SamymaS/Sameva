@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../presentation/providers/notification_provider.dart';
 import '../../../presentation/providers/player_provider.dart';
-import '../../../presentation/providers/auth_provider.dart';
-import '../../../presentation/providers/theme_provider.dart';
+import '../../../presentation/view_models/auth_view_model.dart';
+import '../../../presentation/view_models/theme_view_model.dart';
 import '../../theme/app_colors.dart';
 
 /// Paramètres de l'application.
@@ -67,7 +67,7 @@ class _SectionHeader extends StatelessWidget {
 class _ThemeTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final isDark = context.watch<ThemeProvider>().themeMode == ThemeMode.dark;
+    final isDark = context.watch<ThemeViewModel>().themeMode == ThemeMode.dark;
     return ListTile(
       tileColor: AppColors.backgroundDarkPanel,
       leading: Icon(
@@ -85,7 +85,7 @@ class _ThemeTile extends StatelessWidget {
         activeColor: AppColors.primaryTurquoise,
         onChanged: (v) {
           context
-              .read<ThemeProvider>()
+              .read<ThemeViewModel>()
               .setThemeMode(v ? ThemeMode.dark : ThemeMode.light);
         },
       ),
@@ -188,7 +188,7 @@ class _ResetPlayerTile extends StatelessWidget {
         );
         if (confirmed != true) return;
         if (!context.mounted) return;
-        final userId = context.read<AuthProvider>().userId ?? '';
+        final userId = context.read<AuthViewModel>().userId ?? '';
         await context.read<PlayerProvider>().resetPlayer(userId);
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(

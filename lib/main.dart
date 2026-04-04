@@ -5,23 +5,25 @@ import 'package:provider/provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'config/supabase_config.dart';
+import 'data/repositories/auth_repository.dart';
+import 'data/repositories/quest_repository.dart';
+import 'data/repositories/player_repository.dart';
+import 'data/repositories/user_repository.dart';
 import 'domain/services/notification_service.dart';
-import 'presentation/providers/auth_provider.dart';
 import 'presentation/providers/quest_provider.dart';
 import 'presentation/providers/player_provider.dart';
-import 'presentation/providers/theme_provider.dart';
 import 'presentation/providers/inventory_provider.dart';
 import 'presentation/providers/equipment_provider.dart';
 import 'presentation/providers/notification_provider.dart';
 import 'presentation/providers/character_provider.dart';
 import 'presentation/providers/cat_provider.dart';
+import 'presentation/view_models/theme_view_model.dart';
+import 'presentation/view_models/auth_view_model.dart';
 import 'app.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Rendu edge-to-edge : l'app s'étend derrière la barre de navigation Android
-  // et la barre de statut. Les insets sont ensuite gérés via MediaQuery.viewPadding.
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
@@ -42,28 +44,42 @@ void main() async {
 
   await Hive.initFlutter();
   await Hive.openBox('quests');
-  await Hive.openBox('playerStats');
-  await Hive.openBox('settings');
+  final statsBox  = await Hive.openBox('playerStats');
+  final settingsBox = await Hive.openBox('settings');
   await Hive.openBox('inventory');
   await Hive.openBox('equipment');
   await Hive.openBox('cats');
 
-  // Notifications locales (best-effort)
   await NotificationService.init();
 
-  final questProvider = QuestProvider();
-  final playerProvider = PlayerProvider();
+  // Repositories
+  final supabase   = Supabase.instance.client;
+  final authRepo   = AuthRepository(supabase);
+  final userRepo   = UserRepository(supabase);
+  final questRepo  = QuestRepository(supabase, userRepo);
+  final playerRepo = PlayerRepository(statsBox, supabase);
+
+  // Providers encore nécessaires (pages non encore migrées vers ViewModels)
+  final questProvider     = QuestProvider();
+  final playerProvider    = PlayerProvider();
   final inventoryProvider = InventoryProvider()..loadInventory();
   final equipmentProvider = EquipmentProvider()..loadEquipment();
-  final catProvider = CatProvider()..loadCats();
+  final catProvider       = CatProvider()..loadCats();
 
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        // ViewModels globaux
+        ChangeNotifierProvider(create: (_) => ThemeViewModel(settingsBox)),
+        ChangeNotifierProvider(create: (_) => AuthViewModel(authRepo)),
+
+        // Repositories exposés pour injection dans les ViewModels de pages
+        Provider<QuestRepository>.value(value: questRepo),
+        Provider<PlayerRepository>.value(value: playerRepo),
+
+        // Providers en cours de migration (supprimés à l'Étape 4)
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => CharacterProvider()),
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider.value(value: questProvider),
         ChangeNotifierProvider.value(value: playerProvider),
         ChangeNotifierProvider.value(value: inventoryProvider),
