@@ -9,8 +9,13 @@ class NotificationViewModel with ChangeNotifier {
   static const _keyMinute = 'reminder_minute';
 
   final Box _box;
+  final Future<void> Function(int hour, int minute) _persistAndSchedule;
 
-  NotificationViewModel(this._box);
+  NotificationViewModel(
+    this._box, {
+    Future<void> Function(int hour, int minute)? persistAndScheduleReminder,
+  }) : _persistAndSchedule =
+            persistAndScheduleReminder ?? NotificationService.updateQuestReminderTime;
 
   int get reminderHour => _box.get(_keyHour, defaultValue: 9) as int;
   int get reminderMinute => _box.get(_keyMinute, defaultValue: 0) as int;
@@ -23,7 +28,7 @@ class NotificationViewModel with ChangeNotifier {
 
   Future<void> setReminderTime(int hour, int minute) async {
     try {
-      await NotificationService.updateQuestReminderTime(hour, minute);
+      await _persistAndSchedule(hour, minute);
       notifyListeners();
     } catch (e) {
       debugPrint('NotificationViewModel: erreur setReminderTime: $e');

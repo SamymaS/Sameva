@@ -4,7 +4,7 @@
 
 | Indicateur | Valeur (à jour avec `flutter test`) |
 |------------|-------------------------------------|
-| **Nombre total de tests** | 126 (`flutter test` sans option) |
+| **Nombre total de tests** | 135 (`flutter test` sans option) |
 | **Analyse statique** | `flutter analyze` — 0 issue |
 
 ## Commandes
@@ -33,6 +33,7 @@ Sur Windows, installer lcov ou utiliser WSL pour ces commandes.
 | `cat_mood_service_test.dart` | `CatMoodService` |
 | `item_factory_test.dart` | `ItemFactory` (gacha, catalogue, génération) |
 | `health_regeneration_service_test.dart` | `HealthRegenerationService` (Hive `settings` en répertoire temporaire) |
+| `api_validation_ai_service_test.dart` | `ApiValidationAIService` avec `http.Client` injecté (`MockClient`) |
 
 ### `test/data/` — modèles / enums
 
@@ -60,6 +61,7 @@ Sur Windows, installer lcov ou utiliser WSL pour ces commandes.
 | `profile_view_model_test.dart` | `ProfileViewModel` (auth + repos mockés) |
 | `settings_view_model_test.dart` | `SettingsViewModel` (façade thème / notif / joueur / auth) |
 | `cat_view_model_test.dart` | `CatViewModel` (box `cats` mockée) |
+| `notification_view_model_test.dart` | `NotificationViewModel` (box mockée + `persistAndScheduleReminder` injecté pour éviter le plugin) |
 
 ### `test/helpers/`
 
@@ -79,9 +81,8 @@ Sur Windows, installer lcov ou utiliser WSL pour ces commandes.
 |------|----------------|
 | **`lib/ui/`** | Écrans et widgets : coût / rapport pour la certification RNCP moindre que ViewModels + domaine ; possibles tests widget ciblés plus tard. |
 | **Repositories concrets** | `AuthRepository`, `QuestRepository`, `PlayerRepository` : dépendance Supabase / Hive réelle ; les tests passent par des **mocks** depuis les ViewModels. |
-| **`ApiValidationAIService` / réseau** | Appels HTTP réels non exécutés en unitaire ; `ValidationAIService` est mocké pour `QuestValidationViewModel`. |
-| **`NotificationService`** | Dépend de la plateforme (notifications locales). |
-| **ViewModels restants** | `NotificationViewModel` (dépend `NotificationService` plateforme) ; autres écrans mineurs. |
+| **`NotificationService` (plugin)** | Planification réelle des notifications : hors tests unitaires ; `NotificationViewModel` accepte un callback `persistAndScheduleReminder` pour les tests. |
+| **ViewModels restants** | Écrans mineurs sans VM dédiée testée. |
 | **Modèles** | `Quest.toSupabaseMap` symétrique, autres entités utilisateur si ajoutées. |
 
 ## Argumentaire RNCP (rappel)

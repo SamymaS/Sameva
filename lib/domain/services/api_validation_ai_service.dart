@@ -19,7 +19,8 @@ class ApiValidationAIService implements ValidationAIService {
     required this.baseUrl,
     this.authToken,
     this.timeout = const Duration(seconds: 30),
-  });
+    http.Client? httpClient,
+  }) : _httpClient = httpClient ?? http.Client();
 
   /// URL de base du backend (ex. https://xxx.supabase.co/functions/v1/analyze-quest-proof)
   final String baseUrl;
@@ -28,6 +29,8 @@ class ApiValidationAIService implements ValidationAIService {
   final String? authToken;
 
   final Duration timeout;
+
+  final http.Client _httpClient;
 
   static const int validationThreshold = 70;
 
@@ -53,7 +56,7 @@ class ApiValidationAIService implements ValidationAIService {
       headers['Authorization'] = 'Bearer $authToken';
     }
 
-    final response = await http
+    final response = await _httpClient
         .post(uri, headers: headers, body: body)
         .timeout(timeout);
 
