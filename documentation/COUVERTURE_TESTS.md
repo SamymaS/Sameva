@@ -4,7 +4,7 @@
 
 | Indicateur | Valeur (à jour avec `flutter test`) |
 |------------|-------------------------------------|
-| **Nombre total de tests** | 99 (`flutter test` sans option) |
+| **Nombre total de tests** | 126 (`flutter test` sans option) |
 | **Analyse statique** | `flutter analyze` — 0 issue |
 
 ## Commandes
@@ -40,6 +40,8 @@ Sur Windows, installer lcov ou utiliser WSL pour ces commandes.
 |---------|--------|
 | `player_stats_model_test.dart` | `PlayerStats` JSON |
 | `quest_model_enums_test.dart` | Enums quête (parsing Supabase) |
+| `character_appearance_test.dart` | `CharacterAppearance` JSON / défauts / `copyWith` |
+| `quest_from_supabase_map_test.dart` | `Quest.fromSupabaseMap`, dates ISO ; `CatStats` JSON |
 
 ### `test/presentation/` — ViewModels
 
@@ -55,6 +57,9 @@ Sur Windows, installer lcov ou utiliser WSL pour ces commandes.
 | `quest_validation_view_model_test.dart` | `QuestValidationViewModel` + `ValidationAIService` mocké |
 | `inventory_view_model_test.dart` | `InventoryViewModel` (box mockée) |
 | `equipment_view_model_test.dart` | `EquipmentViewModel` + inventaire mocké |
+| `profile_view_model_test.dart` | `ProfileViewModel` (auth + repos mockés) |
+| `settings_view_model_test.dart` | `SettingsViewModel` (façade thème / notif / joueur / auth) |
+| `cat_view_model_test.dart` | `CatViewModel` (box `cats` mockée) |
 
 ### `test/helpers/`
 
@@ -76,8 +81,8 @@ Sur Windows, installer lcov ou utiliser WSL pour ces commandes.
 | **Repositories concrets** | `AuthRepository`, `QuestRepository`, `PlayerRepository` : dépendance Supabase / Hive réelle ; les tests passent par des **mocks** depuis les ViewModels. |
 | **`ApiValidationAIService` / réseau** | Appels HTTP réels non exécutés en unitaire ; `ValidationAIService` est mocké pour `QuestValidationViewModel`. |
 | **`NotificationService`** | Dépend de la plateforme (notifications locales). |
-| **ViewModels restants** | `ProfileViewModel`, `SettingsViewModel`, `CatViewModel`, `NotificationViewModel`, etc. : extension naturelle du même schéma (mocks + pas d’I/O réel). |
-| **Modèles** | `CharacterModel`, `Quest` complet `fromSupabaseMap`, etc. : renforce la couche data si besoin pour le dossier. |
+| **ViewModels restants** | `NotificationViewModel` (dépend `NotificationService` plateforme) ; autres écrans mineurs. |
+| **Modèles** | `Quest.toSupabaseMap` symétrique, autres entités utilisateur si ajoutées. |
 
 ## Argumentaire RNCP (rappel)
 
