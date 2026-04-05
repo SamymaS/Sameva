@@ -4,7 +4,7 @@
 
 | Indicateur | Valeur (à jour avec `flutter test`) |
 |------------|-------------------------------------|
-| **Nombre total de tests** | 135 (`flutter test` sans option) |
+| **Nombre total de tests** | 145 (`flutter test` sans option) |
 | **Analyse statique** | `flutter analyze` — 0 issue |
 
 ## Commandes
@@ -34,6 +34,7 @@ Sur Windows, installer lcov ou utiliser WSL pour ces commandes.
 | `item_factory_test.dart` | `ItemFactory` (gacha, catalogue, génération) |
 | `health_regeneration_service_test.dart` | `HealthRegenerationService` (Hive `settings` en répertoire temporaire) |
 | `api_validation_ai_service_test.dart` | `ApiValidationAIService` avec `http.Client` injecté (`MockClient`) |
+| `claude_validation_ai_service_test.dart` | `ClaudeValidationAIService` (parsing réponse Messages API + `MockClient`) |
 
 ### `test/data/` — modèles / enums
 
@@ -43,6 +44,8 @@ Sur Windows, installer lcov ou utiliser WSL pour ces commandes.
 | `quest_model_enums_test.dart` | Enums quête (parsing Supabase) |
 | `character_appearance_test.dart` | `CharacterAppearance` JSON / défauts / `copyWith` |
 | `quest_from_supabase_map_test.dart` | `Quest.fromSupabaseMap`, dates ISO ; `CatStats` JSON |
+| `quest_to_supabase_roundtrip_test.dart` | `toSupabaseMap` ↔ `fromSupabaseMap`, `is_completed` |
+| `item_model_test.dart` | `Item` JSON, `slotForItem`, `cosmeticSlotForItem` |
 
 ### `test/presentation/` — ViewModels
 
@@ -83,7 +86,7 @@ Sur Windows, installer lcov ou utiliser WSL pour ces commandes.
 | **Repositories concrets** | `AuthRepository`, `QuestRepository`, `PlayerRepository` : dépendance Supabase / Hive réelle ; les tests passent par des **mocks** depuis les ViewModels. |
 | **`NotificationService` (plugin)** | Planification réelle des notifications : hors tests unitaires ; `NotificationViewModel` accepte un callback `persistAndScheduleReminder` pour les tests. |
 | **ViewModels restants** | Écrans mineurs sans VM dédiée testée. |
-| **Modèles** | `Quest.toSupabaseMap` symétrique, autres entités utilisateur si ajoutées. |
+| **Modèles** | Autres entités utilisateur / persistance si elles grossissent. |
 
 ## Argumentaire RNCP (rappel)
 

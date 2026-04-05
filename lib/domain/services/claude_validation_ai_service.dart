@@ -14,8 +14,12 @@ class ClaudeValidationAIService implements ValidationAIService {
   static const _validationThreshold = 70;
 
   final String apiKey;
+  final http.Client _httpClient;
 
-  ClaudeValidationAIService({required this.apiKey});
+  ClaudeValidationAIService({
+    required this.apiKey,
+    http.Client? httpClient,
+  }) : _httpClient = httpClient ?? http.Client();
 
   @override
   Future<ValidationResult> analyzeProof({
@@ -54,7 +58,7 @@ class ClaudeValidationAIService implements ValidationAIService {
       ],
     });
 
-    final response = await http.post(
+    final response = await _httpClient.post(
       Uri.parse(_endpoint),
       headers: {
         'x-api-key': apiKey,
