@@ -4,7 +4,7 @@
 
 | Indicateur | Valeur (à jour avec `flutter test`) |
 |------------|-------------------------------------|
-| **Nombre total de tests** | 152 (`flutter test` sans option) |
+| **Nombre total de tests** | 173 (`flutter test` sans option) |
 | **Analyse statique** | `flutter analyze` — 0 issue |
 
 ## Commandes
@@ -31,8 +31,8 @@ Sur Windows, installer lcov ou utiliser WSL pour ces commandes.
 |---------|---------------------------|
 | `quest_rewards_calculator_test.dart` | `QuestRewardsCalculator` |
 | `cat_mood_service_test.dart` | `CatMoodService` |
-| `item_factory_test.dart` | `ItemFactory` (gacha, catalogue, génération) |
-| `health_regeneration_service_test.dart` | `HealthRegenerationService` (Hive `settings` en répertoire temporaire) |
+| `item_factory_test.dart` | `ItemFactory` (gacha, catalogue, `generateRandomItem` pour chaque rareté) |
+| `health_regeneration_service_test.dart` | `HealthRegenerationService` (moins d’1 h sans regen, timestamp invalide, plafond 8 h, preview) |
 | `api_validation_ai_service_test.dart` | `ApiValidationAIService` avec `http.Client` injecté (`MockClient`) |
 | `claude_validation_ai_service_test.dart` | `ClaudeValidationAIService` (parsing réponse Messages API + `MockClient`) |
 | `mock_validation_ai_service_test.dart` | `MockValidationAIService` (formules score, `simulatedDelay: Duration.zero`) |
@@ -44,7 +44,7 @@ Sur Windows, installer lcov ou utiliser WSL pour ces commandes.
 |---------|--------|
 | `player_stats_model_test.dart` | `PlayerStats` JSON + `fromSupabaseMap` / `toSupabaseMap` |
 | `quest_model_enums_test.dart` | Enums quête (parsing Supabase) |
-| `character_appearance_test.dart` | `CharacterAppearance` JSON / défauts / `copyWith` |
+| `character_appearance_test.dart` | `CharacterAppearance` JSON / défauts / `copyWith` ; labels enums (`CharacterGender`, `SkinTone`, `HairStyle`) |
 | `quest_from_supabase_map_test.dart` | `Quest.fromSupabaseMap`, dates ISO ; `CatStats` JSON |
 | `quest_to_supabase_roundtrip_test.dart` | `toSupabaseMap` ↔ `fromSupabaseMap`, `is_completed` |
 | `item_model_test.dart` | `Item` JSON, `slotForItem`, `cosmeticSlotForItem` |
@@ -58,11 +58,11 @@ Sur Windows, installer lcov ou utiliser WSL pour ces commandes.
 | `create_quest_view_model_test.dart` | `CreateQuestViewModel` |
 | `quests_list_view_model_test.dart` | `QuestsListViewModel` |
 | `player_view_model_test.dart` | `PlayerViewModel` (+ Hive `settings`) |
-| `rewards_view_model_test.dart` | `RewardsViewModel` (proxy `PlayerViewModel`) |
-| `quest_view_model_test.dart` | `QuestViewModel` |
-| `quest_validation_view_model_test.dart` | `QuestValidationViewModel` + `ValidationAIService` mocké |
-| `inventory_view_model_test.dart` | `InventoryViewModel` (box mockée) |
-| `equipment_view_model_test.dart` | `EquipmentViewModel` + inventaire mocké |
+| `rewards_view_model_test.dart` | `RewardsViewModel` : défauts, XP, sync distante en échec (stats locales), `dispose` |
+| `quest_view_model_test.dart` | `QuestViewModel` : chargement, `isLoading` pendant l’appel repo, erreurs, filtres jour, `completeQuest` / `deleteQuest` en erreur |
+| `quest_validation_view_model_test.dart` | `QuestValidationViewModel` : analyse IA succès/échec/seuil 70, preuve vide, `setProof` reset, notifications |
+| `inventory_view_model_test.dart` | `InventoryViewModel` : plein 50 slots, exception au chargement |
+| `equipment_view_model_test.dart` | `EquipmentViewModel` : équipement, cosmétiques, restauration Hive |
 | `profile_view_model_test.dart` | `ProfileViewModel` (auth + repos mockés) |
 | `settings_view_model_test.dart` | `SettingsViewModel` (façade thème / notif / joueur / auth) |
 | `cat_view_model_test.dart` | `CatViewModel` (box `cats` mockée) |
@@ -87,8 +87,12 @@ Sur Windows, installer lcov ou utiliser WSL pour ces commandes.
 | **`lib/ui/`** | Écrans et widgets : coût / rapport pour la certification RNCP moindre que ViewModels + domaine ; possibles tests widget ciblés plus tard. |
 | **Repositories concrets** | `AuthRepository`, `QuestRepository`, `PlayerRepository` : dépendance Supabase / Hive réelle ; les tests passent par des **mocks** depuis les ViewModels. |
 | **`NotificationService` (plugin)** | Planification réelle des notifications : hors tests unitaires ; `NotificationViewModel` accepte un callback `persistAndScheduleReminder` pour les tests. |
-| **ViewModels restants** | Écrans mineurs sans VM dédiée testée. |
-| **Modèles** | Autres entités utilisateur / persistance si elles grossissent. |
+| **ViewModels non testés à ce jour** | Aucun ViewModel « orphelin » majeur ; l’UI reste hors tests unitaires (voir `lib/ui/`). |
+| **Modèles** | Pas de `PlayerModel` / `UserModel` séparés dans le dépôt ; persistance joueur via `PlayerStats` et profil Supabase côté repository. |
+
+## Précision `QuestValidationViewModel`
+
+Le ViewModel expose `isAnalyzing`, `result` (`ValidationResult` : score, `isValid`, `explication`) et `proofImage`. Il n’y a pas de `errorMessage` : une erreur réseau / service remonte via l’exception sur `analyzeProof` (testée). Le reset UI passe par `setProof(null)` ou une nouvelle preuve qui efface `result`.
 
 ## Argumentaire RNCP (rappel)
 

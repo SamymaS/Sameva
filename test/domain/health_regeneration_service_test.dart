@@ -91,5 +91,28 @@ void main() {
     test('previewRegen retourne 0 sans historique', () {
       expect(HealthRegenerationService.previewRegen(maxHp: 100), 0);
     });
+
+    test('ne régénère pas si moins d\'une heure s\'est écoulée depuis la dernière trace', () async {
+      final box = Hive.box('settings');
+      await box.put(
+        'last_hp_regen_at',
+        DateTime.now().subtract(const Duration(minutes: 30)).toIso8601String(),
+      );
+
+      expect(
+        HealthRegenerationService.computeRegen(currentHp: 50, maxHp: 100),
+        0,
+      );
+    });
+
+    test('computeRegen retourne 0 si l\'horodatage stocké est illisible', () async {
+      final box = Hive.box('settings');
+      await box.put('last_hp_regen_at', 'date-invalide');
+
+      expect(
+        HealthRegenerationService.computeRegen(currentHp: 50, maxHp: 100),
+        0,
+      );
+    });
   });
 }

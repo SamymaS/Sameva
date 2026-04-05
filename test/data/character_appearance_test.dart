@@ -37,4 +37,20 @@ void main() {
       expect(c.gender, base.gender);
     });
   });
+
+  group('CharacterModel enums', () {
+    test('CharacterGender.label et SkinTone.label sont non vides', () {
+      for (final g in CharacterGender.values) {
+        expect(g.label, isNotEmpty);
+      }
+      for (final t in SkinTone.values) {
+        expect(t.label, isNotEmpty);
+      }
+    });
+
+    test('HairStyle expose label et icon', () {
+      expect(HairStyle.long.label, isNotEmpty);
+      expect(HairStyle.long.icon, isNotNull);
+    });
+  });
 }

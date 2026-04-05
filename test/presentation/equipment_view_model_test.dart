@@ -19,6 +19,17 @@ Item _weapon({String id = 'sw'}) => Item(
       goldValue: 50,
     );
 
+Item _hat({String id = 'h1'}) => Item(
+      id: id,
+      name: 'Chapeau',
+      description: 'cosmétique',
+      type: ItemType.cosmetic,
+      rarity: QuestRarity.common,
+      iconCodePoint: 2,
+      goldValue: 10,
+      cosmeticSlot: 'hat',
+    );
+
 void main() {
   late _MockBox equipBox;
   late _MockBox invBox;
@@ -99,6 +110,52 @@ void main() {
 
       expect(equipVm.getSlot(EquipmentSlot.weapon), isNull);
       expect(invVm.items, hasLength(1));
+    });
+
+    test('unequip sur slot vide ne modifie pas l\'inventaire', () {
+      when(() => equipBox.get('equipment')).thenReturn(null);
+      when(() => equipBox.get('cosmetics')).thenReturn(null);
+      equipVm.loadEquipment();
+      invVm.addItem(_weapon(id: 'only'));
+
+      equipVm.unequip(EquipmentSlot.weapon, invVm);
+
+      expect(invVm.items, hasLength(1));
+    });
+
+    test('equipCosmetic / unequipCosmetic échangent avec l\'inventaire', () {
+      when(() => equipBox.get('equipment')).thenReturn(null);
+      when(() => equipBox.get('cosmetics')).thenReturn(null);
+      equipVm.loadEquipment();
+      final a = _hat(id: 'hat-a');
+      final b = _hat(id: 'hat-b');
+      invVm.addItem(a);
+      invVm.addItem(b);
+
+      equipVm.equipCosmetic(a, 'hat', invVm);
+      expect(equipVm.getCosmeticSlot('hat')?.id, 'hat-a');
+      expect(invVm.items, hasLength(1));
+
+      equipVm.equipCosmetic(b, 'hat', invVm);
+      expect(equipVm.getCosmeticSlot('hat')?.id, 'hat-b');
+      expect(invVm.items.map((e) => e.id), contains('hat-a'));
+
+      equipVm.unequipCosmetic('hat', invVm);
+      expect(equipVm.getCosmeticSlot('hat'), isNull);
+      expect(invVm.items.map((e) => e.id), contains('hat-b'));
+    });
+
+    test('loadEquipment restaure weapon depuis la map Hive', () {
+      final w = _weapon(id: 'stored');
+      when(() => equipBox.get('equipment')).thenReturn({
+        'weapon': w.toJson(),
+      });
+      when(() => equipBox.get('cosmetics')).thenReturn(null);
+
+      equipVm.loadEquipment();
+
+      expect(equipVm.getSlot(EquipmentSlot.weapon)?.id, 'stored');
+      expect(equipVm.xpBonusPercent, 5);
     });
   });
 }

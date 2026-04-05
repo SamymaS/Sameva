@@ -99,5 +99,25 @@ void main() {
 
       expect(vm.getItemsByType(ItemType.weapon), hasLength(1));
     });
+
+    test('addItem retourne false si inventaire plein (50 slots distincts)', () {
+      when(() => box.get('items')).thenReturn(null);
+      vm.loadInventory();
+      for (var i = 0; i < 50; i++) {
+        expect(vm.addItem(_item(id: 'slot-$i')), isTrue);
+      }
+      expect(vm.isFull, isTrue);
+      expect(vm.addItem(_item(id: 'overflow')), isFalse);
+      expect(vm.items, hasLength(50));
+    });
+
+    test('loadInventory avec exception Hive vide la liste sans lever', () {
+      when(() => box.get('items')).thenThrow(Exception('corruption'));
+
+      vm.loadInventory();
+
+      expect(vm.items, isEmpty);
+      expect(vm.count, 0);
+    });
   });
 }

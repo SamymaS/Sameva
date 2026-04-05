@@ -54,5 +54,15 @@ void main() {
         expect(QuestRarity.values, contains(ItemFactory.rollGachaRarity()));
       }
     });
+
+    test('generateRandomItem pour chaque rareté produit un item cohérent', () {
+      for (final rarity in QuestRarity.values) {
+        final item = ItemFactory.generateRandomItem(rarity);
+        expect(item.rarity, rarity);
+        expect(item.name, isNotEmpty);
+        expect(item.description, isNotEmpty);
+        expect(item.goldValue, greaterThan(0));
+      }
+    });
   });
 }
