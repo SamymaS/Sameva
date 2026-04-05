@@ -130,13 +130,24 @@ class _LoginPageState extends State<LoginPage> {
         _passwordController.text,
       );
       if (!mounted) return;
-      // Auth state change will rebuild and show home
-    } catch (_) {}
+      if (auth.isAuthenticated) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+      }
+    } catch (_) {
+      // Message déjà dans AuthViewModel.errorMessage
+    }
   }
 
   Future<void> _signInAnonymously(BuildContext context) async {
+    final auth = context.read<AuthViewModel>();
     try {
-      await context.read<AuthViewModel>().signInAnonymously();
-    } catch (_) {}
+      await auth.signInAnonymously();
+      if (!context.mounted) return;
+      if (auth.isAuthenticated) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+      }
+    } catch (_) {
+      // Message déjà dans AuthViewModel.errorMessage
+    }
   }
 }

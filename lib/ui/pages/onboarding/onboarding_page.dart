@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
-import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/view_models/cat_view_model.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/cat/cat_widget.dart';
@@ -38,12 +37,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
     await Hive.box('settings').put('has_onboarded', true);
 
     if (!mounted) return;
-    final isAuthenticated = context.read<AuthViewModel>().isAuthenticated;
-    if (isAuthenticated) {
-      Navigator.of(context).pushReplacementNamed('/');
-    } else {
-      Navigator.of(context).pushReplacementNamed('/login');
-    }
+    // Revenir à la route racine : le `home` MaterialApp est le Consumer qui choisit
+    // onboarding / login / shell selon Hive + auth. Ne pas pousser `/login` seul,
+    // sinon on perd ce Consumer et la connexion ne bascule plus l'écran.
+    Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
   }
 
   @override

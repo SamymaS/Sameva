@@ -121,7 +121,13 @@ class _RegisterPageState extends State<RegisterPage> {
         _passwordController.text,
       );
       if (!mounted) return;
-      Navigator.of(context).pop();
-    } catch (_) {}
+      if (auth.isAuthenticated) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+      } else {
+        Navigator.of(context).pop();
+      }
+    } catch (_) {
+      // Message déjà dans AuthViewModel.errorMessage
+    }
   }
 }

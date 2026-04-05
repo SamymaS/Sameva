@@ -13,7 +13,9 @@
       "Bash(node --version 2>&1 && npm --version 2>&1)",
       "Bash(curl:*)",
       "Bash(cd:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(flutter test:*)",
+      "Bash(grep -v \"^$\")"
     ]
   }
 }

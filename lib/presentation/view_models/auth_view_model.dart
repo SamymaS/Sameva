@@ -37,6 +37,7 @@ class AuthViewModel with ChangeNotifier {
     _setLoading(true);
     try {
       _user = await _repo.signInAnonymously();
+      _user ??= _repo.currentUser;
       _errorMessage = null;
     } on AuthException catch (e) {
       _errorMessage = _traduireErreur(e);
@@ -56,6 +57,7 @@ class AuthViewModel with ChangeNotifier {
     _setLoading(true);
     try {
       _user = await _repo.signInWithEmailAndPassword(email, password);
+      _user ??= _repo.currentUser;
       _errorMessage = null;
     } on AuthException catch (e) {
       _errorMessage = _traduireErreur(e);
@@ -76,6 +78,7 @@ class AuthViewModel with ChangeNotifier {
     _setLoading(true);
     try {
       _user = await _repo.createUserWithEmailAndPassword(email, password);
+      _user ??= _repo.currentUser;
       _errorMessage = null;
     } on AuthException catch (e) {
       _errorMessage = _traduireErreur(e);
