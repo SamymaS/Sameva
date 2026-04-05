@@ -4,7 +4,7 @@
 
 | Indicateur | Valeur (à jour avec `flutter test`) |
 |------------|-------------------------------------|
-| **Nombre total de tests** | 145 (`flutter test` sans option) |
+| **Nombre total de tests** | 152 (`flutter test` sans option) |
 | **Analyse statique** | `flutter analyze` — 0 issue |
 
 ## Commandes
@@ -35,12 +35,14 @@ Sur Windows, installer lcov ou utiliser WSL pour ces commandes.
 | `health_regeneration_service_test.dart` | `HealthRegenerationService` (Hive `settings` en répertoire temporaire) |
 | `api_validation_ai_service_test.dart` | `ApiValidationAIService` avec `http.Client` injecté (`MockClient`) |
 | `claude_validation_ai_service_test.dart` | `ClaudeValidationAIService` (parsing réponse Messages API + `MockClient`) |
+| `mock_validation_ai_service_test.dart` | `MockValidationAIService` (formules score, `simulatedDelay: Duration.zero`) |
+| `claude_quest_generator_service_test.dart` | `ClaudeQuestGeneratorService` (`http.Client` injecté, parsing JSON quêtes, erreurs HTTP) |
 
 ### `test/data/` — modèles / enums
 
 | Fichier | Cible |
 |---------|--------|
-| `player_stats_model_test.dart` | `PlayerStats` JSON |
+| `player_stats_model_test.dart` | `PlayerStats` JSON + `fromSupabaseMap` / `toSupabaseMap` |
 | `quest_model_enums_test.dart` | Enums quête (parsing Supabase) |
 | `character_appearance_test.dart` | `CharacterAppearance` JSON / défauts / `copyWith` |
 | `quest_from_supabase_map_test.dart` | `Quest.fromSupabaseMap`, dates ISO ; `CatStats` JSON |

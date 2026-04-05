@@ -47,4 +47,75 @@ void main() {
       expect(s.achievements, isEmpty);
     });
   });
+
+  group('PlayerStats Supabase', () {
+    test('fromSupabaseMap lit snake_case et défauts', () {
+      final s = PlayerStats.fromSupabaseMap({
+        'level': 3,
+        'experience': 50,
+        'gold': 200,
+        'crystals': 5,
+        'health_points': 90,
+        'max_health_points': 120,
+        'credibility_score': 0.8,
+        'moral': 0.5,
+        'streak': 7,
+        'max_streak': 14,
+        'last_active_date': '2024-06-01T12:00:00.000Z',
+        'achievements': {'quest_10': 1},
+        'total_quests_completed': 99,
+      });
+
+      expect(s.level, 3);
+      expect(s.experience, 50);
+      expect(s.gold, 200);
+      expect(s.crystals, 5);
+      expect(s.healthPoints, 90);
+      expect(s.maxHealthPoints, 120);
+      expect(s.credibilityScore, 0.8);
+      expect(s.moral, 0.5);
+      expect(s.streak, 7);
+      expect(s.maxStreak, 14);
+      expect(s.lastActiveDate, DateTime.parse('2024-06-01T12:00:00.000Z'));
+      expect(s.achievements, {'quest_10': 1});
+      expect(s.totalQuestsCompleted, 99);
+    });
+
+    test('toSupabaseMap expose clés snake_case et valeurs alignées', () {
+      final s = PlayerStats(
+        level: 4,
+        experience: 0,
+        gold: 1,
+        crystals: 0,
+        healthPoints: 100,
+        maxHealthPoints: 100,
+        credibilityScore: 1.0,
+        moral: 1.0,
+        streak: 0,
+        maxStreak: 0,
+        lastActiveDate: DateTime.utc(2025, 3, 10),
+        achievements: const {},
+        totalQuestsCompleted: 0,
+        pityCount: 0,
+      );
+
+      final m = s.toSupabaseMap();
+      expect(m['level'], 4);
+      expect(m['experience'], 0);
+      expect(m['gold'], 1);
+      expect(m['crystals'], 0);
+      expect(m['health_points'], 100);
+      expect(m['max_health_points'], 100);
+      expect(m['credibility_score'], 1.0);
+      expect(m['moral'], 1.0);
+      expect(m['streak'], 0);
+      expect(m['max_streak'], 0);
+      expect(m['last_active_date'], '2025-03-10T00:00:00.000Z');
+      expect(m['achievements'], isEmpty);
+      expect(m['total_quests_completed'], 0);
+      expect(m['updated_at'], isA<String>());
+      expect(m.containsKey('pity_count'), isFalse);
+    });
+  });
 }
+

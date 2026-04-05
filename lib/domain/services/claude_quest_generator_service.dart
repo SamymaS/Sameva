@@ -10,8 +10,12 @@ class ClaudeQuestGeneratorService {
   static const _model = 'claude-haiku-4-5-20251001';
 
   final String apiKey;
+  final http.Client _httpClient;
 
-  ClaudeQuestGeneratorService({required this.apiKey});
+  ClaudeQuestGeneratorService({
+    required this.apiKey,
+    http.Client? httpClient,
+  }) : _httpClient = httpClient ?? http.Client();
 
   /// Génère 3 quêtes adaptées au profil du joueur.
   /// [userId] est requis pour construire les objets [Quest].
@@ -48,7 +52,7 @@ class ClaudeQuestGeneratorService {
       ],
     });
 
-    final response = await http.post(
+    final response = await _httpClient.post(
       Uri.parse(_endpoint),
       headers: {
         'x-api-key': apiKey,

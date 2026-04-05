@@ -39,12 +39,17 @@ abstract class ValidationAIService {
 class MockValidationAIService implements ValidationAIService {
   static const int validationThreshold = 70;
 
+  /// Délai simulé avant le résultat (défaut 2 s comme une analyse réelle ; [Duration.zero] en tests).
+  final Duration simulatedDelay;
+
+  MockValidationAIService({this.simulatedDelay = const Duration(seconds: 2)});
+
   @override
   Future<ValidationResult> analyzeProof({
     required Quest quest,
     required Uint8List imageBytes,
   }) async {
-    await Future<void>.delayed(const Duration(seconds: 2));
+    await Future<void>.delayed(simulatedDelay);
     final score = 65 + (imageBytes.length % 31);
     final isValid = score >= validationThreshold;
     final explanation = isValid
@@ -62,7 +67,7 @@ class MockValidationAIService implements ValidationAIService {
     required Quest quest,
     required String videoPath,
   }) async {
-    await Future<void>.delayed(const Duration(seconds: 2));
+    await Future<void>.delayed(simulatedDelay);
     final score = 70 + (videoPath.hashCode % 25).clamp(0, 30);
     final isValid = score >= validationThreshold;
     return ValidationResult(
