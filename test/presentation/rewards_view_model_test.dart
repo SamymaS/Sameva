@@ -94,5 +94,39 @@ void main() {
 
       expect(rewardsVm.gold, 50);
     });
+
+    test('orchestration : erreur fetchRemoteStats laisse les stats locales visibles', () async {
+      when(() => repo.loadLocalStats()).thenReturn(
+        PlayerStats(level: 4, experience: 10, gold: 77),
+      );
+      when(() => repo.fetchRemoteStats(any())).thenThrow(Exception('Supabase indisponible'));
+      when(() => repo.saveLocalStats(any())).thenAnswer((_) async {});
+
+      await playerVm.loadPlayerStats('u1');
+
+      expect(rewardsVm.level, 4);
+      expect(rewardsVm.gold, 77);
+      expect(rewardsVm.experience, 10);
+    });
+
+    test('dispose ne reçoit plus les notifications du PlayerViewModel', () async {
+      when(() => repo.loadLocalStats()).thenReturn(PlayerStats(gold: 1));
+      when(() => repo.fetchRemoteStats(any())).thenAnswer((_) async => null);
+      when(() => repo.saveLocalStats(any())).thenAnswer((_) async {});
+      when(() => repo.syncToSupabase(any(), any())).thenAnswer((_) async {});
+
+      final localRewards = RewardsViewModel(playerVm);
+      var rewardsNotifications = 0;
+      localRewards.addListener(() => rewardsNotifications++);
+
+      await playerVm.loadPlayerStats('u1');
+      final afterLoad = rewardsNotifications;
+
+      localRewards.dispose();
+
+      await playerVm.addGold('u1', 10);
+
+      expect(rewardsNotifications, afterLoad);
+    });
   });
 }

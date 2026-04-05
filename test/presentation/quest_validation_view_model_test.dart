@@ -120,6 +120,24 @@ void main() {
       expect(vm.result?.explanation, contains('faible'));
     });
 
+    test('analyzeProof considère la validation réussie si score >= seuil 70', () async {
+      when(
+        () => ai.analyzeProof(
+          quest: any(named: 'quest'),
+          imageBytes: any(named: 'imageBytes'),
+        ),
+      ).thenAnswer((_) async => const ValidationResult(
+            score: 70,
+            explanation: 'Seuil atteint',
+            isValid: true,
+          ));
+
+      await vm.analyzeProof(_quest(), Uint8List(1));
+
+      expect(vm.result?.isValid, isTrue);
+      expect(vm.result?.score, 70);
+    });
+
     test('preuve vide : l\'IA est quand même appelée (orchestration)', () async {
       when(
         () => ai.analyzeProof(
@@ -142,7 +160,7 @@ void main() {
       ).called(1);
     });
 
-    test('setProof efface le résultat précédent', () {
+    test('setProof(null) réinitialise preuve et résultat (reset UI)', () {
       vm.setProof(Uint8List.fromList([9]));
       expect(vm.proofImage, isNotNull);
 
@@ -150,6 +168,49 @@ void main() {
 
       expect(vm.proofImage, isNull);
       expect(vm.result, isNull);
+    });
+
+    test('setProof avec nouvelles données efface le résultat d\'analyse précédent',
+        () async {
+      when(
+        () => ai.analyzeProof(
+          quest: any(named: 'quest'),
+          imageBytes: any(named: 'imageBytes'),
+        ),
+      ).thenAnswer((_) async => const ValidationResult(
+            score: 90,
+            explanation: 'OK',
+            isValid: true,
+          ));
+
+      await vm.analyzeProof(_quest(), Uint8List(1));
+      expect(vm.result, isNotNull);
+
+      vm.setProof(Uint8List.fromList([1, 2]));
+
+      expect(vm.result, isNull);
+      expect(vm.proofImage, Uint8List.fromList([1, 2]));
+    });
+
+    test('notifyListeners : succès d\'analyse notifie au moins deux fois (chargement puis résultat)',
+        () async {
+      when(
+        () => ai.analyzeProof(
+          quest: any(named: 'quest'),
+          imageBytes: any(named: 'imageBytes'),
+        ),
+      ).thenAnswer((_) async => const ValidationResult(
+            score: 80,
+            explanation: 'OK',
+            isValid: true,
+          ));
+
+      var count = 0;
+      vm.addListener(() => count++);
+
+      await vm.analyzeProof(_quest(), Uint8List(1));
+
+      expect(count, greaterThanOrEqualTo(2));
     });
 
     test('completeQuest retourne false sans id de quête', () async {

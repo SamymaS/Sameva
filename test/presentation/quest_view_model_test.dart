@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sameva/data/models/quest_model.dart';
@@ -88,6 +90,21 @@ void main() {
       expect(vm.isLoading, isFalse);
     });
 
+    test('loadQuests laisse isLoading à true jusqu\'à la fin du repository', () async {
+      final completer = Completer<List<Quest>>();
+      when(() => repo.loadQuests('u1')).thenAnswer((_) => completer.future);
+
+      final future = vm.loadQuests('u1');
+      expect(vm.isLoading, isTrue);
+      expect(vm.error, isNull);
+
+      completer.complete([makeQuest(id: 'x')]);
+      await future;
+
+      expect(vm.isLoading, isFalse);
+      expect(vm.quests, hasLength(1));
+    });
+
     test('clearError efface l\'erreur', () async {
       when(() => repo.loadQuests('u1')).thenThrow(Exception('x'));
       await vm.loadQuests('u1');
@@ -117,6 +134,22 @@ void main() {
       expect(vm.quests.first.status, QuestStatus.completed);
     });
 
+    test('updateQuest pour une quête absente de la liste ne modifie pas l\'état local',
+        () async {
+      final inList = makeQuest(id: 'a');
+      when(() => repo.loadQuests('u')).thenAnswer((_) async => [inList]);
+      await vm.loadQuests('u');
+
+      final ghost = makeQuest(id: 'b', status: QuestStatus.completed);
+      when(() => repo.updateQuest(ghost)).thenAnswer((_) async => ghost);
+
+      await vm.updateQuest(ghost);
+
+      expect(vm.quests, hasLength(1));
+      expect(vm.quests.first.id, 'a');
+      expect(vm.quests.first.status, QuestStatus.active);
+    });
+
     test('deleteQuest retire la quête', () async {
       final q = makeQuest(id: 'del');
       when(() => repo.loadQuests('u')).thenAnswer((_) async => [q]);
@@ -143,6 +176,29 @@ void main() {
       expect(vm.quests.first.status, QuestStatus.completed);
     });
 
+    test('completeQuest avec id inconnu propage une erreur', () async {
+      final q = makeQuest(id: 'only');
+      when(() => repo.loadQuests('u')).thenAnswer((_) async => [q]);
+      await vm.loadQuests('u');
+
+      await expectLater(
+        vm.completeQuest('inexistant'),
+        throwsStateError,
+      );
+    });
+
+    test('deleteQuest propage si le repository échoue', () async {
+      final q = makeQuest(id: 'd');
+      when(() => repo.loadQuests('u')).thenAnswer((_) async => [q]);
+      await vm.loadQuests('u');
+      when(() => repo.deleteQuest('d')).thenThrow(Exception('réseau'));
+
+      await expectLater(
+        vm.deleteQuest('d'),
+        throwsException,
+      );
+    });
+
     test('calculateRewards délègue au calculateur métier', () {
       final quest = buildTestQuest(difficulty: 2);
       final at = DateTime.utc(2024, 6, 1, 13, 0);
@@ -161,6 +217,35 @@ void main() {
       await vm.loadQuests('u');
 
       expect(vm.getMissedQuests(), hasLength(1));
+    });
+
+    test('getCompletedQuestsToday inclut une quête complétée aujourd\'hui', () async {
+      final now = DateTime.now();
+      final noon = DateTime(now.year, now.month, now.day, 12);
+      final q = makeQuest(
+        id: 'today',
+        status: QuestStatus.completed,
+        completedAt: noon,
+      );
+      when(() => repo.loadQuests('u')).thenAnswer((_) async => [q]);
+      await vm.loadQuests('u');
+
+      expect(vm.getCompletedQuestsToday(), hasLength(1));
+    });
+
+    test('getActiveQuestsToday inclut une quête one_off active créée aujourd\'hui', () async {
+      final now = DateTime.now();
+      final created = DateTime(now.year, now.month, now.day, 8);
+      final q = makeQuest(
+        id: 'act',
+        status: QuestStatus.active,
+        frequency: QuestFrequency.oneOff,
+        createdAt: created,
+      );
+      when(() => repo.loadQuests('u')).thenAnswer((_) async => [q]);
+      await vm.loadQuests('u');
+
+      expect(vm.getActiveQuestsToday(), contains(q));
     });
   });
 }
