@@ -1,8 +1,16 @@
 # Couverture des tests unitaires (Sameva)
 
+## Synthèse
+
+| Indicateur | Valeur (à jour avec `flutter test`) |
+|------------|-------------------------------------|
+| **Nombre total de tests** | 99 (`flutter test` sans option) |
+| **Analyse statique** | `flutter analyze` — 0 issue |
+
 ## Commandes
 
 ```bash
+flutter test
 flutter test --coverage
 ```
 
@@ -15,22 +23,62 @@ genhtml coverage/lcov.info -o coverage/html
 
 Sur Windows, installer lcov ou utiliser WSL pour ces commandes.
 
-## Périmètre actuel (tests unitaires)
+## Dossiers couverts
 
-| Zone | Fichiers de test | Cible |
-|------|------------------|--------|
-| `domain/services` | `test/domain/quest_rewards_calculator_test.dart`, `test/domain/cat_mood_service_test.dart` | Logique pure (récompenses, humeur chat) |
-| `data/models` | `test/data/player_stats_model_test.dart`, `test/data/quest_model_enums_test.dart` | Sérialisation et enums |
-| `presentation/view_models` | `theme_view_model_test.dart`, `create_quest_view_model_test.dart`, `auth_view_model_test.dart`, `quests_list_view_model_test.dart`, `player_view_model_test.dart` | Orchestration avec mocks ; `PlayerViewModel` utilise une Hive `settings` temporaire pour la régénération HP |
-| Widget | `test/widget_test.dart` | Démarrage minimal de l’app |
+### `test/domain/` — services métier
 
-## Zones volontairement hors tests unitaires
+| Fichier | Cible dans `lib/domain/` |
+|---------|---------------------------|
+| `quest_rewards_calculator_test.dart` | `QuestRewardsCalculator` |
+| `cat_mood_service_test.dart` | `CatMoodService` |
+| `item_factory_test.dart` | `ItemFactory` (gacha, catalogue, génération) |
+| `health_regeneration_service_test.dart` | `HealthRegenerationService` (Hive `settings` en répertoire temporaire) |
 
-- **Écrans et widgets** (`lib/ui/`) : rendu et navigation ; couverts plutôt par tests widget ciblés ou manuellement.
-- **Repositories concrets** (`AuthRepository`, `QuestRepository`, etc.) : dépendent de Supabase ; à mocker côté ViewModel (comme pour `CreateQuestViewModel`).
-- **Services liés à Hive non injecté** : ex. `HealthRegenerationService` lit directement `Hive.box('settings')` ; tests unitaires nécessiteraient une abstraction ou une initialisation Hive de test.
-- **IA / notifications** : services réseau ou plateforme ; tests dédiés possibles avec clients HTTP mockés si besoin.
+### `test/data/` — modèles / enums
 
-## Objectif RNCP (C2.2.2)
+| Fichier | Cible |
+|---------|--------|
+| `player_stats_model_test.dart` | `PlayerStats` JSON |
+| `quest_model_enums_test.dart` | Enums quête (parsing Supabase) |
 
-La base de tests ci-dessus couvre la logique métier critique et des ViewModels représentatifs. Pour augmenter la couverture : étendre les tests des autres ViewModels (même schéma mock repository / `AuthViewModel`) et ajouter des tests sur les services domaine restants qui restent purs et injectables.
+### `test/presentation/` — ViewModels
+
+| Fichier | ViewModel |
+|---------|-----------|
+| `auth_view_model_test.dart` | `AuthViewModel` |
+| `theme_view_model_test.dart` | `ThemeViewModel` |
+| `create_quest_view_model_test.dart` | `CreateQuestViewModel` |
+| `quests_list_view_model_test.dart` | `QuestsListViewModel` |
+| `player_view_model_test.dart` | `PlayerViewModel` (+ Hive `settings`) |
+| `rewards_view_model_test.dart` | `RewardsViewModel` (proxy `PlayerViewModel`) |
+| `quest_view_model_test.dart` | `QuestViewModel` |
+| `quest_validation_view_model_test.dart` | `QuestValidationViewModel` + `ValidationAIService` mocké |
+| `inventory_view_model_test.dart` | `InventoryViewModel` (box mockée) |
+| `equipment_view_model_test.dart` | `EquipmentViewModel` + inventaire mocké |
+
+### `test/helpers/`
+
+| Fichier | Rôle |
+|---------|------|
+| `quest_test_factory.dart` | `buildTestQuest` pour dates déterministes |
+
+### Widget minimal
+
+| Fichier | Rôle |
+|---------|------|
+| `test/widget_test.dart` | Smoke test Material (pas l’app complète) |
+
+## Dossiers non couverts ou partiellement couverts
+
+| Zone | Justification |
+|------|----------------|
+| **`lib/ui/`** | Écrans et widgets : coût / rapport pour la certification RNCP moindre que ViewModels + domaine ; possibles tests widget ciblés plus tard. |
+| **Repositories concrets** | `AuthRepository`, `QuestRepository`, `PlayerRepository` : dépendance Supabase / Hive réelle ; les tests passent par des **mocks** depuis les ViewModels. |
+| **`ApiValidationAIService` / réseau** | Appels HTTP réels non exécutés en unitaire ; `ValidationAIService` est mocké pour `QuestValidationViewModel`. |
+| **`NotificationService`** | Dépend de la plateforme (notifications locales). |
+| **ViewModels restants** | `ProfileViewModel`, `SettingsViewModel`, `CatViewModel`, `NotificationViewModel`, etc. : extension naturelle du même schéma (mocks + pas d’I/O réel). |
+| **Modèles** | `CharacterModel`, `Quest` complet `fromSupabaseMap`, etc. : renforce la couche data si besoin pour le dossier. |
+
+## Argumentaire RNCP (rappel)
+
+L’architecture MVVM permet de tester **services purs**, **orchestration ViewModel** et **sérialisation** sans lancer Supabase, sans UI ni device. La CI (`.github/workflows/ci.yml`) exécute `flutter analyze` et `flutter test` à chaque push / PR sur les branches configurées.
