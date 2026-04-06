@@ -33,6 +33,11 @@ abstract class ValidationAIService {
     required Quest quest,
     required String videoPath,
   });
+
+  Future<ValidationResult> analyzeTextProof({
+    required Quest quest,
+    required String text,
+  });
 }
 
 /// Implémentation mock pour le MVP — simule un délai et un score cohérent avec la quête.
@@ -73,6 +78,24 @@ class MockValidationAIService implements ValidationAIService {
     return ValidationResult(
       score: score.clamp(0, 100),
       explanation: 'Preuve vidéo analysée pour « ${quest.title} ». Score : $score/100.',
+      isValid: isValid,
+    );
+  }
+
+  @override
+  Future<ValidationResult> analyzeTextProof({
+    required Quest quest,
+    required String text,
+  }) async {
+    await Future<void>.delayed(simulatedDelay);
+    final score = 60 + (text.length % 41);
+    final isValid = score >= validationThreshold;
+    final explanation = isValid
+        ? 'Description cohérente avec la quête « ${quest.title} ». Score : $score/100.'
+        : 'La description ne suffit pas à valider « ${quest.title} ». Soyez plus précis. Score : $score/100.';
+    return ValidationResult(
+      score: score.clamp(0, 100),
+      explanation: explanation,
       isValid: isValid,
     );
   }

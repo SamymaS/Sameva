@@ -19,6 +19,7 @@ import '../../../presentation/view_models/player_view_model.dart';
 import '../../../presentation/view_models/quest_view_model.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/cat/cat_reaction_overlay.dart';
+import '../rewards/rewards_page.dart';
 
 /// Page de validation de quête.
 /// La validation directe est TOUJOURS possible.
@@ -57,10 +58,15 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
   ValidationResult? _analysisResult;
   Timer? _timer;
 
+  // Champ texte pour ValidationType.ai
+  final _textProofCtrl = TextEditingController();
+
   bool get _hasDeadline => widget.quest.deadline != null;
   bool get _hasProof => _proofImage != null || _proofVideoPath != null;
   bool get _supportsPhoto =>
       widget.quest.validationType == ValidationType.photo;
+  bool get _supportsAI =>
+      widget.quest.validationType == ValidationType.ai;
 
   @override
   void initState() {
@@ -73,6 +79,7 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
   @override
   void dispose() {
     _timer?.cancel();
+    _textProofCtrl.dispose();
     super.dispose();
   }
 
@@ -113,6 +120,28 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
         _proofImage = null;
         _analysisResult = null;
       });
+    }
+  }
+
+  Future<void> _analyzeText() async {
+    final text = _textProofCtrl.text.trim();
+    if (text.isEmpty) return;
+    setState(() => _isAnalyzing = true);
+    try {
+      final r = await _validationService.analyzeTextProof(
+        quest: widget.quest,
+        text: text,
+      );
+      if (mounted) setState(() => _analysisResult = r);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Erreur analyse : $e'),
+          backgroundColor: AppColors.error,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _isAnalyzing = false);
     }
   }
 
@@ -188,7 +217,18 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
       }
 
       Navigator.of(context).pop();
-      Navigator.of(context).pushNamed('/rewards');
+      Navigator.of(context).pushNamed(
+        '/rewards',
+        arguments: RewardsArgs(
+          xpGained: rewards.experience,
+          goldGained: rewards.gold,
+          crystalsGained: rewards.crystals + result.crystalsFromLevelUp,
+          leveledUp: result.didLevelUp,
+          newLevel: result.newLevel,
+          droppedItem: result.droppedItem,
+          newAchievements: result.newAchievements,
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -259,6 +299,21 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
                   if (_hasDeadline) ...[
                     _TimerBlock(remaining: _remainingTime),
                     const SizedBox(height: 16),
+                  ],
+
+                  // ── Preuve texte IA (ValidationType.ai) ─────────────────
+                  if (_supportsAI) ...[
+                    _TextProofSection(
+                      controller: _textProofCtrl,
+                      isAnalyzing: _isAnalyzing,
+                      analysisResult: _analysisResult,
+                      onAnalyze: _analyzeText,
+                      onClear: () => setState(() {
+                        _textProofCtrl.clear();
+                        _analysisResult = null;
+                      }),
+                    ),
+                    const SizedBox(height: 20),
                   ],
 
                   // ── Preuve photo (optionnelle) ───────────────────────────
@@ -898,6 +953,120 @@ class _ValidateButton extends StatelessWidget {
                 )
               : const Text('Valider la quête'),
         ),
+      ),
+    );
+  }
+}
+
+// ─── Section preuve texte IA ──────────────────────────────────────────────────
+
+class _TextProofSection extends StatelessWidget {
+  final TextEditingController controller;
+  final bool isAnalyzing;
+  final ValidationResult? analysisResult;
+  final VoidCallback onAnalyze;
+  final VoidCallback onClear;
+
+  const _TextProofSection({
+    required this.controller,
+    required this.isAnalyzing,
+    required this.analysisResult,
+    required this.onAnalyze,
+    required this.onClear,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundDarkPanel,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+            color: AppColors.secondaryViolet.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.psychology,
+                  color: AppColors.secondaryViolet, size: 18),
+              const SizedBox(width: 8),
+              const Text(
+                'Validation IA',
+                style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Décris ce que tu as accompli — Claude évaluera si la quête est validée.',
+            style: TextStyle(color: AppColors.textMuted, fontSize: 12, height: 1.4),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: controller,
+            maxLines: 4,
+            style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
+            decoration: InputDecoration(
+              hintText: 'Ex. J\'ai fait 30 min de sport, voici le détail...',
+              hintStyle: const TextStyle(color: AppColors.textMuted),
+              filled: true,
+              fillColor: AppColors.backgroundNightBlue,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide:
+                    BorderSide(color: AppColors.textMuted.withValues(alpha: 0.3)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide:
+                    BorderSide(color: AppColors.textMuted.withValues(alpha: 0.2)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: AppColors.secondaryViolet),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (analysisResult != null) ...[
+            _AnalysisResult(result: analysisResult!),
+            const SizedBox(height: 12),
+          ],
+          Row(
+            children: [
+              if (controller.text.isNotEmpty || analysisResult != null)
+                TextButton(
+                  onPressed: onClear,
+                  style: TextButton.styleFrom(
+                      foregroundColor: AppColors.textMuted),
+                  child: const Text('Effacer'),
+                ),
+              const Spacer(),
+              FilledButton.icon(
+                onPressed: isAnalyzing ? null : onAnalyze,
+                icon: isAnalyzing
+                    ? const SizedBox(
+                        width: 16, height: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.auto_awesome, size: 16),
+                label: Text(isAnalyzing ? 'Analyse…' : 'Faire analyser'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.secondaryViolet,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

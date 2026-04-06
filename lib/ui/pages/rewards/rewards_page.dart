@@ -1,6 +1,9 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../data/models/item_model.dart';
+import '../../../data/models/player_stats_model.dart';
+import '../../../data/models/quest_model.dart';
 import '../../../presentation/view_models/player_view_model.dart';
 import '../../../presentation/view_models/rewards_view_model.dart';
 import '../../theme/app_colors.dart';
@@ -21,14 +24,20 @@ class RewardsPage extends StatefulWidget {
 class RewardsArgs {
   final int xpGained;
   final int goldGained;
+  final int crystalsGained;
   final bool leveledUp;
   final int newLevel;
+  final Item? droppedItem;
+  final List<String> newAchievements;
 
   const RewardsArgs({
     required this.xpGained,
     required this.goldGained,
+    this.crystalsGained = 0,
     this.leveledUp = false,
     this.newLevel = 1,
+    this.droppedItem,
+    this.newAchievements = const [],
   });
 }
 
@@ -200,11 +209,34 @@ class _CelebrationView extends StatelessWidget {
                     ),
                   ],
                 ),
+                if (args.crystalsGained > 0) ...[
+                  const SizedBox(height: 12),
+                  _AnimatedCounter(
+                    animation: countAnimation,
+                    target: args.crystalsGained,
+                    icon: Icons.diamond,
+                    color: AppColors.primaryVioletLight,
+                    label: 'Cristaux (level-up)',
+                    prefix: '+',
+                  ),
+                ],
                 const SizedBox(height: 16),
 
                 // Level up !
                 if (args.leveledUp)
                   _LevelUpBanner(newLevel: args.newLevel),
+
+                // Item looté
+                if (args.droppedItem != null) ...[
+                  const SizedBox(height: 16),
+                  _DroppedItemCard(item: args.droppedItem!),
+                ],
+
+                // Succès débloqués
+                if (args.newAchievements.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  _UnlockedAchievementsCard(ids: args.newAchievements),
+                ],
 
                 const SizedBox(height: 24),
                 _StatsSection(),
@@ -502,6 +534,178 @@ class _LevelUpBanner extends StatelessWidget {
                   style: const TextStyle(
                       color: Colors.white70, fontSize: 12)),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Widget : item looté
+// ─────────────────────────────────────────────────────────────────
+
+class _DroppedItemCard extends StatelessWidget {
+  final Item item;
+
+  const _DroppedItemCard({required this.item});
+
+  Color get _rarityColor => switch (item.rarity) {
+        QuestRarity.common => AppColors.rarityCommon,
+        QuestRarity.uncommon => AppColors.rarityUncommon,
+        QuestRarity.rare => AppColors.rarityRare,
+        QuestRarity.epic => AppColors.rarityEpic,
+        QuestRarity.legendary => AppColors.rarityLegendary,
+        QuestRarity.mythic => AppColors.rarityMythic,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _rarityColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _rarityColor.withValues(alpha: 0.5), width: 1.5),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: _rarityColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(item.getIcon(), color: _rarityColor, size: 24),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.auto_awesome, color: AppColors.gold, size: 12),
+                    SizedBox(width: 4),
+                    Text(
+                      'Objet trouvé !',
+                      style: TextStyle(
+                          color: AppColors.gold,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  item.name,
+                  style: TextStyle(
+                      color: _rarityColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14),
+                ),
+                Text(
+                  item.rarity.name.toUpperCase(),
+                  style: TextStyle(
+                      color: _rarityColor.withValues(alpha: 0.7),
+                      fontSize: 10),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Widget : succès débloqués
+// ─────────────────────────────────────────────────────────────────
+
+class _UnlockedAchievementsCard extends StatelessWidget {
+  final List<String> ids;
+
+  const _UnlockedAchievementsCard({required this.ids});
+
+  @override
+  Widget build(BuildContext context) {
+    final definitions = PlayerStats.achievementDefinitions;
+    final unlocked = ids
+        .map((id) => definitions.firstWhere(
+              (d) => d['id'] == id,
+              orElse: () => {'id': id, 'name': id, 'description': '', 'icon': 'star'},
+            ))
+        .toList();
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.gold.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.gold.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.emoji_events, color: AppColors.gold, size: 16),
+              const SizedBox(width: 6),
+              Text(
+                'Succès débloqué${unlocked.length > 1 ? 's' : ''} !',
+                style: const TextStyle(
+                  color: AppColors.gold,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ...unlocked.map(
+            (def) => Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: AppColors.gold.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.gold.withValues(alpha: 0.5)),
+                    ),
+                    child: const Icon(Icons.star, color: AppColors.gold, size: 16),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          def['name'] ?? '',
+                          style: const TextStyle(
+                            color: AppColors.gold,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                        if ((def['description'] ?? '').isNotEmpty)
+                          Text(
+                            def['description']!,
+                            style: const TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 11,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),

@@ -21,6 +21,16 @@ class _OnboardingPageState extends State<OnboardingPage> {
   String _selectedRace = 'michi';
   final TextEditingController _catNameCtrl = TextEditingController();
 
+  String _defaultCatName(String race) => switch (race) {
+        'michi'  => 'Michi',
+        'lune'   => 'Luna',
+        'braise' => 'Braise',
+        'neige'  => 'Flocon',
+        'cosmos' => 'Cosmos',
+        'sakura' => 'Sakura',
+        _        => 'Chat',
+      };
+
   @override
   void dispose() {
     _catNameCtrl.dispose();
@@ -28,8 +38,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   Future<void> _finishOnboarding() async {
-    // Créer le chat compagnon
-    final catName = _catNameCtrl.text.trim();
+    // Créer le chat compagnon (nom par défaut si champ vide)
+    final catName = _catNameCtrl.text.trim().isEmpty
+        ? _defaultCatName(_selectedRace)
+        : _catNameCtrl.text.trim();
     if (mounted) {
       await context.read<CatViewModel>().createMainCat(_selectedRace, catName);
     }

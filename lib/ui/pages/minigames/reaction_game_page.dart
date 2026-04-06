@@ -117,6 +117,7 @@ class _ReactionGamePageState extends State<ReactionGamePage>
 
   void _showResult() {
     final gold = _hits * 10;
+    final xp = (gold / 2).round();
     final avgMs = _reactionTimes.isEmpty
         ? 0
         : _reactionTimes.reduce((a, b) => a + b) ~/ _reactionTimes.length;
@@ -131,27 +132,26 @@ class _ReactionGamePageState extends State<ReactionGamePage>
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              'Cibles touchées : $_hits / $_totalTargets',
-              style: const TextStyle(color: AppColors.textSecondary),
-            ),
+            Text('Cibles touchées : $_hits / $_totalTargets',
+                style: const TextStyle(color: AppColors.textSecondary)),
             const SizedBox(height: 4),
-            Text(
-              'Temps moyen : ${avgMs}ms',
-              style: const TextStyle(color: AppColors.textSecondary),
-            ),
+            Text('Temps moyen : ${avgMs}ms',
+                style: const TextStyle(color: AppColors.textSecondary)),
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.monetization_on,
-                    color: AppColors.gold, size: 22),
+                const Icon(Icons.monetization_on, color: AppColors.gold, size: 22),
                 const SizedBox(width: 6),
                 Text('+$gold or',
                     style: const TextStyle(
-                        color: AppColors.gold,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 20)),
+                        color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 20)),
+                const SizedBox(width: 16),
+                const Icon(Icons.star, color: AppColors.primaryTurquoise, size: 22),
+                const SizedBox(width: 6),
+                Text('+$xp XP',
+                    style: const TextStyle(
+                        color: AppColors.primaryTurquoise, fontWeight: FontWeight.bold, fontSize: 20)),
               ],
             ),
           ],
@@ -166,6 +166,7 @@ class _ReactionGamePageState extends State<ReactionGamePage>
                 final auth = context.read<AuthViewModel>();
                 if (player.stats != null) {
                   player.addGold(auth.userId ?? '', gold);
+                  player.addExperience(auth.userId ?? '', xp);
                 }
               }
               Navigator.of(context)

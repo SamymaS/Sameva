@@ -50,6 +50,18 @@ class MarketPage extends StatelessWidget {
                         fontSize: 14,
                       ),
                     ),
+                    const SizedBox(width: 12),
+                    const Icon(Icons.diamond,
+                        color: AppColors.crystalBlue, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${player.stats?.crystals ?? 0}',
+                      style: GoogleFonts.nunito(
+                        color: AppColors.crystalBlue,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -66,7 +78,7 @@ class MarketPage extends StatelessWidget {
         ],
       ),
       body: DefaultTabController(
-        length: 2,
+        length: 3,
         child: Column(
           children: [
             TabBar(
@@ -76,6 +88,7 @@ class MarketPage extends StatelessWidget {
               labelStyle: GoogleFonts.nunito(fontWeight: FontWeight.w700),
               tabs: const [
                 Tab(text: 'Boutique'),
+                Tab(text: 'Premium'),
                 Tab(text: 'Vendre'),
               ],
             ),
@@ -83,6 +96,7 @@ class MarketPage extends StatelessWidget {
               child: TabBarView(
                 children: [
                   _ShopTab(),
+                  _CrystalShopTab(),
                   _SellTab(),
                 ],
               ),
@@ -95,43 +109,34 @@ class MarketPage extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Filtres boutique — slots cosmétiques chat
+// Filtres boutique — catégories d'items
 // ─────────────────────────────────────────────────────────────────────────────
 
-enum _CosmeticFilter { all, hat, outfit, pants, shoes, aura, accessory, title }
+enum _ShopFilter { all, equipment, potion, cosmetic }
 
-extension _CosmeticFilterExt on _CosmeticFilter {
+extension _ShopFilterExt on _ShopFilter {
   String get label => switch (this) {
-        _CosmeticFilter.all       => 'Tout',
-        _CosmeticFilter.hat       => 'Chapeau',
-        _CosmeticFilter.outfit    => 'Tenue',
-        _CosmeticFilter.pants     => 'Pantalon',
-        _CosmeticFilter.shoes     => 'Chaussures',
-        _CosmeticFilter.aura      => 'Aura',
-        _CosmeticFilter.accessory => 'Accessoire',
-        _CosmeticFilter.title     => 'Titre',
-      };
-
-  String? get slot => switch (this) {
-        _CosmeticFilter.all       => null,
-        _CosmeticFilter.hat       => 'hat',
-        _CosmeticFilter.outfit    => 'outfit',
-        _CosmeticFilter.pants     => 'pants',
-        _CosmeticFilter.shoes     => 'shoes',
-        _CosmeticFilter.aura      => 'aura',
-        _CosmeticFilter.accessory => 'accessory',
-        _CosmeticFilter.title     => 'title',
+        _ShopFilter.all       => 'Tout',
+        _ShopFilter.equipment => 'Équipement',
+        _ShopFilter.potion    => 'Potions',
+        _ShopFilter.cosmetic  => 'Cosmétiques',
       };
 
   String get emoji => switch (this) {
-        _CosmeticFilter.all       => '✨',
-        _CosmeticFilter.hat       => '🎩',
-        _CosmeticFilter.outfit    => '👘',
-        _CosmeticFilter.pants     => '👖',
-        _CosmeticFilter.shoes     => '👟',
-        _CosmeticFilter.aura      => '🌟',
-        _CosmeticFilter.accessory => '💎',
-        _CosmeticFilter.title     => '🏆',
+        _ShopFilter.all       => '🛒',
+        _ShopFilter.equipment => '⚔️',
+        _ShopFilter.potion    => '🧪',
+        _ShopFilter.cosmetic  => '✨',
+      };
+
+  bool matches(Item item) => switch (this) {
+        _ShopFilter.all       => true,
+        _ShopFilter.equipment => const {
+            ItemType.weapon, ItemType.armor, ItemType.helmet,
+            ItemType.boots, ItemType.ring
+          }.contains(item.type),
+        _ShopFilter.potion    => item.type == ItemType.potion,
+        _ShopFilter.cosmetic  => item.type == ItemType.cosmetic,
       };
 }
 
@@ -147,16 +152,12 @@ class _ShopTab extends StatefulWidget {
 }
 
 class _ShopTabState extends State<_ShopTab> {
-  // Catalogue filtré : cosmétiques uniquement
-  final List<Item> _catalog = ItemFactory.getMarketCatalog()
-      .where((i) => i.type == ItemType.cosmetic)
-      .toList();
+  final List<Item> _catalog = ItemFactory.getMarketCatalog();
 
-  _CosmeticFilter _filter = _CosmeticFilter.all;
+  _ShopFilter _filter = _ShopFilter.all;
 
-  List<Item> get _filtered => _filter.slot == null
-      ? _catalog
-      : _catalog.where((i) => i.cosmeticSlot == _filter.slot).toList();
+  List<Item> get _filtered =>
+      _catalog.where((i) => _filter.matches(i)).toList();
 
   @override
   Widget build(BuildContext context) {
@@ -168,7 +169,7 @@ class _ShopTabState extends State<_ShopTab> {
           child: ListView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            children: _CosmeticFilter.values.map((f) {
+            children: _ShopFilter.values.map((f) {
               final active = f == _filter;
               return Padding(
                 padding: const EdgeInsets.only(right: 8),
@@ -232,23 +233,227 @@ class _ShopTabState extends State<_ShopTab> {
           },
         ),
 
-        // Liste cosmétiques
+        // Liste items
         Expanded(
           child: _filtered.isEmpty
               ? Center(
                   child: Text(
-                    'Aucun cosmétique dans cette catégorie.',
+                    'Aucun article dans cette catégorie.',
                     style: GoogleFonts.nunito(color: AppColors.textMuted),
                   ),
                 )
               : ListView.builder(
                   padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
                   itemCount: _filtered.length,
-                  itemBuilder: (ctx, i) =>
-                      _CosmeticTile(item: _filtered[i]),
+                  itemBuilder: (ctx, i) {
+                    final item = _filtered[i];
+                    return item.type == ItemType.cosmetic
+                        ? _CosmeticTile(item: item)
+                        : _ItemTile(item: item);
+                  },
                 ),
         ),
       ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tuile équipement / potion
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ItemTile extends StatelessWidget {
+  final Item item;
+
+  const _ItemTile({required this.item});
+
+  Color get _rarityColor => AppColors.getRarityColor(item.rarity.name);
+
+  String _typeLabel(ItemType t) => switch (t) {
+        ItemType.weapon   => 'Arme',
+        ItemType.armor    => 'Armure',
+        ItemType.helmet   => 'Casque',
+        ItemType.boots    => 'Bottes',
+        ItemType.ring     => 'Anneau',
+        ItemType.potion   => 'Potion',
+        ItemType.material => 'Matériau',
+        ItemType.cosmetic => 'Cosmétique',
+      };
+
+  IconData _typeIcon(ItemType t) => switch (t) {
+        ItemType.weapon   => Icons.sports_martial_arts_outlined,
+        ItemType.armor    => Icons.shield_outlined,
+        ItemType.helmet   => Icons.face_outlined,
+        ItemType.boots    => Icons.directions_run_outlined,
+        ItemType.ring     => Icons.circle_outlined,
+        ItemType.potion   => Icons.local_pharmacy_outlined,
+        ItemType.material => Icons.category_outlined,
+        ItemType.cosmetic => Icons.auto_fix_high_outlined,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer2<PlayerViewModel, InventoryViewModel>(
+      builder: (ctx, player, inventory, _) {
+        final canAfford = (player.stats?.gold ?? 0) >= item.goldValue;
+        final hasSpace = !inventory.isFull;
+
+        return GestureDetector(
+          onTap: canAfford && hasSpace
+              ? () => _buy(ctx, player, inventory)
+              : null,
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppColors.backgroundDarkPanel,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                  color: _rarityColor.withValues(alpha: canAfford ? 0.35 : 0.15)),
+            ),
+            child: Row(
+              children: [
+                // Icône type
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: _rarityColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(_typeIcon(item.type),
+                      color: _rarityColor, size: 24),
+                ),
+                const SizedBox(width: 12),
+
+                // Infos
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.name,
+                        style: GoogleFonts.nunito(
+                          color: canAfford ? _rarityColor : AppColors.textMuted,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _typeLabel(item.type),
+                        style: GoogleFonts.nunito(
+                            color: AppColors.textMuted, fontSize: 11),
+                      ),
+                      if (item.stats.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Wrap(
+                          spacing: 6,
+                          children: item.stats.entries
+                              .where((e) => e.value != 0)
+                              .map((e) {
+                            final label = switch (e.key) {
+                              'hpBonus'    => 'HP +${e.value}',
+                              'xpBonus'    => 'XP +${e.value}%',
+                              'goldBonus'  => 'Or +${e.value}%',
+                              'moralBonus' => 'Moral +${e.value}',
+                              _            => '${e.key} +${e.value}',
+                            };
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: _rarityColor.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(label,
+                                  style: TextStyle(
+                                      color: _rarityColor, fontSize: 9)),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+
+                // Prix + bouton
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.monetization_on,
+                            color: canAfford
+                                ? AppColors.gold
+                                : AppColors.textMuted,
+                            size: 14),
+                        const SizedBox(width: 2),
+                        Text(
+                          '${item.goldValue}',
+                          style: GoogleFonts.nunito(
+                            color: canAfford
+                                ? AppColors.gold
+                                : AppColors.textMuted,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: canAfford && hasSpace
+                            ? AppColors.primaryViolet.withValues(alpha: 0.20)
+                            : AppColors.textMuted.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: canAfford && hasSpace
+                              ? AppColors.primaryVioletLight
+                              : AppColors.inputBorder,
+                        ),
+                      ),
+                      child: Text(
+                        canAfford && hasSpace
+                            ? 'Acheter'
+                            : !hasSpace
+                                ? 'Plein'
+                                : 'Trop cher',
+                        style: GoogleFonts.nunito(
+                          color: canAfford && hasSpace
+                              ? AppColors.primaryVioletLight
+                              : AppColors.textMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _buy(BuildContext context, PlayerViewModel player,
+      InventoryViewModel inventory) {
+    final auth = context.read<AuthViewModel>();
+    final userId = auth.userId ?? '';
+    player.addGold(userId, -item.goldValue);
+    final newItem = item.copyWith(id: const Uuid().v4());
+    inventory.addItem(newItem);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${item.name} acheté !'),
+        backgroundColor: AppColors.primaryViolet.withValues(alpha: 0.9),
+      ),
     );
   }
 }
@@ -585,6 +790,163 @@ class _CosmeticPreviewSheet extends StatelessWidget {
         'title'     => '🏆',
         _           => '✨',
       };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Onglet boutique premium (cristaux)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CrystalShopTab extends StatelessWidget {
+  const _CrystalShopTab();
+
+  @override
+  Widget build(BuildContext context) {
+    final catalog = ItemFactory.getCrystalCatalog();
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: catalog.length,
+      itemBuilder: (ctx, i) => _CrystalTile(item: catalog[i]),
+    );
+  }
+}
+
+class _CrystalTile extends StatelessWidget {
+  final Item item;
+
+  const _CrystalTile({required this.item});
+
+  Color get _rarityColor => AppColors.getRarityColor(item.rarity.name);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundDarkPanel,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _rarityColor.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: _rarityColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              IconData(item.iconCodePoint, fontFamily: 'MaterialIcons'),
+              color: _rarityColor,
+              size: 26,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.name,
+                  style: GoogleFonts.nunito(
+                    color: _rarityColor,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  item.description,
+                  style: GoogleFonts.nunito(
+                      color: AppColors.textMuted, fontSize: 11),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                RarityBadge(rarity: item.rarity.name, compact: true),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.diamond,
+                      color: AppColors.crystalBlue, size: 14),
+                  const SizedBox(width: 2),
+                  Text(
+                    '${item.crystalValue}',
+                    style: GoogleFonts.nunito(
+                      color: AppColors.crystalBlue,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Consumer2<PlayerViewModel, InventoryViewModel>(
+                builder: (ctx, player, inventory, _) {
+                  final canAfford =
+                      (player.stats?.crystals ?? 0) >= item.crystalValue;
+                  final hasSpace = !inventory.isFull;
+                  return GestureDetector(
+                    onTap: canAfford && hasSpace
+                        ? () => _buy(ctx, player, inventory)
+                        : null,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: canAfford && hasSpace
+                            ? AppColors.crystalBlue.withValues(alpha: 0.15)
+                            : AppColors.textMuted.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: canAfford && hasSpace
+                              ? AppColors.crystalBlue
+                              : AppColors.inputBorder,
+                        ),
+                      ),
+                      child: Text(
+                        'Acheter',
+                        style: GoogleFonts.nunito(
+                          color: canAfford && hasSpace
+                              ? AppColors.crystalBlue
+                              : AppColors.textMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _buy(BuildContext context, PlayerViewModel player,
+      InventoryViewModel inventory) {
+    final auth = context.read<AuthViewModel>();
+    final userId = auth.userId ?? '';
+    player.spendCrystals(userId, item.crystalValue);
+    final newItem = item.copyWith(id: const Uuid().v4());
+    inventory.addItem(newItem);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${item.name} acheté !'),
+        backgroundColor: AppColors.crystalBlue.withValues(alpha: 0.9),
+      ),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

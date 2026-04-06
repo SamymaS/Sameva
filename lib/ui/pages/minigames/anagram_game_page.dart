@@ -116,6 +116,7 @@ class _AnagramGamePageState extends State<AnagramGamePage> {
 
   void _showResult() {
     final gold = _score * 30;
+    final xp = (gold / 2).round();
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -132,14 +133,17 @@ class _AnagramGamePageState extends State<AnagramGamePage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.monetization_on,
-                    color: AppColors.gold, size: 22),
+                const Icon(Icons.monetization_on, color: AppColors.gold, size: 22),
                 const SizedBox(width: 6),
                 Text('+$gold or',
                     style: const TextStyle(
-                        color: AppColors.gold,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 20)),
+                        color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 20)),
+                const SizedBox(width: 16),
+                const Icon(Icons.star, color: AppColors.primaryTurquoise, size: 22),
+                const SizedBox(width: 6),
+                Text('+$xp XP',
+                    style: const TextStyle(
+                        color: AppColors.primaryTurquoise, fontWeight: FontWeight.bold, fontSize: 20)),
               ],
             ),
           ],
@@ -154,6 +158,7 @@ class _AnagramGamePageState extends State<AnagramGamePage> {
                 final auth = context.read<AuthViewModel>();
                 if (player.stats != null) {
                   player.addGold(auth.userId ?? '', gold);
+                  player.addExperience(auth.userId ?? '', xp);
                 }
               }
               Navigator.of(context)

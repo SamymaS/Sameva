@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
+import '../../../domain/services/achievement_service.dart';
+import '../../../domain/services/activity_log_service.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/view_models/notification_view_model.dart';
 import '../../../presentation/view_models/player_view_model.dart';
 import '../../../presentation/view_models/settings_view_model.dart';
 import '../../../presentation/view_models/theme_view_model.dart';
 import '../../theme/app_colors.dart';
+import '../profile/achievements_page.dart';
 
 /// Paramètres de l'application.
 class SettingsPage extends StatefulWidget {
@@ -57,6 +61,12 @@ class _SettingsPageState extends State<SettingsPage> {
             const Divider(height: 1, indent: 16, endIndent: 16),
             const _SectionHeader('Notifications'),
             _NotificationTimeTile(),
+            _StreakNotifTile(),
+            _DeadlineNotifTile(),
+            const Divider(height: 1, indent: 16, endIndent: 16),
+            const _SectionHeader('Progression'),
+            _AchievementsTile(),
+            _ExportActivityTile(),
             const Divider(height: 1, indent: 16, endIndent: 16),
             const _SectionHeader('Joueur'),
             _ResetPlayerTile(),
@@ -217,6 +227,110 @@ class _ResetPlayerTile extends StatelessWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Joueur réinitialisé.')),
         );
+      },
+    );
+  }
+}
+
+class _StreakNotifTile extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final vm = context.watch<SettingsViewModel>();
+    return ListTile(
+      tileColor: AppColors.backgroundDarkPanel,
+      leading: const Icon(Icons.local_fire_department_outlined,
+          color: AppColors.warning),
+      title: const Text('Rappel de série',
+          style: TextStyle(color: AppColors.textPrimary)),
+      subtitle: const Text(
+        'Notification à 20h si aucune quête complétée.',
+        style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+      ),
+      trailing: Switch(
+        value: vm.streakNotifEnabled,
+        activeColor: AppColors.warning,
+        onChanged: (v) => context.read<SettingsViewModel>().setStreakNotif(v),
+      ),
+    );
+  }
+}
+
+class _DeadlineNotifTile extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final vm = context.watch<SettingsViewModel>();
+    return ListTile(
+      tileColor: AppColors.backgroundDarkPanel,
+      leading: const Icon(Icons.alarm_outlined,
+          color: AppColors.coralRare),
+      title: const Text('Rappels d\'échéance',
+          style: TextStyle(color: AppColors.textPrimary)),
+      subtitle: const Text(
+        'Notification 1h avant la deadline de chaque quête.',
+        style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+      ),
+      trailing: Switch(
+        value: vm.deadlineNotifEnabled,
+        activeColor: AppColors.coralRare,
+        onChanged: (v) => context.read<SettingsViewModel>().setDeadlineNotif(v),
+      ),
+    );
+  }
+}
+
+class _AchievementsTile extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final unlocked = AchievementService.getUnlocked();
+    final total = AchievementService.all.length;
+    return ListTile(
+      tileColor: AppColors.backgroundDarkPanel,
+      leading: const Icon(Icons.emoji_events_outlined, color: AppColors.gold),
+      title: const Text('Succès',
+          style: TextStyle(color: AppColors.textPrimary)),
+      subtitle: Text(
+        '${unlocked.length} / $total débloqués',
+        style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+      ),
+      trailing: const Icon(Icons.chevron_right, color: AppColors.textMuted),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const AchievementsPage()),
+      ),
+    );
+  }
+}
+
+class _ExportActivityTile extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      tileColor: AppColors.backgroundDarkPanel,
+      leading: const Icon(Icons.download_outlined,
+          color: AppColors.primaryTurquoise),
+      title: const Text('Exporter l\'activité',
+          style: TextStyle(color: AppColors.textPrimary)),
+      subtitle: const Text(
+        'Partager le journal d\'activité en texte.',
+        style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+      ),
+      trailing: const Icon(Icons.ios_share_outlined,
+          color: AppColors.textMuted, size: 18),
+      onTap: () {
+        final log = ActivityLogService.getLog();
+        if (log.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Aucune activité à exporter.')),
+          );
+          return;
+        }
+        final lines = log.map((e) {
+          final d = e.date;
+          final date =
+              '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+          final sub = e.subtitle != null ? ' · ${e.subtitle}' : '';
+          return '[$date] ${e.title}$sub';
+        }).join('\n');
+        Share.share('Journal d\'activité Sameva\n\n$lines');
       },
     );
   }

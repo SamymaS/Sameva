@@ -11,8 +11,24 @@ import '../../widgets/common/item_icon.dart';
 import '../cat/cat_page.dart';
 
 /// Page inventaire — grille 4 colonnes avec cartes item visuelles.
-class InventoryPage extends StatelessWidget {
+class InventoryPage extends StatefulWidget {
   const InventoryPage({super.key});
+
+  @override
+  State<InventoryPage> createState() => _InventoryPageState();
+}
+
+class _InventoryPageState extends State<InventoryPage> {
+  QuestRarity? _rarityFilter;
+  ItemType? _typeFilter;
+
+  List<Item> _applyFilters(List<Item> items) {
+    return items.where((item) {
+      if (_rarityFilter != null && item.rarity != _rarityFilter) return false;
+      if (_typeFilter != null && item.type != _typeFilter) return false;
+      return true;
+    }).toList();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,31 +87,132 @@ class InventoryPage extends StatelessWidget {
       ),
       body: Consumer2<InventoryViewModel, EquipmentViewModel>(
         builder: (context, inventory, equipment, _) {
-          if (inventory.items.isEmpty) {
-            return _EmptyInventory();
-          }
-          return GridView.builder(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 100),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 4,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              childAspectRatio: 0.82,
-            ),
-            itemCount: 50,
-            itemBuilder: (context, index) {
-              final item = index < inventory.items.length
-                  ? inventory.items[index]
-                  : null;
-              if (item == null) return _EmptySlot(index: index);
-              return _FilledSlot(
-                item: item,
-                isEquipped:
-                    equipment.equipped.values.any((e) => e?.id == item.id),
-                onTap: () =>
-                    _showItemSheet(context, item, inventory, equipment),
-              );
-            },
+          final filtered = _applyFilters(inventory.items);
+          final hasFilter = _rarityFilter != null || _typeFilter != null;
+
+          return Column(
+            children: [
+              // ── Chips de filtre ─────────────────────────────────────────
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                child: Row(
+                  children: [
+                    // Reset
+                    if (hasFilter)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ActionChip(
+                          label: const Text('Tout'),
+                          avatar: const Icon(Icons.clear, size: 14),
+                          backgroundColor: AppColors.backgroundDarkPanel,
+                          labelStyle: const TextStyle(
+                              color: AppColors.textMuted, fontSize: 11),
+                          onPressed: () => setState(() {
+                            _rarityFilter = null;
+                            _typeFilter = null;
+                          }),
+                        ),
+                      ),
+                    // Filtre type
+                    ...ItemType.values.map((t) {
+                      final selected = _typeFilter == t;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: FilterChip(
+                          label: Text(_typeLabel(t)),
+                          selected: selected,
+                          selectedColor:
+                              AppColors.primaryTurquoise.withValues(alpha: 0.2),
+                          checkmarkColor: AppColors.primaryTurquoise,
+                          backgroundColor: AppColors.backgroundDarkPanel,
+                          labelStyle: TextStyle(
+                            color: selected
+                                ? AppColors.primaryTurquoise
+                                : AppColors.textMuted,
+                            fontSize: 11,
+                          ),
+                          side: BorderSide(
+                            color: selected
+                                ? AppColors.primaryTurquoise
+                                : AppColors.textMuted.withValues(alpha: 0.2),
+                          ),
+                          onSelected: (_) => setState(() =>
+                              _typeFilter = selected ? null : t),
+                        ),
+                      );
+                    }),
+                    // Filtre rareté
+                    ...QuestRarity.values.map((r) {
+                      final selected = _rarityFilter == r;
+                      final color = _rarityColor(r);
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: FilterChip(
+                          label: Text(_rarityLabel(r)),
+                          selected: selected,
+                          selectedColor: color.withValues(alpha: 0.15),
+                          checkmarkColor: color,
+                          backgroundColor: AppColors.backgroundDarkPanel,
+                          labelStyle: TextStyle(
+                            color: selected ? color : AppColors.textMuted,
+                            fontSize: 11,
+                          ),
+                          side: BorderSide(
+                            color: selected
+                                ? color
+                                : AppColors.textMuted.withValues(alpha: 0.2),
+                          ),
+                          onSelected: (_) => setState(() =>
+                              _rarityFilter = selected ? null : r),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+              // ── Grille ──────────────────────────────────────────────────
+              Expanded(
+                child: filtered.isEmpty && inventory.items.isEmpty
+                    ? _EmptyInventory()
+                    : filtered.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'Aucun objet correspondant',
+                              style: TextStyle(color: AppColors.textMuted),
+                            ),
+                          )
+                        : GridView.builder(
+                            padding:
+                                const EdgeInsets.fromLTRB(12, 8, 12, 100),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 4,
+                              mainAxisSpacing: 10,
+                              crossAxisSpacing: 10,
+                              childAspectRatio: 0.82,
+                            ),
+                            itemCount: hasFilter
+                                ? filtered.length
+                                : 50,
+                            itemBuilder: (context, index) {
+                              final item = index < filtered.length
+                                  ? filtered[index]
+                                  : null;
+                              if (item == null) {
+                                return _EmptySlot(index: index);
+                              }
+                              return _FilledSlot(
+                                item: item,
+                                isEquipped: equipment.equipped.values
+                                    .any((e) => e?.id == item.id),
+                                onTap: () => _showItemSheet(
+                                    context, item, inventory, equipment),
+                              );
+                            },
+                          ),
+              ),
+            ],
           );
         },
       ),
@@ -115,6 +232,35 @@ class InventoryPage extends StatelessWidget {
       ),
     );
   }
+
+  String _typeLabel(ItemType t) => switch (t) {
+        ItemType.weapon   => 'Arme',
+        ItemType.armor    => 'Armure',
+        ItemType.helmet   => 'Casque',
+        ItemType.boots    => 'Bottes',
+        ItemType.ring     => 'Bague',
+        ItemType.potion   => 'Potion',
+        ItemType.material => 'Matériau',
+        ItemType.cosmetic => 'Cosmétique',
+      };
+
+  String _rarityLabel(QuestRarity r) => switch (r) {
+        QuestRarity.common    => 'Commun',
+        QuestRarity.uncommon  => 'Peu commun',
+        QuestRarity.rare      => 'Rare',
+        QuestRarity.epic      => 'Épique',
+        QuestRarity.legendary => 'Légendaire',
+        QuestRarity.mythic    => 'Mythique',
+      };
+
+  Color _rarityColor(QuestRarity r) => switch (r) {
+        QuestRarity.common    => AppColors.rarityCommon,
+        QuestRarity.uncommon  => AppColors.rarityUncommon,
+        QuestRarity.rare      => AppColors.rarityRare,
+        QuestRarity.epic      => AppColors.rarityEpic,
+        QuestRarity.legendary => AppColors.rarityLegendary,
+        QuestRarity.mythic    => AppColors.rarityMythic,
+      };
 }
 
 // ── Slot rempli ──────────────────────────────────────────────────────────────
@@ -475,6 +621,15 @@ class _ItemSheet extends StatelessWidget {
                   _StatsGrid(stats: item.stats, color: _color),
                 ],
 
+                // Comparaison avec l'item actuellement équipé
+                if (slot != null && !_isEquipped) ...[
+                  const SizedBox(height: 16),
+                  _EquipComparison(
+                    newItem: item,
+                    currentItem: equipment.getSlot(slot),
+                  ),
+                ],
+
                 // Valeur de vente
                 const SizedBox(height: 12),
                 Row(
@@ -566,6 +721,107 @@ class _StatsGrid extends StatelessWidget {
   }
 }
 
+class _EquipComparison extends StatelessWidget {
+  final Item newItem;
+  final Item? currentItem;
+
+  const _EquipComparison({required this.newItem, required this.currentItem});
+
+  static const _statKeys = ['hpBonus', 'xpBonus', 'goldBonus', 'moralBonus'];
+  static const _statLabels = {
+    'hpBonus': 'HP',
+    'xpBonus': 'XP%',
+    'goldBonus': 'Or%',
+    'moralBonus': 'Moral',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    // Filtrer les stats pertinentes (present dans l'un ou l'autre)
+    final keys = _statKeys.where((k) =>
+        (newItem.stats[k] ?? 0) != 0 ||
+        (currentItem?.stats[k] ?? 0) != 0).toList();
+
+    if (keys.isEmpty && currentItem == null) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundNightBlue,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+            color: AppColors.primaryTurquoise.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.compare_arrows, color: AppColors.textMuted, size: 14),
+              const SizedBox(width: 6),
+              Text(
+                currentItem == null ? 'Emplacement vide' : 'vs ${currentItem!.name}',
+                style: const TextStyle(
+                    color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          if (keys.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            ...keys.map((k) {
+              final cur = currentItem?.stats[k] ?? 0;
+              final nw = newItem.stats[k] ?? 0;
+              final delta = nw - cur;
+              final label = _statLabels[k] ?? k;
+              final deltaColor = delta > 0
+                  ? AppColors.success
+                  : delta < 0
+                      ? AppColors.coralRare
+                      : AppColors.textMuted;
+              final deltaStr = delta > 0 ? '+$delta' : '$delta';
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 44,
+                      child: Text(label,
+                          style: const TextStyle(
+                              color: AppColors.textMuted, fontSize: 11)),
+                    ),
+                    Text('$cur',
+                        style: const TextStyle(
+                            color: AppColors.textSecondary, fontSize: 11)),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 6),
+                      child: Icon(Icons.arrow_forward,
+                          size: 10, color: AppColors.textMuted),
+                    ),
+                    Text('$nw',
+                        style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600)),
+                    const SizedBox(width: 8),
+                    if (delta != 0)
+                      Text(
+                        '($deltaStr)',
+                        style: TextStyle(
+                            color: deltaColor,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold),
+                      ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _ActionButtons extends StatelessWidget {
   final Item item;
   final EquipmentSlot? slot;
@@ -600,9 +856,22 @@ class _ActionButtons extends StatelessWidget {
             label: 'Équiper',
             icon: Icons.shield_outlined,
             color: color,
-            onTap: () {
+            onTap: () async {
+              // Retirer le bonus de l'item actuellement en slot (s'il y en a un)
+              final current = equipment.getSlot(slot!);
+              if (current != null) {
+                final oldHp = current.stats['hpBonus'] ?? 0;
+                final oldMoral = current.stats['moralBonus'] ?? 0;
+                if (oldHp > 0) await player.adjustMaxHp(userId, -oldHp);
+                if (oldMoral > 0) await player.updateMoral(userId, -(oldMoral / 100.0));
+              }
               equipment.equip(item, slot!, inventory);
-              Navigator.pop(context);
+              // Appliquer les bonus du nouvel item
+              final hp = item.stats['hpBonus'] ?? 0;
+              final moral = item.stats['moralBonus'] ?? 0;
+              if (hp > 0) await player.adjustMaxHp(userId, hp);
+              if (moral > 0) await player.updateMoral(userId, moral / 100.0);
+              if (context.mounted) Navigator.pop(context);
             },
           ),
         ));
@@ -613,12 +882,17 @@ class _ActionButtons extends StatelessWidget {
             icon: Icons.remove_circle_outline,
             color: AppColors.textMuted,
             outlined: true,
-            onTap: () {
+            onTap: () async {
               final s = equipment.equipped.entries
                   .firstWhere((e) => e.value?.id == item.id)
                   .key;
+              // Retirer les bonus avant de déséquiper
+              final hp = item.stats['hpBonus'] ?? 0;
+              final moral = item.stats['moralBonus'] ?? 0;
+              if (hp > 0) await player.adjustMaxHp(userId, -hp);
+              if (moral > 0) await player.updateMoral(userId, -(moral / 100.0));
               equipment.unequip(s, inventory);
-              Navigator.pop(context);
+              if (context.mounted) Navigator.pop(context);
             },
           ),
         ));
@@ -657,12 +931,21 @@ class _ActionButtons extends StatelessWidget {
           label: 'Utiliser',
           icon: Icons.local_pharmacy,
           color: AppColors.success,
-          onTap: () {
+          onTap: () async {
             if (player.stats != null) {
-              player.heal(userId, item.stats['hpBonus'] ?? 20);
+              final hp = item.stats['hpBonus'] ?? 0;
+              final xp = item.stats['xpBonus'] ?? 0;
+              final moralRaw = item.stats['moralBonus'] ?? 0;
+              final moral = moralRaw / 100.0;
+              if (hp > 0) await player.heal(userId, hp);
+              if (xp > 0) await player.addExperience(userId, xp);
+              if (moral > 0) await player.updateMoral(userId, moral);
+              if (hp == 0 && xp == 0 && moralRaw == 0) {
+                await player.heal(userId, 20);
+              }
             }
             inventory.removeItem(item.id);
-            Navigator.pop(context);
+            if (context.mounted) Navigator.pop(context);
           },
         ),
       ));

@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../../data/models/item_model.dart';
 import '../../../data/models/player_stats_model.dart';
+import '../../../domain/services/activity_log_service.dart';
+import 'achievements_page.dart';
+import 'activity_log_page.dart';
 import '../../../data/repositories/player_repository.dart';
 import '../../../data/repositories/quest_repository.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
@@ -13,7 +17,6 @@ import '../../../presentation/view_models/profile_view_model.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/cat/cat_widget.dart';
 import '../../widgets/common/rarity_badge.dart';
-import '../minigames/minigames_page.dart';
 
 
 class ProfilePage extends StatefulWidget {
@@ -94,12 +97,18 @@ class _ProfileContent extends StatelessWidget {
             backgroundColor: AppColors.backgroundNightBlue,
             actions: [
               IconButton(
-                icon: const Icon(Icons.extension_outlined,
-                    color: AppColors.textSecondary, size: 20),
-                tooltip: 'Minijeux',
+                icon: const Icon(Icons.emoji_events_outlined,
+                    color: AppColors.gold, size: 20),
+                tooltip: 'Succès',
                 onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const MinigamesPage()),
+                  MaterialPageRoute(builder: (_) => const AchievementsPage()),
                 ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.ios_share_outlined,
+                    color: AppColors.textSecondary, size: 20),
+                tooltip: 'Partager',
+                onPressed: () => _shareProfile(context, vm, stats),
               ),
               IconButton(
                 icon: const Icon(Icons.settings_outlined,
@@ -145,7 +154,15 @@ class _ProfileContent extends StatelessWidget {
 
                 // Achievements
                 _AchievementsSection(stats: stats),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
+
+                // Graphe XP sur 14 jours
+                const _ActivityChart(),
+                const SizedBox(height: 16),
+
+                // Historique d'activité
+                _ActivityLogButton(),
+                const SizedBox(height: 16),
 
                 // Déconnexion
                 _LogoutButton(vm: vm),
@@ -156,6 +173,30 @@ class _ProfileContent extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  void _shareProfile(
+      BuildContext context, ProfileViewModel vm, PlayerStats? stats) {
+    final level = stats?.level ?? 1;
+    final gold = stats?.gold ?? 0;
+    final crystals = stats?.crystals ?? 0;
+    final streak = stats?.streak ?? 0;
+    final quests = vm.completedCount;
+    final title = _HeroHeader._playerTitle(stats);
+
+    final lines = [
+      '⚔️ Mon profil Sameva',
+      if (title != null) '🏆 $title',
+      '─────────────────',
+      '📈 Niveau $level',
+      '✅ $quests quêtes complétées',
+      '🔥 Série : $streak jours',
+      '💰 Or : $gold  |  💎 Cristaux : $crystals',
+      '─────────────────',
+      'Rejoins-moi sur Sameva — l\'app RPG de productivité !',
+    ];
+
+    Share.share(lines.join('\n'));
   }
 }
 
@@ -195,24 +236,27 @@ class _HeroHeader extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Avatar
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    colors: [AppColors.primaryTurquoise, AppColors.secondaryViolet],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primaryTurquoise.withValues(alpha: 0.4),
-                      blurRadius: 16,
-                      spreadRadius: 2,
+              // Avatar — tap pour ouvrir la fiche personnage
+              GestureDetector(
+                onTap: () => Navigator.of(context).pushNamed('/avatar'),
+                child: Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      colors: [AppColors.primaryTurquoise, AppColors.secondaryViolet],
                     ),
-                  ],
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primaryTurquoise.withValues(alpha: 0.4),
+                        blurRadius: 16,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.person, color: Colors.white, size: 36),
                 ),
-                child: const Icon(Icons.person, color: Colors.white, size: 36),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -229,6 +273,17 @@ class _HeroHeader extends StatelessWidget {
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
+                    if (_playerTitle(stats) != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        _playerTitle(stats)!,
+                        style: TextStyle(
+                          color: AppColors.gold.withValues(alpha: 0.9),
+                          fontSize: 11,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 2),
                     Row(
                       children: [
@@ -311,6 +366,25 @@ class _HeroHeader extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// Retourne le titre le plus prestigieux débloqué par le joueur.
+  static String? _playerTitle(PlayerStats? stats) {
+    if (stats == null || stats.achievements.isEmpty) return null;
+    const priority = [
+      'quest_100', 'level_25', 'streak_30', 'rich_5000',
+      'quest_50',  'level_10', 'streak_7',  'rich_1000',
+      'quest_10',  'level_5',  'collector_25',
+      'zen_master', 'collector_10', 'streak_3', 'first_quest',
+    ];
+    for (final id in priority) {
+      if (stats.achievements.containsKey(id)) {
+        final def = PlayerStats.achievementDefinitions
+            .firstWhere((d) => d['id'] == id, orElse: () => {});
+        if (def['name'] != null) return def['name'];
+      }
+    }
+    return null;
   }
 }
 
@@ -813,6 +887,163 @@ class _CatSection extends StatelessWidget {
         'sakura' => 'Sakura — Joyeux',
         _ => race,
       };
+}
+
+// ─── Graphe XP ────────────────────────────────────────────────────────────────
+
+class _ActivityChart extends StatelessWidget {
+  const _ActivityChart();
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = ActivityLogService.getLog();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    // Calculer XP par jour sur les 14 derniers jours
+    final days = List.generate(14, (i) => today.subtract(Duration(days: 13 - i)));
+    final xpByDay = <DateTime, int>{};
+    for (final day in days) {
+      xpByDay[day] = 0;
+    }
+    for (final entry in entries) {
+      if (entry.type == ActivityType.quest && entry.subtitle != null) {
+        final match = RegExp(r'\+(\d+) XP').firstMatch(entry.subtitle!);
+        if (match != null) {
+          final xp = int.tryParse(match.group(1)!) ?? 0;
+          final day = DateTime(entry.date.year, entry.date.month, entry.date.day);
+          if (xpByDay.containsKey(day)) {
+            xpByDay[day] = xpByDay[day]! + xp;
+          }
+        }
+      }
+    }
+
+    final values = days.map((d) => xpByDay[d]!.toDouble()).toList();
+    final maxVal = values.reduce((a, b) => a > b ? a : b);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundDarkPanel,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+            color: AppColors.primaryTurquoise.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.bar_chart,
+                  color: AppColors.primaryTurquoise, size: 16),
+              const SizedBox(width: 8),
+              const Text(
+                'XP — 14 derniers jours',
+                style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13),
+              ),
+              const Spacer(),
+              Text(
+                '${values.reduce((a, b) => a + b).toInt()} XP total',
+                style: const TextStyle(
+                    color: AppColors.primaryTurquoise, fontSize: 11),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 80,
+            child: CustomPaint(
+              size: const Size(double.infinity, 80),
+              painter: _XpBarChartPainter(
+                values: values,
+                maxVal: maxVal <= 0 ? 1 : maxVal,
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                _shortDate(days.first),
+                style: const TextStyle(
+                    color: AppColors.textMuted, fontSize: 9),
+              ),
+              Text(
+                'Auj.',
+                style: const TextStyle(
+                    color: AppColors.textMuted, fontSize: 9),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _shortDate(DateTime d) => '${d.day}/${d.month}';
+}
+
+class _XpBarChartPainter extends CustomPainter {
+  final List<double> values;
+  final double maxVal;
+
+  _XpBarChartPainter({required this.values, required this.maxVal});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final barWidth = (size.width - (values.length - 1) * 4) / values.length;
+    final paint = Paint()..style = PaintingStyle.fill;
+
+    for (int i = 0; i < values.length; i++) {
+      final fraction = values[i] / maxVal;
+      final barHeight = fraction * size.height;
+      final x = i * (barWidth + 4);
+      final y = size.height - barHeight;
+
+      final isToday = i == values.length - 1;
+      paint.color = isToday
+          ? const Color(0xFF4FD1C5) // primaryTurquoise
+          : const Color(0xFF4FD1C5).withValues(alpha: 0.35 + fraction * 0.5);
+
+      final rr = RRect.fromRectAndRadius(
+        Rect.fromLTWH(x, y, barWidth, barHeight.clamp(2, size.height)),
+        const Radius.circular(3),
+      );
+      canvas.drawRRect(rr, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_XpBarChartPainter old) =>
+      old.values != values || old.maxVal != maxVal;
+}
+
+// ─── Historique ───────────────────────────────────────────────────────────────
+
+class _ActivityLogButton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => const ActivityLogPage(),
+        ),
+      ),
+      icon: const Icon(Icons.history, size: 18),
+      label: const Text('Voir l\'historique d\'activité'),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppColors.primaryVioletLight,
+        side: const BorderSide(color: AppColors.primaryVioletLight),
+        minimumSize: const Size.fromHeight(44),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
 }
 
 // ─── Déconnexion ──────────────────────────────────────────────────────────────

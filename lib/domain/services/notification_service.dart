@@ -3,10 +3,13 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest_all.dart' as tz_data;
+import '../../data/models/quest_model.dart';
 
 /// Service de notifications locales.
-/// - ID 0 : rappel quêtes du matin (heure configurable, défaut 9h)
-/// - ID 1 : rappel streak du soir (20h quotidien, annulable si quête complétée)
+/// - ID 0   : rappel quêtes du matin (heure configurable, défaut 9h)
+/// - ID 1   : rappel streak du soir (20h quotidien, annulable si quête complétée)
+/// - ID 2   : jalon streak
+/// - ID 1000–999999 : rappels deadline par quête (hash du questId)
 class NotificationService {
   static final _plugin = FlutterLocalNotificationsPlugin();
 
@@ -25,6 +28,15 @@ class NotificationService {
     channelDescription: 'Ne brisez pas votre série !',
     importance: Importance.defaultImportance,
     priority: Priority.defaultPriority,
+    icon: '@mipmap/ic_launcher',
+  );
+
+  static const _channelDeadline = AndroidNotificationDetails(
+    'quest_deadline',
+    'Échéances de quêtes',
+    channelDescription: 'Rappel 1 heure avant l\'expiration d\'une quête',
+    importance: Importance.high,
+    priority: Priority.high,
     icon: '@mipmap/ic_launcher',
   );
 
@@ -149,6 +161,44 @@ class NotificationService {
     await cancelStreakReminder();
     await scheduleStreakReminder();
   }
+
+  /// Planifie une notification 1 heure avant la deadline de la quête.
+  /// Sans effet si la quête n'a pas de deadline ou si elle est déjà passée.
+  static Future<void> scheduleQuestDeadlineReminder(Quest quest) async {
+    try {
+      if (quest.id == null || quest.deadline == null) return;
+      final notifTime = quest.deadline!.subtract(const Duration(hours: 1));
+      if (!notifTime.isAfter(DateTime.now())) return;
+
+      final tzTime = tz.TZDateTime.from(notifTime, tz.local);
+      await _plugin.zonedSchedule(
+        _deadlineNotifId(quest.id!),
+        '"${quest.title}" expire bientôt !',
+        'Il vous reste 1 heure pour compléter cette quête.',
+        tzTime,
+        const NotificationDetails(
+            android: _channelDeadline, iOS: DarwinNotificationDetails()),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+    } catch (e) {
+      debugPrint('NotificationService: erreur deadline ${quest.id}: $e');
+    }
+  }
+
+  /// Annule la notification de deadline d'une quête.
+  static Future<void> cancelQuestDeadlineReminder(String questId) async {
+    try {
+      await _plugin.cancel(_deadlineNotifId(questId));
+    } catch (e) {
+      debugPrint('NotificationService: erreur annulation deadline $questId: $e');
+    }
+  }
+
+  /// ID de notification basé sur le hash du questId (plage 1000–999999).
+  static int _deadlineNotifId(String questId) =>
+      1000 + questId.hashCode.abs() % 998001;
 
   static tz.TZDateTime _nextTime(int hour, int minute) {
     final now = tz.TZDateTime.now(tz.local);

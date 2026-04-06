@@ -12,7 +12,7 @@ class QuestRepository {
   QuestRepository(this._supabase, this._userRepository);
 
   /// Charge toutes les quêtes d'un utilisateur, puis remet à "active"
-  /// les quêtes daily complétées avant aujourd'hui.
+  /// les quêtes récurrentes complétées sur une période passée.
   Future<List<Quest>> loadQuests(String userId) async {
     final response = await _supabase
         .from('quests')
@@ -24,7 +24,7 @@ class QuestRepository {
         .map((map) => Quest.fromSupabaseMap(Map<String, dynamic>.from(map)))
         .toList();
 
-    final hadResets = await _resetDailyQuestsIfNeeded(quests);
+    final hadResets = await _resetRecurringQuestsIfNeeded(quests);
     if (!hadResets) return quests;
 
     // Recharger depuis Supabase pour avoir l'état après reset
@@ -82,17 +82,31 @@ class QuestRepository {
     ));
   }
 
-  /// Remet à "active" les quêtes daily complétées avant aujourd'hui.
-  /// Retourne true si au moins une quête a été réinitialisée.
-  Future<bool> _resetDailyQuestsIfNeeded(List<Quest> quests) async {
-    final today = DateTime.now();
-    final todayStart = DateTime(today.year, today.month, today.day);
+  /// Remet à "active" les quêtes récurrentes (daily/weekly/monthly) dont
+  /// la période est révolue. Retourne true si au moins une quête a été réinitialisée.
+  Future<bool> _resetRecurringQuestsIfNeeded(List<Quest> quests) async {
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
 
-    final toReset = quests.where((q) =>
-        q.frequency == QuestFrequency.daily &&
-        q.status == QuestStatus.completed &&
-        q.completedAt != null &&
-        q.completedAt!.isBefore(todayStart)).toList();
+    // Début de la semaine courante (lundi à minuit)
+    final weekdayOffset = (now.weekday - 1) % 7; // lundi = 0
+    final weekStart = todayStart.subtract(Duration(days: weekdayOffset));
+
+    // Début du mois courant
+    final monthStart = DateTime(now.year, now.month, 1);
+
+    bool shouldReset(Quest q) {
+      if (q.status != QuestStatus.completed) return false;
+      if (q.completedAt == null) return false;
+      return switch (q.frequency) {
+        QuestFrequency.daily   => q.completedAt!.isBefore(todayStart),
+        QuestFrequency.weekly  => q.completedAt!.isBefore(weekStart),
+        QuestFrequency.monthly => q.completedAt!.isBefore(monthStart),
+        QuestFrequency.oneOff  => false,
+      };
+    }
+
+    final toReset = quests.where(shouldReset).toList();
 
     for (final quest in toReset) {
       try {
@@ -102,7 +116,7 @@ class QuestRepository {
           updatedAt: DateTime.now(),
         ));
       } catch (e) {
-        debugPrint('QuestRepository: erreur reset daily ${quest.id}: $e');
+        debugPrint('QuestRepository: erreur reset ${quest.frequency.name} ${quest.id}: $e');
       }
     }
 

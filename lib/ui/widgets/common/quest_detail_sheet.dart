@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../../../data/models/quest_model.dart';
 import '../../../domain/services/quest_rewards_calculator.dart';
 import '../../theme/app_colors.dart';
@@ -13,24 +15,34 @@ import '../../theme/app_colors.dart';
 class QuestDetailSheet extends StatefulWidget {
   final Quest quest;
   final VoidCallback? onValidate;
+  final VoidCallback? onDelete;
+  final VoidCallback? onEdit;
 
   const QuestDetailSheet({
     super.key,
     required this.quest,
     this.onValidate,
+    this.onDelete,
+    this.onEdit,
   });
 
-  /// Ouvre le bottom sheet et retourne true si "Valider" a été pressé.
   static Future<void> show(
     BuildContext context, {
     required Quest quest,
     VoidCallback? onValidate,
+    VoidCallback? onDelete,
+    VoidCallback? onEdit,
   }) {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => QuestDetailSheet(quest: quest, onValidate: onValidate),
+      builder: (_) => QuestDetailSheet(
+        quest: quest,
+        onValidate: onValidate,
+        onDelete: onDelete,
+        onEdit: onEdit,
+      ),
     );
   }
 
@@ -41,16 +53,41 @@ class QuestDetailSheet extends StatefulWidget {
 class _QuestDetailSheetState extends State<QuestDetailSheet> {
   late List<bool> _subTasksDone;
 
+  static String _hiveKey(String? id) => 'subtasks_${id ?? 'none'}';
+
   @override
   void initState() {
     super.initState();
-    _subTasksDone =
-        List.filled(widget.quest.subQuests.length, false);
+    _subTasksDone = _loadSubTasks();
+  }
+
+  List<bool> _loadSubTasks() {
+    final count = widget.quest.subQuests.length;
+    if (count == 0 || widget.quest.id == null) {
+      return List.filled(count, false);
+    }
+    try {
+      final raw = Hive.box('settings').get(_hiveKey(widget.quest.id));
+      if (raw == null) return List.filled(count, false);
+      final list = (jsonDecode(raw as String) as List).cast<bool>();
+      if (list.length != count) return List.filled(count, false);
+      return list;
+    } catch (_) {
+      return List.filled(count, false);
+    }
+  }
+
+  Future<void> _saveSubTasks() async {
+    if (widget.quest.id == null) return;
+    await Hive.box('settings')
+        .put(_hiveKey(widget.quest.id), jsonEncode(_subTasksDone));
   }
 
   Quest get _q => widget.quest;
   Color get _rarityColor => _rarityColorFor(_q.rarity);
   bool get _canValidate => !_q.isCompleted && widget.onValidate != null;
+  bool get _canEdit => !_q.isCompleted && widget.onEdit != null;
+  bool get _canDelete => widget.onDelete != null;
 
   int get _subTasksDoneCount => _subTasksDone.where((v) => v).length;
 
@@ -198,8 +235,10 @@ class _QuestDetailSheetState extends State<QuestDetailSheet> {
                         value: done,
                         onChanged: _q.isCompleted
                             ? null
-                            : (v) => setState(
-                                () => _subTasksDone[i] = v ?? false),
+                            : (v) {
+                                setState(() => _subTasksDone[i] = v ?? false);
+                                _saveSubTasks();
+                              },
                         title: Text(
                           _q.subQuests[i],
                           style: TextStyle(
@@ -240,6 +279,53 @@ class _QuestDetailSheetState extends State<QuestDetailSheet> {
                         ),
                       ),
                     ),
+
+                  // Bouton éditer
+                  if (_canEdit) ...[
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          widget.onEdit!();
+                        },
+                        icon: const Icon(Icons.edit_outlined,
+                            color: AppColors.primaryTurquoise),
+                        label: const Text('Modifier',
+                            style: TextStyle(color: AppColors.primaryTurquoise)),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(
+                              color: AppColors.primaryTurquoise.withValues(alpha: 0.5)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                  ],
+
+                  // Bouton supprimer
+                  if (_canDelete) ...[
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _confirmDelete(context),
+                        icon: const Icon(Icons.delete_outline,
+                            color: AppColors.coralRare),
+                        label: const Text('Supprimer',
+                            style: TextStyle(color: AppColors.coralRare)),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(
+                              color: AppColors.coralRare.withValues(alpha: 0.5)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -247,6 +333,37 @@ class _QuestDetailSheetState extends State<QuestDetailSheet> {
         ),
       ),
     );
+  }
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.backgroundDarkPanel,
+        title: const Text('Supprimer la quête',
+            style: TextStyle(color: AppColors.textPrimary)),
+        content: Text(
+          'Supprimer "${_q.title}" ? Cette action est irréversible.',
+          style: const TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler',
+                style: TextStyle(color: AppColors.textMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Supprimer',
+                style: TextStyle(color: AppColors.coralRare)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && context.mounted) {
+      Navigator.pop(context);
+      widget.onDelete!();
+    }
   }
 
   Color _rarityColorFor(QuestRarity r) => switch (r) {

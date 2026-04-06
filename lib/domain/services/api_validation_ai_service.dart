@@ -83,11 +83,40 @@ class ApiValidationAIService implements ValidationAIService {
     required Quest quest,
     required String videoPath,
   }) async {
-    // Option 1 : envoyer une frame extraite de la vidéo (nécessite un package type video_thumbnail).
-    // Option 2 : ton backend accepte une vidéo (base64 ou upload) et l'analyse.
-    // Pour l'instant on lance une erreur pour forcer l'implémentation côté backend si besoin.
-    throw UnimplementedError(
-      'analyseVideoProof : implémenter envoi d\'une frame ou de la vidéo vers le backend',
+    throw Exception('Analyse vidéo non disponible. Prenez une photo à la place.');
+  }
+
+  @override
+  Future<ValidationResult> analyzeTextProof({
+    required Quest quest,
+    required String text,
+  }) async {
+    final uri = Uri.parse(baseUrl);
+    final body = jsonEncode({
+      'text_proof': text,
+      'quest_title': quest.title,
+      'quest_category': quest.category,
+    });
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+    if (authToken != null && authToken!.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $authToken';
+    }
+    final response = await _httpClient
+        .post(uri, headers: headers, body: body)
+        .timeout(timeout);
+    if (response.statusCode != 200) {
+      throw Exception('Erreur API ${response.statusCode}: ${response.body}');
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final score = (data['score'] as num?)?.toInt() ?? 0;
+    final explanation = data['explanation'] as String? ?? 'Pas d\'explication.';
+    return ValidationResult(
+      score: score.clamp(0, 100),
+      explanation: explanation,
+      isValid: score >= validationThreshold,
     );
   }
 }

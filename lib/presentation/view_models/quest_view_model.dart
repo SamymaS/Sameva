@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../../data/models/quest_model.dart';
 import '../../data/repositories/quest_repository.dart';
+import '../../domain/services/notification_service.dart';
 import '../../domain/services/quest_rewards_calculator.dart';
 
 /// ViewModel pour les quêtes (état global partagé entre pages).
@@ -39,6 +40,15 @@ class QuestViewModel with ChangeNotifier {
 
     try {
       _quests = await _repo.loadQuests(userId);
+      // Replanifier les notifications deadline pour les quêtes actives
+      final now = DateTime.now();
+      for (final q in _quests) {
+        if (q.status == QuestStatus.active &&
+            q.deadline != null &&
+            q.deadline!.isAfter(now)) {
+          await NotificationService.scheduleQuestDeadlineReminder(q);
+        }
+      }
     } catch (e) {
       debugPrint('QuestViewModel: erreur chargement: $e');
       _error = 'Impossible de charger les quêtes. Vérifiez votre connexion.';
@@ -54,6 +64,9 @@ class QuestViewModel with ChangeNotifier {
       final newQuest = await _repo.addQuest(quest);
       _quests.insert(0, newQuest);
       notifyListeners();
+      if (newQuest.deadline != null) {
+        await NotificationService.scheduleQuestDeadlineReminder(newQuest);
+      }
     } catch (e) {
       debugPrint('QuestViewModel: erreur création: $e');
       rethrow;
@@ -68,6 +81,12 @@ class QuestViewModel with ChangeNotifier {
         _quests[index] = updated;
         notifyListeners();
       }
+      if (updated.id != null) {
+        await NotificationService.cancelQuestDeadlineReminder(updated.id!);
+        if (updated.deadline != null && updated.deadline!.isAfter(DateTime.now())) {
+          await NotificationService.scheduleQuestDeadlineReminder(updated);
+        }
+      }
     } catch (e) {
       debugPrint('QuestViewModel: erreur mise à jour: $e');
       rethrow;
@@ -79,6 +98,7 @@ class QuestViewModel with ChangeNotifier {
       await _repo.deleteQuest(questId);
       _quests.removeWhere((q) => q.id == questId);
       notifyListeners();
+      await NotificationService.cancelQuestDeadlineReminder(questId);
     } catch (e) {
       debugPrint('QuestViewModel: erreur suppression: $e');
       rethrow;
@@ -94,6 +114,7 @@ class QuestViewModel with ChangeNotifier {
         _quests[index] = updated;
         notifyListeners();
       }
+      await NotificationService.cancelQuestDeadlineReminder(questId);
     } catch (e) {
       debugPrint('QuestViewModel: erreur complétion: $e');
       rethrow;
@@ -136,11 +157,54 @@ class QuestViewModel with ChangeNotifier {
     final now = DateTime.now();
     return _quests.where((q) {
       if (q.status != QuestStatus.active) return false;
-      if (q.deadline != null) {
-        return now.isAfter(q.deadline!);
-      }
-      final deadline = q.createdAt.add(Duration(minutes: q.estimatedDurationMinutes));
-      return now.isAfter(deadline);
+      if (q.deadline == null) return false;
+      return now.isAfter(q.deadline!);
     }).toList();
+  }
+
+  /// Recrée les quêtes récurrentes (daily/weekly/monthly) complétées
+  /// dont la période est révolue. Les boss ne sont pas concernés.
+  Future<void> resetDailyQuests(String userId) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final weekStart = today.subtract(Duration(days: today.weekday - 1));
+    final monthStart = DateTime(now.year, now.month, 1);
+
+    bool shouldReset(Quest q) {
+      if (q.status != QuestStatus.completed) return false;
+      if (q.completedAt == null) return false;
+      if (q.category == 'boss') return false;
+      return switch (q.frequency) {
+        QuestFrequency.daily   => q.completedAt!.isBefore(today),
+        QuestFrequency.weekly  => q.completedAt!.isBefore(weekStart),
+        QuestFrequency.monthly => q.completedAt!.isBefore(monthStart),
+        QuestFrequency.oneOff  => false,
+      };
+    }
+
+    for (final completed in _quests.where(shouldReset).toList()) {
+      final alreadyActive = _quests.any((q) =>
+        q.id != completed.id &&
+        q.title == completed.title &&
+        q.frequency == completed.frequency &&
+        q.status == QuestStatus.active
+      );
+      if (alreadyActive) continue;
+
+      final newQuest = Quest(
+        userId: userId,
+        title: completed.title,
+        description: completed.description,
+        estimatedDurationMinutes: completed.estimatedDurationMinutes,
+        frequency: completed.frequency,
+        difficulty: completed.difficulty,
+        category: completed.category,
+        rarity: completed.rarity,
+        status: QuestStatus.active,
+        createdAt: today,
+        validationType: completed.validationType,
+      );
+      await addQuest(newQuest);
+    }
   }
 }

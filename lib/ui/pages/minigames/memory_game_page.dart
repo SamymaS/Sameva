@@ -125,6 +125,7 @@ class _MemoryGamePageState extends State<MemoryGamePage>
             : seconds < 180
                 ? 30
                 : 10;
+    final xp = (gold / 2).round();
 
     showDialog(
       context: context,
@@ -147,13 +148,19 @@ class _MemoryGamePageState extends State<MemoryGamePage>
                 const Icon(Icons.monetization_on,
                     color: AppColors.gold, size: 22),
                 const SizedBox(width: 6),
-                Text(
-                  '+$gold or',
-                  style: const TextStyle(
-                      color: AppColors.gold,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 20),
-                ),
+                Text('+$gold or',
+                    style: const TextStyle(
+                        color: AppColors.gold,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20)),
+                const SizedBox(width: 16),
+                const Icon(Icons.star, color: AppColors.primaryTurquoise, size: 22),
+                const SizedBox(width: 6),
+                Text('+$xp XP',
+                    style: const TextStyle(
+                        color: AppColors.primaryTurquoise,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20)),
               ],
             ),
           ],
@@ -168,6 +175,7 @@ class _MemoryGamePageState extends State<MemoryGamePage>
               final userId = auth.userId ?? '';
               if (player.stats != null) {
                 player.addGold(userId, gold);
+                player.addExperience(userId, xp);
               }
               Navigator.of(context)
                 ..pop()

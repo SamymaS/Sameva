@@ -15,7 +15,16 @@
       "Bash(cd:*)",
       "Bash(ls:*)",
       "Bash(flutter test:*)",
-      "Bash(grep -v \"^$\")"
+      "Bash(grep -v \"^$\")",
+      "Bash(find /c/Users/SamyB/Documents/ProjetsFlutter/Sameva/lib -type f -name \"*.dart\" -exec wc -l {} +)",
+      "Bash(xargs wc:*)",
+      "Bash(xargs grep:*)",
+      "Bash(cat lib/ui/pages/onboarding/*.dart)",
+      "Bash(grep -n \"gold\\\\|addGold\\\\|reward\\\\|cristal\\\\|PlayerViewModel\\\\|playerVm\\\\|player_view\" lib/ui/pages/minigames/*.dart)",
+      "Bash(grep -n \"NotificationService.init\\\\|NotificationService.schedule\" lib/main.dart lib/app.dart lib/presentation/view_models/*.dart)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(grep -v \"^warning.*test\\\\\\\\\")",
+      "Bash(grep -E \"^   error|^  error|warning.*lib\\\\\\\\\")"
     ]
   }
 }

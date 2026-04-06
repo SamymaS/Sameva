@@ -100,7 +100,7 @@ void main() {
       );
     });
 
-    test('analyzeVideoProof lève UnimplementedError', () {
+    test('analyzeVideoProof lève une Exception avec message utilisateur', () {
       final svc = ApiValidationAIService(
         baseUrl: 'https://x.com',
         httpClient: MockClient((_) async => http.Response('{}', 200)),
@@ -108,7 +108,7 @@ void main() {
 
       expect(
         () => svc.analyzeVideoProof(quest: _quest(), videoPath: '/v.mp4'),
-        throwsA(isA<UnimplementedError>()),
+        throwsA(isA<Exception>()),
       );
     });
   });

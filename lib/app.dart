@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import 'presentation/view_models/auth_view_model.dart';
+import 'presentation/view_models/quest_view_model.dart';
 import 'presentation/view_models/theme_view_model.dart';
 import 'ui/pages/auth/login_page.dart';
 import 'ui/pages/onboarding/onboarding_page.dart';
@@ -16,11 +17,15 @@ import 'ui/pages/home/sanctuary_page.dart';
 import 'ui/pages/inventory/inventory_page.dart';
 import 'ui/pages/market/market_page.dart';
 import 'ui/pages/cat/cat_page.dart';
+import 'ui/pages/invocation/invocation_page.dart';
+import 'ui/pages/minigames/minigames_page.dart';
+import 'ui/pages/avatar/avatar_page.dart';
+import 'ui/pages/quest/create_quest_choice_page.dart';
 import 'ui/widgets/common/dock_bar.dart';
 import 'ui/theme/app_theme.dart';
 import 'data/models/quest_model.dart';
 
-/// Sameva — navigation 5 pages avec DockBar flottant + swipe horizontal.
+/// Sameva — navigation 8 pages avec DockBar flottant + swipe horizontal.
 class SamevaApp extends StatefulWidget {
   const SamevaApp({super.key});
 
@@ -41,6 +46,8 @@ class _SamevaAppState extends State<SamevaApp> {
     InventoryPage(),
     CatPage(),
     MarketPage(),
+    InvocationPage(),
+    MinigamesPage(),
     ProfilePage(),
   ];
 
@@ -77,13 +84,15 @@ class _SamevaAppState extends State<SamevaApp> {
           themeMode: themeProvider.themeMode,
           debugShowCheckedModeBanner: false,
           routes: {
-            '/login': (context) => const LoginPage(),
-            '/profile': (context) => const ProfilePage(),
-            '/settings': (context) => const SettingsPage(),
-            '/quests': (context) => const QuestsListPage(),
-            '/create-quest': (context) => const CreateQuestPage(),
-            '/rewards': (context) => const RewardsPage(),
-            '/register': (context) => const RegisterPage(),
+            '/login':               (context) => const LoginPage(),
+            '/profile':             (context) => const ProfilePage(),
+            '/settings':            (context) => const SettingsPage(),
+            '/quests':              (context) => const QuestsListPage(),
+            '/create-quest':        (context) => const CreateQuestPage(),
+            '/create-quest-choice': (context) => const CreateQuestChoicePage(),
+            '/rewards':             (context) => const RewardsPage(),
+            '/register':            (context) => const RegisterPage(),
+            '/avatar':              (context) => const AvatarPage(),
           },
           onGenerateRoute: (settings) {
             if (settings.name == '/quest/validate' &&
@@ -140,9 +149,15 @@ class _SamevaAppState extends State<SamevaApp> {
             bottom: 0,
             left: 0,
             right: 0,
-            child: DockBar(
-              currentIndex: _currentIndex,
-              onTap: _goToPage,
+            child: Consumer<QuestViewModel>(
+              builder: (_, qvm, __) {
+                final missedCount = qvm.getMissedQuests().length;
+                return DockBar(
+                  currentIndex: _currentIndex,
+                  onTap: _goToPage,
+                  badges: missedCount > 0 ? {1: missedCount} : const {},
+                );
+              },
             ),
           ),
         ],

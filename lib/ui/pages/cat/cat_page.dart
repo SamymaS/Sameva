@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import '../../../data/models/cat_model.dart';
+import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/view_models/cat_view_model.dart';
 import '../../../presentation/view_models/inventory_view_model.dart';
+import '../../../presentation/view_models/player_view_model.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/cat/cat_widget.dart';
 
@@ -32,14 +35,70 @@ class CatPage extends StatelessWidget {
 // Contenu principal
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _CatPageContent extends StatelessWidget {
+class _CatPageContent extends StatefulWidget {
   final CatStats cat;
   final CatViewModel catProvider;
 
   const _CatPageContent({required this.cat, required this.catProvider});
 
   @override
+  State<_CatPageContent> createState() => _CatPageContentState();
+}
+
+class _CatPageContentState extends State<_CatPageContent> {
+  static const _cooldownKey = 'cat_pet_cooldown';
+  static const _cooldownHours = 4;
+
+  bool get _canPet {
+    final settings = Hive.box('settings');
+    final raw = settings.get(_cooldownKey) as String?;
+    if (raw == null) return true;
+    final last = DateTime.tryParse(raw);
+    if (last == null) return true;
+    return DateTime.now().difference(last).inHours >= _cooldownHours;
+  }
+
+  Duration get _cooldownRemaining {
+    final settings = Hive.box('settings');
+    final raw = settings.get(_cooldownKey) as String?;
+    if (raw == null) return Duration.zero;
+    final last = DateTime.tryParse(raw);
+    if (last == null) return Duration.zero;
+    final elapsed = DateTime.now().difference(last);
+    final remaining = const Duration(hours: _cooldownHours) - elapsed;
+    return remaining.isNegative ? Duration.zero : remaining;
+  }
+
+  Future<void> _petCat() async {
+    if (!_canPet) return;
+    final settings = Hive.box('settings');
+    await settings.put(_cooldownKey, DateTime.now().toIso8601String());
+    if (!mounted) return;
+
+    final userId = context.read<AuthViewModel>().userId;
+    if (userId != null) {
+      await context.read<PlayerViewModel>().updateMoral(userId, 0.05);
+    }
+    if (!mounted) return;
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Ronron... +5% moral !'),
+        backgroundColor: AppColors.mintMagic,
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final canPet = _canPet;
+    final remaining = canPet ? null : _cooldownRemaining;
+    final cooldownLabel = remaining != null
+        ? '${remaining.inHours}h ${remaining.inMinutes.remainder(60)}min'
+        : null;
+
     return Scaffold(
       backgroundColor: AppColors.backgroundNightCosmos,
       body: CustomScrollView(
@@ -71,7 +130,32 @@ class _CatPageContent extends StatelessWidget {
                 const SizedBox(height: 24),
 
                 // ── Zone hero du chat ─────────────────────────────────────
-                _CatHeroSection(cat: cat),
+                _CatHeroSection(cat: widget.cat),
+
+                const SizedBox(height: 16),
+
+                // ── Bouton Caresser ───────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 40),
+                  child: FilledButton.icon(
+                    onPressed: canPet ? _petCat : null,
+                    icon: const Icon(Icons.favorite_border, size: 18),
+                    label: Text(
+                      canPet
+                          ? 'Caresser (+5% moral)'
+                          : 'Disponible dans $cooldownLabel',
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: canPet
+                          ? AppColors.rosePastel
+                          : AppColors.backgroundDarkPanel,
+                      foregroundColor: canPet
+                          ? Colors.white
+                          : AppColors.textMuted,
+                      minimumSize: const Size.fromHeight(44),
+                    ),
+                  ),
+                ),
 
                 const SizedBox(height: 32),
 
@@ -88,7 +172,7 @@ class _CatPageContent extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
 
-                _CosmeticSlots(cat: cat, catProvider: catProvider),
+                _CosmeticSlots(cat: widget.cat, catProvider: widget.catProvider),
 
                 const SizedBox(height: 40),
               ],
@@ -100,7 +184,7 @@ class _CatPageContent extends StatelessWidget {
   }
 
   void _showRenameDialog(BuildContext context) {
-    final ctrl = TextEditingController(text: cat.name);
+    final ctrl = TextEditingController(text: widget.cat.name);
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -134,7 +218,7 @@ class _CatPageContent extends StatelessWidget {
             onPressed: () async {
               final name = ctrl.text.trim();
               if (name.isNotEmpty) {
-                await catProvider.renameCat(cat.id, name);
+                await widget.catProvider.renameCat(widget.cat.id, name);
               }
               if (ctx.mounted) Navigator.pop(ctx);
             },

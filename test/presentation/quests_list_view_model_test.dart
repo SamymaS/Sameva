@@ -100,4 +100,92 @@ void main() {
       expect(vm.error, isNull);
     });
   });
+
+  // ── Filtres et tri ────────────────────────────────────────────────────────
+
+  Quest _makeQuest({
+    required String id,
+    String category = 'Sport',
+    QuestFrequency frequency = QuestFrequency.daily,
+    int difficulty = 2,
+    int durationMinutes = 30,
+    QuestStatus status = QuestStatus.active,
+  }) =>
+      Quest(
+        id: id,
+        userId: 'u1',
+        title: 'Q$id',
+        estimatedDurationMinutes: durationMinutes,
+        frequency: frequency,
+        difficulty: difficulty,
+        category: category,
+        rarity: QuestRarity.common,
+        status: status,
+        createdAt: DateTime(2024, 1, 1),
+      );
+
+  group('filteredActiveQuests', () {
+    setUp(() async {
+      when(() => auth.userId).thenReturn('u1');
+      when(() => questRepo.loadQuests('u1')).thenAnswer((_) async => [
+            _makeQuest(id: '1', category: 'Sport', frequency: QuestFrequency.daily, difficulty: 3),
+            _makeQuest(id: '2', category: 'Santé', frequency: QuestFrequency.weekly, difficulty: 1),
+            _makeQuest(id: '3', category: 'Sport', frequency: QuestFrequency.monthly, difficulty: 2),
+            _makeQuest(id: '4', category: 'Santé', frequency: QuestFrequency.daily, difficulty: 1,
+                status: QuestStatus.completed),
+          ]);
+      await vm.loadQuests();
+    });
+
+    test('sans filtre retourne toutes les quêtes actives', () {
+      expect(vm.filteredActiveQuests, hasLength(3));
+    });
+
+    test('filtre par catégorie', () {
+      vm.setCategoryFilter('Sport');
+      expect(vm.filteredActiveQuests.every((q) => q.category == 'Sport'), isTrue);
+      expect(vm.filteredActiveQuests, hasLength(2));
+    });
+
+    test('filtre par fréquence', () {
+      vm.setFrequencyFilter(QuestFrequency.daily);
+      expect(vm.filteredActiveQuests.every((q) => q.frequency == QuestFrequency.daily), isTrue);
+      expect(vm.filteredActiveQuests, hasLength(1));
+    });
+
+    test('tri par difficulté croissante', () {
+      vm.setSortOrder(QuestSortOrder.difficultyAsc);
+      final difficulties = vm.filteredActiveQuests.map((q) => q.difficulty).toList();
+      expect(difficulties, equals([...difficulties]..sort()));
+    });
+
+    test('tri par durée croissante', () {
+      vm.setSortOrder(QuestSortOrder.durationAsc);
+      final durations = vm.filteredActiveQuests.map((q) => q.estimatedDurationMinutes).toList();
+      expect(durations, equals([...durations]..sort()));
+    });
+
+    test('clearFilters réinitialise tout', () {
+      vm.setCategoryFilter('Sport');
+      vm.setFrequencyFilter(QuestFrequency.daily);
+      vm.setSortOrder(QuestSortOrder.difficultyAsc);
+
+      vm.clearFilters();
+
+      expect(vm.categoryFilter, isNull);
+      expect(vm.frequencyFilter, isNull);
+      expect(vm.sortOrder, QuestSortOrder.dateDesc);
+      expect(vm.filteredActiveQuests, hasLength(3));
+    });
+
+    test('availableCategories retourne les catégories distinctes triées', () {
+      expect(vm.availableCategories, equals(['Santé', 'Sport']));
+    });
+
+    test('désélectionner un filtre catégorie en le réappliquant', () {
+      vm.setCategoryFilter('Sport');
+      vm.setCategoryFilter(null);
+      expect(vm.filteredActiveQuests, hasLength(3));
+    });
+  });
 }

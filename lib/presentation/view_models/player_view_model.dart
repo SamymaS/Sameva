@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../../data/models/quest_model.dart';
 import '../../data/models/player_stats_model.dart';
 import '../../data/repositories/player_repository.dart';
+import '../../domain/services/activity_log_service.dart';
 import '../../domain/services/health_regeneration_service.dart';
 import '../../domain/services/item_factory.dart';
 import '../../domain/services/notification_service.dart';
@@ -47,6 +48,22 @@ class PlayerViewModel with ChangeNotifier {
       debugPrint('PlayerViewModel: erreur sync Supabase: $e');
     }
 
+    // Vérification streak expiré (si absence >= 2 jours depuis dernière activité)
+    if (_stats != null && _stats!.lastActiveDate != null) {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final last = DateTime(
+        _stats!.lastActiveDate!.year,
+        _stats!.lastActiveDate!.month,
+        _stats!.lastActiveDate!.day,
+      );
+      if (today.difference(last).inDays >= 2) {
+        _stats = _stats!.copyWith(streak: 0);
+        await _repo.saveLocalStats(_stats!);
+        notifyListeners();
+      }
+    }
+
     // Régénération HP nocturne
     if (_stats != null) {
       final regen = HealthRegenerationService.computeRegen(
@@ -77,19 +94,32 @@ class PlayerViewModel with ChangeNotifier {
 
     int xp = _stats!.experience + amount;
     int level = _stats!.level;
+    int levelsGained = 0;
 
     while (xp >= experienceForLevel(level)) {
       xp -= experienceForLevel(level);
       level++;
+      levelsGained++;
     }
 
+    // +10 HP max par niveau gagné (incrémental, préserve les bonus équipement)
+    final newMax = _stats!.maxHealthPoints + levelsGained * 10;
     _stats = _stats!.copyWith(
       experience: xp,
       level: level,
-      maxHealthPoints: 100 + (level - 1) * 10,
+      maxHealthPoints: newMax,
     );
     notifyListeners();
     await savePlayerStats(userId);
+
+    if (levelsGained > 0) {
+      await ActivityLogService.addEntry(ActivityLogEntry(
+        type: ActivityType.levelUp,
+        title: 'Niveau $level atteint !',
+        subtitle: 'Montée de niveau +$levelsGained',
+        date: DateTime.now(),
+      ));
+    }
   }
 
   Future<void> addGold(String userId, int amount) async {
@@ -109,6 +139,17 @@ class PlayerViewModel with ChangeNotifier {
   Future<void> spendCrystals(String userId, int amount) async {
     if (_stats == null || _stats!.crystals < amount) return;
     _stats = _stats!.copyWith(crystals: _stats!.crystals - amount);
+    notifyListeners();
+    await savePlayerStats(userId);
+  }
+
+  /// Modifie les HP max (delta positif = bonus équipement, négatif = retrait).
+  /// Les HP courants sont plafonnés au nouveau max si nécessaire.
+  Future<void> adjustMaxHp(String userId, int delta) async {
+    if (_stats == null) return;
+    final newMax = (_stats!.maxHealthPoints + delta).clamp(10, 99999);
+    final newHp = _stats!.healthPoints.clamp(0, newMax);
+    _stats = _stats!.copyWith(maxHealthPoints: newMax, healthPoints: newHp);
     notifyListeners();
     await savePlayerStats(userId);
   }
@@ -156,6 +197,10 @@ class PlayerViewModel with ChangeNotifier {
     notifyListeners();
     await savePlayerStats(userId);
 
+    try {
+      await NotificationService.rescheduleStreakReminder();
+    } catch (_) {}
+
     if (inventory != null) {
       await _checkStreakMilestones(userId, previousStreak, _stats!.streak, inventory);
     }
@@ -169,9 +214,9 @@ class PlayerViewModel with ChangeNotifier {
   ) async {
     final milestones = <int, ({String rarity, int crystals})>{
       7:   (rarity: 'common',    crystals: 5),
-      14:  (rarity: 'rare',      crystals: 0),
-      30:  (rarity: 'epic',      crystals: 0),
-      100: (rarity: 'legendary', crystals: 0),
+      14:  (rarity: 'rare',      crystals: 10),
+      30:  (rarity: 'epic',      crystals: 25),
+      100: (rarity: 'legendary', crystals: 100),
     };
 
     for (final entry in milestones.entries) {
@@ -182,6 +227,12 @@ class PlayerViewModel with ChangeNotifier {
         try {
           await NotificationService.showStreakMilestone(entry.key, reward.rarity);
         } catch (_) {}
+        await ActivityLogService.addEntry(ActivityLogEntry(
+          type: ActivityType.streak,
+          title: 'Streak ${entry.key} jours atteint !',
+          subtitle: '+${reward.crystals} cristaux · objet ${reward.rarity}',
+          date: DateTime.now(),
+        ));
         debugPrint('Streak ${entry.key} j : récompense ${reward.rarity} débloquée');
       }
     }

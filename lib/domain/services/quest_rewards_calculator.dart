@@ -51,7 +51,14 @@ class QuestRewardsCalculator {
     int xpBonusPercent = 0,
     int goldBonusPercent = 0,
   }) {
-    final baseRewards = calculateBaseRewards(quest.difficulty);
+    // Si la quête définit ses propres récompenses (ex: boss), on les utilise
+    final baseRewards = (quest.xpReward != null || quest.goldReward != null)
+        ? QuestRewards(
+            experience: quest.xpReward ?? 10 * quest.difficulty,
+            gold: quest.goldReward ?? 25 * quest.difficulty,
+            crystals: quest.difficulty > 3 ? 5 : 1,
+          )
+        : calculateBaseRewards(quest.difficulty);
     
     // Calculer l'échéance estimée
     final estimatedDuration = Duration(minutes: quest.estimatedDurationMinutes);

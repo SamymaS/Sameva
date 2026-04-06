@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import '../../domain/services/notification_service.dart';
 import 'auth_view_model.dart';
 import 'notification_view_model.dart';
 import 'player_view_model.dart';
@@ -42,6 +44,32 @@ class SettingsViewModel extends ChangeNotifier {
 
   Future<void> setReminderTime(int hour, int minute) =>
       _notifVM.setReminderTime(hour, minute);
+
+  // ── Toggles notifications ──────────────────────────────────────────────────
+
+  static const _keyStreakNotif    = 'streak_notif_enabled';
+  static const _keyDeadlineNotif  = 'deadline_notif_enabled';
+
+  bool get streakNotifEnabled =>
+      Hive.box('settings').get(_keyStreakNotif, defaultValue: true) as bool;
+
+  bool get deadlineNotifEnabled =>
+      Hive.box('settings').get(_keyDeadlineNotif, defaultValue: true) as bool;
+
+  Future<void> setStreakNotif(bool enabled) async {
+    await Hive.box('settings').put(_keyStreakNotif, enabled);
+    if (enabled) {
+      await NotificationService.scheduleStreakReminder();
+    } else {
+      await NotificationService.cancelStreakReminder();
+    }
+    notifyListeners();
+  }
+
+  Future<void> setDeadlineNotif(bool enabled) async {
+    await Hive.box('settings').put(_keyDeadlineNotif, enabled);
+    notifyListeners();
+  }
 
   // ── Joueur ─────────────────────────────────────────────────────────────────
 

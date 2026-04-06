@@ -8,7 +8,10 @@ import '../../theme/app_colors.dart';
 
 /// Création de quête — formulaire complet avec validation temps réel.
 class CreateQuestPage extends StatefulWidget {
-  const CreateQuestPage({super.key});
+  /// Quête à modifier — null pour la création.
+  final Quest? initialQuest;
+
+  const CreateQuestPage({super.key, this.initialQuest});
 
   @override
   State<CreateQuestPage> createState() => _CreateQuestPageState();
@@ -28,12 +31,28 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
   String _scheduleOption = 'today';
   TimeOfDay _deadlineTime = const TimeOfDay(hour: 23, minute: 59);
 
+  bool get _isEditMode => widget.initialQuest != null;
   bool get _canSubmit => _titleController.text.trim().isNotEmpty;
 
   @override
   void initState() {
     super.initState();
     _titleController.addListener(() => setState(() {}));
+    final q = widget.initialQuest;
+    if (q != null) {
+      _titleController.text = q.title;
+      _descriptionController.text = q.description ?? '';
+      _category = q.category;
+      _validationType = q.validationType;
+      _durationMinutes = q.estimatedDurationMinutes;
+      _difficulty = q.difficulty;
+      _frequency = q.frequency;
+      _scheduleOption = q.deadline != null ? 'today' : 'none';
+      if (q.deadline != null) {
+        _deadlineTime =
+            TimeOfDay(hour: q.deadline!.hour, minute: q.deadline!.minute);
+      }
+    }
   }
 
   @override
@@ -64,9 +83,9 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
         backgroundColor: AppColors.backgroundNightBlue,
         appBar: AppBar(
           backgroundColor: AppColors.backgroundNightBlue,
-          title: const Text(
-            'Nouvelle quête',
-            style: TextStyle(
+          title: Text(
+            _isEditMode ? 'Modifier la quête' : 'Nouvelle quête',
+            style: const TextStyle(
                 color: AppColors.primaryTurquoise, fontWeight: FontWeight.bold),
           ),
         ),
@@ -318,22 +337,50 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
       default:
         deadline = null;
     }
-    final ok = await vm.createQuest(
-      title: _titleController.text.trim(),
-      description: _descriptionController.text,
-      category: _category,
-      validationType: _validationType,
-      durationMinutes: _durationMinutes,
-      difficulty: _difficulty,
-      frequency: _frequency,
-      deadline: deadline,
-    );
+    bool ok;
+    if (_isEditMode) {
+      final q = widget.initialQuest!;
+      final desc = _descriptionController.text.trim();
+      final updated = Quest(
+        id: q.id,
+        userId: q.userId,
+        title: _titleController.text.trim(),
+        description: desc.isEmpty ? null : desc,
+        estimatedDurationMinutes: _durationMinutes,
+        frequency: _frequency,
+        difficulty: _difficulty,
+        category: _category,
+        rarity: q.rarity,
+        subQuests: q.subQuests,
+        status: q.status,
+        createdAt: q.createdAt,
+        completedAt: q.completedAt,
+        deadline: deadline,
+        updatedAt: DateTime.now(),
+        validationType: _validationType,
+        xpReward: q.xpReward,
+        goldReward: q.goldReward,
+        proofData: q.proofData,
+      );
+      ok = await vm.updateQuest(updated);
+    } else {
+      ok = await vm.createQuest(
+        title: _titleController.text.trim(),
+        description: _descriptionController.text,
+        category: _category,
+        validationType: _validationType,
+        durationMinutes: _durationMinutes,
+        difficulty: _difficulty,
+        frequency: _frequency,
+        deadline: deadline,
+      );
+    }
     if (!mounted) return;
     if (ok) {
-      Navigator.of(context).pop(); // ferme formulaire
-      Navigator.of(context).pop(); // ferme page de choix → retour à la liste
+      Navigator.of(context).pop();
+      if (!_isEditMode) Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Quête créée !')),
+        SnackBar(content: Text(_isEditMode ? 'Quête modifiée !' : 'Quête créée !')),
       );
     }
   }
@@ -461,6 +508,7 @@ class _ValidationTypePicker extends StatelessWidget {
   static const _options = [
     (type: ValidationType.manual, icon: Icons.check_outlined, label: 'Manuel'),
     (type: ValidationType.photo, icon: Icons.camera_alt_outlined, label: 'Photo'),
+    (type: ValidationType.ai, icon: Icons.psychology_outlined, label: 'IA texte'),
     (type: ValidationType.timer, icon: Icons.timer_outlined, label: 'Timer'),
     (type: ValidationType.geolocation, icon: Icons.location_on_outlined, label: 'Lieu'),
   ];

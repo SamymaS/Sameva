@@ -92,6 +92,48 @@ class ClaudeValidationAIService implements ValidationAIService {
     );
   }
 
+  @override
+  Future<ValidationResult> analyzeTextProof({
+    required Quest quest,
+    required String text,
+  }) async {
+    final prompt =
+        'Quête : "${quest.title}" (catégorie : ${quest.category}).\n'
+        'Description de ce que le joueur a accompli : "$text"\n\n'
+        'Évalue si cette description prouve que la quête a été réalisée. '
+        'Réponds UNIQUEMENT en JSON valide sans balise markdown : '
+        '{"score": <int 0-100>, "explanation": "<string en français>"}. '
+        'Score 0 = pas du tout lié à la quête, 100 = preuve convaincante.';
+
+    final body = jsonEncode({
+      'model': _model,
+      'max_tokens': 256,
+      'messages': [
+        {
+          'role': 'user',
+          'content': prompt,
+        },
+      ],
+    });
+
+    final response = await _httpClient.post(
+      Uri.parse(_endpoint),
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: body,
+    );
+
+    if (response.statusCode != 200) {
+      final errorMsg = _extractApiError(response.body, response.statusCode);
+      throw Exception(errorMsg);
+    }
+
+    return _parseResponse(response.body, quest);
+  }
+
   ValidationResult _parseResponse(String responseBody, Quest quest) {
     try {
       final decoded = jsonDecode(responseBody) as Map<String, dynamic>;

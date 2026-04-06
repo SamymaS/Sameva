@@ -1,3 +1,9 @@
+import 'dart:math';
+import '../../data/models/item_model.dart';
+import '../../data/models/player_stats_model.dart';
+import '../../data/models/quest_model.dart';
+import '../../domain/services/activity_log_service.dart';
+import '../../domain/services/item_factory.dart';
 import '../../domain/services/quest_rewards_calculator.dart';
 import '../../domain/services/notification_service.dart';
 import '../view_models/quest_view_model.dart';
@@ -10,11 +16,20 @@ class CompleteQuestResult {
   final QuestRewards rewards;
   final bool didLevelUp;
   final int newLevel;
+  /// Item looté aléatoirement (null = pas de drop).
+  final Item? droppedItem;
+  /// Cristaux reçus au level-up (0 si pas de montée).
+  final int crystalsFromLevelUp;
+  /// IDs des succès nouvellement débloqués.
+  final List<String> newAchievements;
 
   const CompleteQuestResult({
     required this.rewards,
     required this.didLevelUp,
     required this.newLevel,
+    this.droppedItem,
+    this.crystalsFromLevelUp = 0,
+    this.newAchievements = const [],
   });
 }
 
@@ -63,17 +78,85 @@ class CompleteQuestUseCase {
     }
     await _playerProvider.updateStreak(userId, inventory: _inventoryProvider);
     await _playerProvider.incrementQuestsCompleted(userId);
-    await _playerProvider.checkAndUnlockAchievements(userId);
+    final newAchievements = await _playerProvider.checkAndUnlockAchievements(
+      userId,
+      inventoryCount: _inventoryProvider?.items.length ?? 0,
+    );
 
     // 4. Annuler le rappel streak (quête complétée aujourd'hui)
     await NotificationService.cancelStreakReminder();
 
     final levelAfter = _playerProvider.stats?.level ?? 1;
+    final didLevelUp = levelAfter > levelBefore;
+
+    // 5. Cristaux de level-up : newLevel × 2
+    int crystalsFromLevelUp = 0;
+    if (didLevelUp) {
+      crystalsFromLevelUp = levelAfter * 2;
+      await _playerProvider.addCrystals(userId, crystalsFromLevelUp);
+    }
+
+    // 6. Loot d'item aléatoire selon la difficulté (10–30% de chance)
+    // Boss : drop garanti avec rareté minimum rare
+    Item? droppedItem;
+    if (_inventoryProvider != null) {
+      final isBoss = quest.category == 'boss';
+      final dropChance = isBoss ? 100 : (10 + quest.difficulty * 4);
+      if (Random().nextInt(100) < dropChance) {
+        final maxRarity = isBoss ? QuestRarity.legendary : _maxDropRarity(quest.difficulty);
+        var rolledRarity = ItemFactory.rollGachaRarity();
+        if (rolledRarity.index > maxRarity.index) rolledRarity = maxRarity;
+        if (isBoss && rolledRarity.index < QuestRarity.rare.index) {
+          rolledRarity = QuestRarity.rare;
+        }
+        droppedItem = ItemFactory.generateRandomItem(rolledRarity);
+        _inventoryProvider.addItem(droppedItem);
+      }
+    }
+
+    // Journal d'activité
+    await ActivityLogService.addEntry(ActivityLogEntry(
+      type: ActivityType.quest,
+      title: quest.title,
+      subtitle: '+${rewards.experience} XP · +${rewards.gold} or',
+      date: now,
+    ));
+    if (droppedItem != null) {
+      await ActivityLogService.addEntry(ActivityLogEntry(
+        type: ActivityType.item,
+        title: 'Objet obtenu : ${droppedItem.name}',
+        subtitle: droppedItem.rarity.name.toUpperCase(),
+        date: now,
+      ));
+    }
+    for (final id in newAchievements) {
+      final def = PlayerStats.achievementDefinitions.firstWhere(
+        (d) => d['id'] == id,
+        orElse: () => {'name': id},
+      );
+      await ActivityLogService.addEntry(ActivityLogEntry(
+        type: ActivityType.achievement,
+        title: 'Succès débloqué : ${def['name']}',
+        date: now,
+      ));
+    }
 
     return CompleteQuestResult(
       rewards: rewards,
-      didLevelUp: levelAfter > levelBefore,
+      didLevelUp: didLevelUp,
       newLevel: levelAfter,
+      droppedItem: droppedItem,
+      crystalsFromLevelUp: crystalsFromLevelUp,
+      newAchievements: newAchievements,
     );
   }
+
+  /// Rareté maximale droppable selon la difficulté de la quête.
+  static QuestRarity _maxDropRarity(int difficulty) => switch (difficulty) {
+        1 => QuestRarity.uncommon,
+        2 => QuestRarity.rare,
+        3 => QuestRarity.rare,
+        4 => QuestRarity.epic,
+        _ => QuestRarity.legendary,
+      };
 }

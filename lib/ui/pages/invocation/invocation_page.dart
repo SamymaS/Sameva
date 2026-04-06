@@ -32,6 +32,7 @@ class _InvocationPageState extends State<InvocationPage>
   Item? _lastItem;
   bool _isRevealing = false;
   final List<Item> _history = [];
+  List<Item>? _multiPullResults;
 
   @override
   void initState() {
@@ -131,6 +132,72 @@ class _InvocationPageState extends State<InvocationPage>
     }
 
     inventory.addItem(item);
+    await _settings.put('gacha_first_done', true);
+  }
+
+  Future<void> _pullMulti() async {
+    if (_isRevealing) return;
+    const count = 10;
+    const cost = 450;
+
+    final player = context.read<PlayerViewModel>();
+    final inventory = context.read<InventoryViewModel>();
+    final auth = context.read<AuthViewModel>();
+    final userId = auth.userId ?? '';
+
+    if ((player.stats?.crystals ?? 0) < cost) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Pas assez de cristaux ! (450 requis)'),
+        backgroundColor: AppColors.error,
+      ));
+      return;
+    }
+    await player.spendCrystals(userId, cost);
+
+    setState(() => _isRevealing = true);
+    final results = <Item>[];
+    int pityCount = player.stats?.pityCount ?? 0;
+
+    for (int i = 0; i < count; i++) {
+      final pullResult = ItemFactory.rollGachaRarityWithPity(pityCount);
+      final item = ItemFactory.generateRandomItem(pullResult.rarity);
+      results.add(item);
+      inventory.addItem(item);
+      if (pullResult.pityTriggered ||
+          pullResult.rarity == QuestRarity.epic ||
+          pullResult.rarity == QuestRarity.legendary ||
+          pullResult.rarity == QuestRarity.mythic) {
+        pityCount = 0;
+      } else {
+        pityCount++;
+      }
+    }
+
+    // Sync pity final
+    if (pityCount == 0) {
+      await player.resetPity(userId);
+    } else {
+      // Sync: set pityCount directly by resetting then incrementing
+      await player.resetPity(userId);
+      for (int i = 0; i < pityCount; i++) {
+        await player.incrementPity(userId);
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _multiPullResults = results;
+        _lastItem = results.last;
+        _isRevealing = false;
+        for (final item in results) {
+          _history.insert(0, item);
+        }
+        if (_history.length > 10) _history.length = 10;
+      });
+    }
+    await _settings.put('gacha_first_done', true);
+    await _settings.put('gacha_multi_done', true);
   }
 
   Color _rarityColor(QuestRarity r) => AppColors.getRarityColor(r.name);
@@ -291,61 +358,152 @@ class _InvocationPageState extends State<InvocationPage>
             const SizedBox(height: 24),
 
             // Boutons
-            Row(
+            Column(
               children: [
-                Expanded(
-                  child: Consumer<PlayerViewModel>(
-                    builder: (ctx, player, _) {
-                      final crystals = player.stats?.crystals ?? 0;
-                      return FilledButton.icon(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppColors.primaryViolet,
-                          disabledBackgroundColor:
-                              AppColors.primaryViolet.withValues(alpha: 0.3),
-                        ),
-                        onPressed: (!_isRevealing && crystals >= 50)
-                            ? () => _pull(isFree: false)
-                            : null,
-                        icon: const Icon(Icons.diamond, size: 16),
-                        label: const Text('Invoquer (50 💎)'),
-                      );
-                    },
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Consumer<PlayerViewModel>(
+                        builder: (ctx, player, _) {
+                          final crystals = player.stats?.crystals ?? 0;
+                          return FilledButton.icon(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppColors.primaryViolet,
+                              disabledBackgroundColor:
+                                  AppColors.primaryViolet.withValues(alpha: 0.3),
+                            ),
+                            onPressed: (!_isRevealing && crystals >= 50)
+                                ? () => _pull(isFree: false)
+                                : null,
+                            icon: const Icon(Icons.diamond, size: 16),
+                            label: const Text('Invoquer (50 💎)'),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: StatefulBuilder(
+                        builder: (ctx, setLocalState) {
+                          return FilledButton.icon(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: _canUseFree
+                                  ? AppColors.gold
+                                  : AppColors.gold.withValues(alpha: 0.3),
+                            ),
+                            onPressed: (!_isRevealing && _canUseFree)
+                                ? () {
+                                    _pull(isFree: true);
+                                    setLocalState(() {});
+                                  }
+                                : null,
+                            icon: const Icon(Icons.star, size: 16,
+                                color: AppColors.backgroundNightCosmos),
+                            label: _canUseFree
+                                ? const Text('Gratuit',
+                                    style: TextStyle(
+                                        color: AppColors.backgroundNightCosmos))
+                                : Text(
+                                    _formatTimer(_freeTimeRemaining),
+                                    style: const TextStyle(
+                                        color: AppColors.backgroundNightCosmos,
+                                        fontSize: 11),
+                                  ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: StatefulBuilder(
-                    builder: (ctx, setLocalState) {
-                      return FilledButton.icon(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: _canUseFree
-                              ? AppColors.gold
-                              : AppColors.gold.withValues(alpha: 0.3),
+                const SizedBox(height: 8),
+                Consumer<PlayerViewModel>(
+                  builder: (ctx, player, _) {
+                    final crystals = player.stats?.crystals ?? 0;
+                    return SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(
+                            color: (!_isRevealing && crystals >= 450)
+                                ? AppColors.rarityEpic
+                                : AppColors.rarityEpic.withValues(alpha: 0.3),
+                          ),
+                          foregroundColor: AppColors.rarityEpic,
                         ),
-                        onPressed: (!_isRevealing && _canUseFree)
+                        onPressed: (!_isRevealing && crystals >= 450)
                             ? () {
-                                _pull(isFree: true);
-                                setLocalState(() {});
+                                setState(() => _multiPullResults = null);
+                                _pullMulti();
                               }
                             : null,
-                        icon: const Icon(Icons.star, size: 16,
-                            color: AppColors.backgroundNightCosmos),
-                        label: _canUseFree
-                            ? const Text('Gratuit',
-                                style: TextStyle(
-                                    color: AppColors.backgroundNightCosmos))
-                            : Text(
-                                _formatTimer(_freeTimeRemaining),
-                                style: const TextStyle(
-                                    color: AppColors.backgroundNightCosmos,
-                                    fontSize: 11),
-                              ),
-                      );
-                    },
-                  ),
+                        icon: const Icon(Icons.auto_awesome, size: 16),
+                        label: const Text('10× Invoquer (450 💎)'),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
+            // Résultats 10× pull
+            if (_multiPullResults != null) ...[
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  const Text(
+                    'Résultats',
+                    style: TextStyle(
+                        color: AppColors.primaryVioletLight,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15),
+                  ),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () => setState(() => _multiPullResults = null),
+                    child: const Icon(Icons.close,
+                        color: AppColors.textMuted, size: 18),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 5,
+                  crossAxisSpacing: 6,
+                  mainAxisSpacing: 6,
+                  childAspectRatio: 0.8,
+                ),
+                itemCount: _multiPullResults!.length,
+                itemBuilder: (_, i) {
+                  final item = _multiPullResults![i];
+                  final color = _rarityColor(item.rarity);
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: color.withValues(alpha: 0.5)),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(item.getIcon(), color: color, size: 24),
+                        const SizedBox(height: 4),
+                        Text(
+                          item.name,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              color: color, fontSize: 9, fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ],
+
             const SizedBox(height: 32),
 
             // Compteur pity

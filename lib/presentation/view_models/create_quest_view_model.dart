@@ -75,6 +75,23 @@ class CreateQuestViewModel extends ChangeNotifier {
     }
   }
 
+  Future<bool> updateQuest(Quest quest) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      await _questRepo.updateQuest(quest);
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString();
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
   void clearError() {
     _errorMessage = null;
     notifyListeners();

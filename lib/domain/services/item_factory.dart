@@ -448,6 +448,75 @@ class ItemFactory {
     );
   }
 
+  /// Catalogue des items achetables en cristaux (boutique premium).
+  static final List<Map<String, dynamic>> _crystalCatalog = [
+    {
+      'name': 'Potion de Soin Suprême',
+      'description': 'Restaure 50 HP instantanément.',
+      'type': ItemType.potion, 'rarity': QuestRarity.rare,
+      'iconCodePoint': Icons.favorite.codePoint,
+      'stats': {'hpBonus': 50}, 'goldValue': 0, 'crystalValue': 10,
+      'stackable': true,
+    },
+    {
+      'name': 'Élixir d\'XP',
+      'description': 'Double les XP gagnés sur votre prochaine quête.',
+      'type': ItemType.potion, 'rarity': QuestRarity.epic,
+      'iconCodePoint': Icons.auto_awesome.codePoint,
+      'stats': {'xpBonus': 100}, 'goldValue': 0, 'crystalValue': 20,
+      'stackable': true,
+    },
+    {
+      'name': 'Amulette du Héros',
+      'description': 'Accessoire légendaire qui booste XP et or simultanément.',
+      'type': ItemType.ring, 'rarity': QuestRarity.legendary,
+      'iconCodePoint': Icons.circle.codePoint,
+      'stats': {'xpBonus': 20, 'goldBonus': 20}, 'goldValue': 0, 'crystalValue': 50,
+    },
+    {
+      'name': 'Parchemin de Réinitialisation',
+      'description': 'Remet à zéro le cooldown de caresse du chat.',
+      'type': ItemType.potion, 'rarity': QuestRarity.uncommon,
+      'iconCodePoint': Icons.refresh.codePoint,
+      'stats': {'resetCatCooldown': 1}, 'goldValue': 0, 'crystalValue': 5,
+      'stackable': true,
+    },
+    {
+      'name': 'Chapeau du Magicien',
+      'description': 'Un chapeau violet étoilé pour votre compagnon.',
+      'type': ItemType.cosmetic, 'rarity': QuestRarity.epic,
+      'iconCodePoint': Icons.dry_outlined.codePoint,
+      'stats': {}, 'goldValue': 0, 'crystalValue': 30,
+      'cosmeticSlot': 'hat',
+    },
+    {
+      'name': 'Aura Dorée',
+      'description': 'Une aura dorée légendaire qui enveloppe votre chat.',
+      'type': ItemType.cosmetic, 'rarity': QuestRarity.legendary,
+      'iconCodePoint': Icons.auto_awesome_outlined.codePoint,
+      'stats': {}, 'goldValue': 0, 'crystalValue': 75,
+      'cosmeticSlot': 'aura',
+    },
+  ];
+
+  /// Retourne le catalogue achetable en cristaux (boutique premium).
+  static List<Item> getCrystalCatalog() {
+    return _crystalCatalog.map((c) => Item(
+          id: 'crystal_${c['name']}',
+          name: c['name'] as String,
+          description: c['description'] as String,
+          type: c['type'] as ItemType,
+          rarity: c['rarity'] as QuestRarity,
+          iconCodePoint: c['iconCodePoint'] as int,
+          stats: Map<String, int>.from((c['stats'] as Map?) ?? {}),
+          quantity: 1,
+          stackable: c['stackable'] as bool? ?? false,
+          goldValue: 0,
+          crystalValue: c['crystalValue'] as int,
+          cosmeticSlot: c['cosmeticSlot'] as String?,
+        )).toList();
+  }
+
   /// Retourne le catalogue achetable en boutique.
   static List<Item> getMarketCatalog() {
     return _catalog

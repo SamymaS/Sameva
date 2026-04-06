@@ -219,6 +219,44 @@ void main() {
       expect(vm.getMissedQuests(), hasLength(1));
     });
 
+    test('getMissedQuests exclut les quêtes sans deadline (fix bug fallback)', () async {
+      // Une quête créée il y a 2h sans deadline ne doit PAS être "missed"
+      final old = makeQuest(
+        id: 'no-deadline',
+        createdAt: DateTime.now().subtract(const Duration(hours: 2)),
+      );
+      when(() => repo.loadQuests('u')).thenAnswer((_) async => [old]);
+
+      await vm.loadQuests('u');
+
+      expect(vm.getMissedQuests(), isEmpty);
+    });
+
+    test('getMissedQuests exclut les quêtes avec deadline future', () async {
+      final future = DateTime.now().add(const Duration(hours: 3));
+      final q = makeQuest(id: 'future', deadline: future);
+      when(() => repo.loadQuests('u')).thenAnswer((_) async => [q]);
+
+      await vm.loadQuests('u');
+
+      expect(vm.getMissedQuests(), isEmpty);
+    });
+
+    test('getMissedQuests exclut les quêtes complétées même si deadline passée', () async {
+      final past = DateTime.now().subtract(const Duration(hours: 1));
+      final q = makeQuest(
+        id: 'done',
+        status: QuestStatus.completed,
+        deadline: past,
+        completedAt: DateTime.now().subtract(const Duration(hours: 2)),
+      );
+      when(() => repo.loadQuests('u')).thenAnswer((_) async => [q]);
+
+      await vm.loadQuests('u');
+
+      expect(vm.getMissedQuests(), isEmpty);
+    });
+
     test('getCompletedQuestsToday inclut une quête complétée aujourd\'hui', () async {
       final now = DateTime.now();
       final noon = DateTime(now.year, now.month, now.day, 12);

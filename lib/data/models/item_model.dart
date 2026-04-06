@@ -16,6 +16,8 @@ class Item {
   final int quantity;
   final bool stackable;
   final int goldValue;
+  /// Prix en cristaux (0 = non disponible en boutique premium).
+  final int crystalValue;
   final String? cosmeticSlot; // 'hat' | 'outfit' | 'pants' | 'shoes' | 'aura'
 
   /// Chemin vers l'asset SVG pixel art (ex: 'assets/items/sword_rusty.svg').
@@ -33,6 +35,7 @@ class Item {
     this.quantity = 1,
     this.stackable = false,
     required this.goldValue,
+    this.crystalValue = 0,
     this.cosmeticSlot,
     this.assetPath,
   });
@@ -65,6 +68,7 @@ class Item {
         'quantity': quantity,
         'stackable': stackable,
         'goldValue': goldValue,
+        if (crystalValue > 0) 'crystalValue': crystalValue,
         if (cosmeticSlot != null) 'cosmeticSlot': cosmeticSlot,
         if (assetPath != null) 'assetPath': assetPath,
       };
@@ -82,6 +86,7 @@ class Item {
         quantity: json['quantity'] as int? ?? 1,
         stackable: json['stackable'] as bool? ?? false,
         goldValue: json['goldValue'] as int? ?? 0,
+        crystalValue: json['crystalValue'] as int? ?? 0,
         cosmeticSlot: json['cosmeticSlot'] as String?,
         assetPath: json['assetPath'] as String?,
       );
@@ -97,6 +102,7 @@ class Item {
     int? quantity,
     bool? stackable,
     int? goldValue,
+    int? crystalValue,
     String? cosmeticSlot,
     String? assetPath,
   }) =>
@@ -111,6 +117,7 @@ class Item {
         quantity: quantity ?? this.quantity,
         stackable: stackable ?? this.stackable,
         goldValue: goldValue ?? this.goldValue,
+        crystalValue: crystalValue ?? this.crystalValue,
         cosmeticSlot: cosmeticSlot ?? this.cosmeticSlot,
         assetPath: assetPath ?? this.assetPath,
       );

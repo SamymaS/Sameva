@@ -63,7 +63,8 @@ enum ValidationType {
   manual,
   photo,
   timer,
-  geolocation;
+  geolocation,
+  ai;
 
   // P3 : .name correspond exactement aux valeurs Supabase
   String toSupabaseString() => name;
