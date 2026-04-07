@@ -6,6 +6,7 @@ import '../../../data/models/item_model.dart';
 import '../../../data/models/player_stats_model.dart';
 import '../../../domain/services/activity_log_service.dart';
 import 'achievements_page.dart';
+import '../social/leaderboard_page.dart';
 import 'activity_log_page.dart';
 import '../../../data/repositories/player_repository.dart';
 import '../../../data/repositories/quest_repository.dart';
@@ -97,6 +98,14 @@ class _ProfileContent extends StatelessWidget {
             pinned: true,
             backgroundColor: AppColors.backgroundNightBlue,
             actions: [
+              IconButton(
+                icon: const Icon(Icons.leaderboard_rounded,
+                    color: AppColors.primaryVioletLight, size: 20),
+                tooltip: 'Classement',
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const LeaderboardPage()),
+                ),
+              ),
               IconButton(
                 icon: const Icon(Icons.emoji_events_outlined,
                     color: AppColors.gold, size: 20),
@@ -954,9 +963,9 @@ class _ActivityChart extends StatelessWidget {
                 style: const TextStyle(
                     color: AppColors.textMuted, fontSize: 9),
               ),
-              Text(
+              const Text(
                 'Auj.',
-                style: const TextStyle(
+                style: TextStyle(
                     color: AppColors.textMuted, fontSize: 9),
               ),
             ],

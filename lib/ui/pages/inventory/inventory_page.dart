@@ -10,6 +10,7 @@ import '../../theme/app_colors.dart';
 import '../../utils/app_notification.dart';
 import '../../widgets/common/item_icon.dart';
 import '../cat/cat_page.dart';
+import 'craft_page.dart';
 
 /// Page inventaire — grille 4 colonnes avec cartes item visuelles.
 class InventoryPage extends StatefulWidget {
@@ -74,6 +75,14 @@ class _InventoryPageState extends State<InventoryPage> {
                   ),
                 ),
               ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.hardware_rounded,
+                color: AppColors.textSecondary, size: 22),
+            tooltip: 'Atelier de Forge',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const CraftPage()),
             ),
           ),
           IconButton(

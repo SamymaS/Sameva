@@ -646,9 +646,19 @@ class _CosmeticPreviewSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final rarityColor = AppColors.getRarityColor(item.rarity.name);
 
-    // Preview : chapeau uniquement (autres slots → emoji + message)
-    final showCatPreview = item.cosmeticSlot == 'hat';
-    final hatId = showCatPreview ? item.id : null;
+    // Preview : chapeau, tenue et aura → aperçu chat en direct
+    final slot = item.cosmeticSlot;
+    final showCatPreview = slot == 'hat' || slot == 'outfit' || slot == 'aura';
+    final hatId = slot == 'hat' ? item.id : null;
+
+    // Résoudre la couleur pour tenue/aura depuis stats['colorValue']
+    final colorVal = item.stats['colorValue'];
+    final outfitColor = (slot == 'outfit' && colorVal != null)
+        ? Color(colorVal | 0xFF000000)
+        : null;
+    final auraColor = (slot == 'aura' && colorVal != null)
+        ? Color(colorVal | 0xFF000000)
+        : null;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
@@ -687,7 +697,13 @@ class _CosmeticPreviewSheet extends StatelessWidget {
                     ],
                   ),
                 ),
-                CatWidget(race: race, equippedHat: hatId, size: 150),
+                CatWidget(
+                  race: race,
+                  equippedHat: hatId,
+                  outfitColor: outfitColor,
+                  auraColor: auraColor,
+                  size: 150,
+                ),
               ],
             ),
           ] else ...[

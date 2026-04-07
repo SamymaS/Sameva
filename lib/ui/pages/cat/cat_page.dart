@@ -239,11 +239,39 @@ class _CatHeroSection extends StatelessWidget {
 
   const _CatHeroSection({required this.cat});
 
+  /// Résout la couleur d'un cosmétique à partir de l'id de l'objet en inventaire.
+  Color? _resolveColor(BuildContext context, String? itemId) {
+    if (itemId == null) return null;
+    final items = context.read<InventoryViewModel>().items;
+    try {
+      final item = items.firstWhere((i) => i.id == itemId);
+      final v = item.stats['colorValue'];
+      return v != null ? Color(v) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Résout le nom d'affichage d'un objet cosmétique.
+  String? _resolveName(BuildContext context, String? itemId) {
+    if (itemId == null) return null;
+    final items = context.read<InventoryViewModel>().items;
+    try {
+      return items.firstWhere((i) => i.id == itemId).name;
+    } catch (_) {
+      return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final outfitColor = _resolveColor(context, cat.equippedOutfit);
+    final auraColor   = _resolveColor(context, cat.equippedAura);
+    final titleName   = _resolveName(context, cat.equippedTitle);
+
     return Column(
       children: [
-        // Glow violet derrière le chat
+        // Glow derrière le chat (couleur de la race ou de l'aura)
         Container(
           width: 220,
           height: 220,
@@ -251,7 +279,7 @@ class _CatHeroSection extends StatelessWidget {
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: catBodyColor(cat.race).withValues(alpha: 0.30),
+                color: (auraColor ?? catBodyColor(cat.race)).withValues(alpha: 0.30),
                 blurRadius: 60,
                 spreadRadius: 20,
               ),
@@ -261,6 +289,8 @@ class _CatHeroSection extends StatelessWidget {
             child: CatWidget(
               race: cat.race,
               equippedHat: cat.equippedHat,
+              outfitColor: outfitColor,
+              auraColor: auraColor,
               size: 200,
               mood: 'happy',
             ),
@@ -272,7 +302,8 @@ class _CatHeroSection extends StatelessWidget {
         // Nom du chat
         Text(
           cat.name,
-          style: GoogleFonts.nunito(fontWeight: FontWeight.w800,
+          style: GoogleFonts.nunito(
+            fontWeight: FontWeight.w800,
             color: AppColors.textPrimary,
             fontSize: 26,
             letterSpacing: 0.5,
@@ -296,6 +327,27 @@ class _CatHeroSection extends StatelessWidget {
             _RarityBadge(rarity: cat.rarity),
           ],
         ),
+
+        // Titre équipé (si présent)
+        if (titleName != null) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.gold.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.gold.withValues(alpha: 0.4)),
+            ),
+            child: Text(
+              '✨ $titleName',
+              style: GoogleFonts.nunito(
+                color: AppColors.gold,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }

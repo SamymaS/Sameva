@@ -9,6 +9,7 @@ import 'data/repositories/auth_repository.dart';
 import 'data/repositories/quest_repository.dart';
 import 'data/repositories/player_repository.dart';
 import 'data/repositories/user_repository.dart';
+import 'data/repositories/leaderboard_repository.dart';
 import 'domain/services/notification_service.dart';
 import 'presentation/view_models/quest_view_model.dart';
 import 'presentation/view_models/player_view_model.dart';
@@ -52,11 +53,12 @@ void main() async {
   await NotificationService.init();
 
   // Repositories
-  final supabase   = Supabase.instance.client;
-  final authRepo   = AuthRepository(supabase);
-  final userRepo   = UserRepository(supabase);
-  final questRepo  = QuestRepository(supabase, userRepo);
-  final playerRepo = PlayerRepository(statsBox, supabase);
+  final supabase        = Supabase.instance.client;
+  final authRepo        = AuthRepository(supabase);
+  final userRepo        = UserRepository(supabase);
+  final questRepo       = QuestRepository(supabase, userRepo);
+  final playerRepo      = PlayerRepository(statsBox, supabase);
+  final leaderboardRepo = LeaderboardRepository(supabase);
 
   final inventoryBox       = Hive.box('inventory');
   final equipmentBox       = Hive.box('equipment');
@@ -77,6 +79,7 @@ void main() async {
         // Repositories exposés pour injection dans les ViewModels de pages
         Provider<QuestRepository>.value(value: questRepo),
         Provider<PlayerRepository>.value(value: playerRepo),
+        Provider<LeaderboardRepository>.value(value: leaderboardRepo),
 
         ChangeNotifierProvider(create: (_) => NotificationViewModel(settingsBox)),
         ChangeNotifierProvider.value(value: questViewModel),

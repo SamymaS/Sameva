@@ -14,19 +14,22 @@ Color catBodyColor(String race) => switch (race) {
     };
 
 /// Couleur intérieure des oreilles (plus claire).
-Color _earInnerColor(Color body) =>
-    Color.lerp(body, Colors.white, 0.45)!;
+Color _earInnerColor(Color body) => Color.lerp(body, Colors.white, 0.45)!;
 
 /// Widget affichant le chat compagnon du joueur.
 ///
 /// Paramètres :
-/// - [race] : race du chat (michi/lune/braise/neige/cosmos/sakura)
-/// - [equippedHat] : identifiant du chapeau équipé (null = aucun)
-/// - [size] : taille totale du widget (carré)
-/// - [mood] : expression (happy/neutral/sad/excited/sleepy)
+/// - [race]         : race du chat (michi/lune/braise/neige/cosmos/sakura)
+/// - [equippedHat]  : identifiant du chapeau équipé (null = aucun)
+/// - [outfitColor]  : couleur de la tenue équipée (null = aucune)
+/// - [auraColor]    : couleur de l'aura équipée (null = aucune)
+/// - [size]         : taille totale du widget (carré)
+/// - [mood]         : expression (happy/neutral/sad/excited/sleepy)
 class CatWidget extends StatefulWidget {
   final String race;
   final String? equippedHat;
+  final Color? outfitColor;
+  final Color? auraColor;
   final double size;
   final String mood;
 
@@ -34,6 +37,8 @@ class CatWidget extends StatefulWidget {
     super.key,
     required this.race,
     this.equippedHat,
+    this.outfitColor,
+    this.auraColor,
     this.size = 160,
     this.mood = 'happy',
   });
@@ -43,26 +48,40 @@ class CatWidget extends StatefulWidget {
 }
 
 class _CatWidgetState extends State<CatWidget>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
+    with TickerProviderStateMixin {
+  late final AnimationController _swayCtrl;
   late final Animation<double> _sway;
+
+  late final AnimationController _auraCtrl;
+  late final Animation<double> _auraPulse;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(
+
+    // Balancement du chat
+    _swayCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 3000),
     )..repeat(reverse: true);
-
     _sway = Tween<double>(begin: -0.04, end: 0.04).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+      CurvedAnimation(parent: _swayCtrl, curve: Curves.easeInOut),
+    );
+
+    // Pulsation de l'aura
+    _auraCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat(reverse: true);
+    _auraPulse = Tween<double>(begin: 0.4, end: 0.9).animate(
+      CurvedAnimation(parent: _auraCtrl, curve: Curves.easeInOut),
     );
   }
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    _swayCtrl.dispose();
+    _auraCtrl.dispose();
     super.dispose();
   }
 
@@ -74,14 +93,22 @@ class _CatWidgetState extends State<CatWidget>
       width: widget.size,
       height: widget.size,
       child: AnimatedBuilder(
-        animation: _sway,
+        animation: Listenable.merge([_sway, _auraPulse]),
         builder: (_, __) => Transform.rotate(
           angle: _sway.value,
           child: Stack(
             alignment: Alignment.center,
             clipBehavior: Clip.none,
             children: [
-              // Corps + tête + détails
+              // ── Aura (derrière le corps) ──────────────────────────────────
+              if (widget.auraColor != null)
+                _AuraLayer(
+                  color: widget.auraColor!,
+                  pulse: _auraPulse.value,
+                  size: widget.size,
+                ),
+
+              // ── Corps + tête + détails ─────────────────────────────────────
               CustomPaint(
                 size: Size(widget.size, widget.size),
                 painter: _CatPainter(
@@ -90,7 +117,15 @@ class _CatWidgetState extends State<CatWidget>
                   mood: widget.mood,
                 ),
               ),
-              // Chapeau (cosmétique)
+
+              // ── Tenue (sur le corps) ───────────────────────────────────────
+              if (widget.outfitColor != null)
+                _OutfitLayer(
+                  color: widget.outfitColor!,
+                  size: widget.size,
+                ),
+
+              // ── Chapeau (au-dessus de la tête) ────────────────────────────
               if (widget.equippedHat != null)
                 Positioned(
                   top: widget.size * 0.01,
@@ -100,6 +135,83 @@ class _CatWidgetState extends State<CatWidget>
                   ),
                 ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Couche aura — anneau lumineux pulsant
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _AuraLayer extends StatelessWidget {
+  final Color color;
+  final double pulse;
+  final double size;
+
+  const _AuraLayer({
+    required this.color,
+    required this.pulse,
+    required this.size,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final ringSize = size * 1.1;
+    return SizedBox(
+      width: ringSize,
+      height: ringSize,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: color.withValues(alpha: pulse * 0.7),
+            width: size * 0.03,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: pulse * 0.5),
+              blurRadius: size * 0.25,
+              spreadRadius: size * 0.04,
+            ),
+            BoxShadow(
+              color: color.withValues(alpha: pulse * 0.3),
+              blurRadius: size * 0.45,
+              spreadRadius: size * 0.02,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Couche tenue — ruban coloré sur le corps
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _OutfitLayer extends StatelessWidget {
+  final Color color;
+  final double size;
+
+  const _OutfitLayer({required this.color, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: size * 0.54,
+      left: size * 0.27,
+      child: Container(
+        width: size * 0.46,
+        height: size * 0.20,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.55),
+          borderRadius: BorderRadius.circular(size * 0.08),
+          border: Border.all(
+            color: color.withValues(alpha: 0.80),
+            width: 1.2,
           ),
         ),
       ),
@@ -214,14 +326,12 @@ class _CatPainter extends CustomPainter {
 
     switch (mood) {
       case 'excited':
-        // Yeux en forme de ★ — on dessine des cercles plus grands
         canvas.drawCircle(Offset(w * 0.37, h * 0.34), w * 0.065, pupilPaint);
         canvas.drawCircle(Offset(w * 0.63, h * 0.34), w * 0.065, pupilPaint);
         canvas.drawCircle(Offset(w * 0.39, h * 0.31), w * 0.025, shinePaint);
         canvas.drawCircle(Offset(w * 0.65, h * 0.31), w * 0.025, shinePaint);
 
       case 'sad':
-        // Demi-cercles vers le bas (yeux tombants)
         final sadEye = Paint()..color = const Color(0xFF1A0A00);
         final rectL = Rect.fromCenter(
             center: Offset(w * 0.37, h * 0.345), width: w * 0.10, height: w * 0.10);
@@ -231,7 +341,6 @@ class _CatPainter extends CustomPainter {
         canvas.drawArc(rectR, 0, math.pi, true, sadEye);
 
       case 'sleepy':
-        // Demi-cercles (yeux mi-clos)
         final sleepPaint = Paint()..color = const Color(0xFF1A0A00);
         final rectL = Rect.fromCenter(
             center: Offset(w * 0.37, h * 0.34), width: w * 0.10, height: w * 0.10);
@@ -241,7 +350,6 @@ class _CatPainter extends CustomPainter {
         canvas.drawArc(rectR, math.pi, math.pi, true, sleepPaint);
 
       default:
-        // Yeux ronds (happy / neutral)
         canvas.drawCircle(Offset(w * 0.37, h * 0.34), w * 0.055, pupilPaint);
         canvas.drawCircle(Offset(w * 0.63, h * 0.34), w * 0.055, pupilPaint);
         canvas.drawCircle(Offset(w * 0.39, h * 0.31), w * 0.020, shinePaint);
@@ -261,12 +369,10 @@ class _CatPainter extends CustomPainter {
 
     final path = Path();
     if (mood == 'sad') {
-      // Bouche triste
       path
         ..moveTo(w * 0.43, h * 0.48)
         ..cubicTo(w * 0.47, h * 0.46, w * 0.53, h * 0.46, w * 0.57, h * 0.48);
     } else {
-      // Bouche souriante
       path
         ..moveTo(w * 0.43, h * 0.47)
         ..cubicTo(w * 0.47, h * 0.50, w * 0.53, h * 0.50, w * 0.57, h * 0.47);
@@ -284,12 +390,10 @@ class _CatPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
-    // Gauche
     canvas.drawLine(Offset(w * 0.08, h * 0.43), Offset(w * 0.43, h * 0.44), wp);
     canvas.drawLine(Offset(w * 0.08, h * 0.46), Offset(w * 0.43, h * 0.46), wp);
     canvas.drawLine(Offset(w * 0.08, h * 0.49), Offset(w * 0.43, h * 0.48), wp);
 
-    // Droite
     canvas.drawLine(Offset(w * 0.92, h * 0.43), Offset(w * 0.57, h * 0.44), wp);
     canvas.drawLine(Offset(w * 0.92, h * 0.46), Offset(w * 0.57, h * 0.46), wp);
     canvas.drawLine(Offset(w * 0.92, h * 0.49), Offset(w * 0.57, h * 0.48), wp);
@@ -314,7 +418,7 @@ class _HatWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (emoji, color) = _hatData(hat);
+    final (emoji, _) = _hatData(hat);
     return Container(
       width: size,
       height: size * 0.55,
