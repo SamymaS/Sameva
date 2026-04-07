@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:postgrest/postgrest.dart';
 import 'package:sameva/data/repositories/user_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -170,11 +169,7 @@ void main() {
         final qb = _MockQueryBuilder();
         // Première appel from('users') → select → null (user absent)
         // Deuxième appel from('users') → insert
-        var callCount = 0;
-        when(() => supabase.from('users')).thenAnswer((_) {
-          callCount++;
-          return qb;
-        });
+        when(() => supabase.from('users')).thenReturn(qb);
         when(() => qb.select(any()))
             .thenAnswer((_) => _FakeSelectFilter(null));
         when(() => goTrue.currentUser).thenReturn(authUser);

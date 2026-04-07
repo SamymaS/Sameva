@@ -103,7 +103,7 @@ void main() {
 
   // ── Filtres et tri ────────────────────────────────────────────────────────
 
-  Quest _makeQuest({
+  Quest makeQuest({
     required String id,
     String category = 'Sport',
     QuestFrequency frequency = QuestFrequency.daily,
@@ -128,10 +128,10 @@ void main() {
     setUp(() async {
       when(() => auth.userId).thenReturn('u1');
       when(() => questRepo.loadQuests('u1')).thenAnswer((_) async => [
-            _makeQuest(id: '1', category: 'Sport', frequency: QuestFrequency.daily, difficulty: 3),
-            _makeQuest(id: '2', category: 'Santé', frequency: QuestFrequency.weekly, difficulty: 1),
-            _makeQuest(id: '3', category: 'Sport', frequency: QuestFrequency.monthly, difficulty: 2),
-            _makeQuest(id: '4', category: 'Santé', frequency: QuestFrequency.daily, difficulty: 1,
+            makeQuest(id: '1', category: 'Sport', frequency: QuestFrequency.daily, difficulty: 3),
+            makeQuest(id: '2', category: 'Santé', frequency: QuestFrequency.weekly, difficulty: 1),
+            makeQuest(id: '3', category: 'Sport', frequency: QuestFrequency.monthly, difficulty: 2),
+            makeQuest(id: '4', category: 'Santé', frequency: QuestFrequency.daily, difficulty: 1,
                 status: QuestStatus.completed),
           ]);
       await vm.loadQuests();

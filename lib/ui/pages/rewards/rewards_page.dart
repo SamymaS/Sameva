@@ -2,7 +2,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../data/models/item_model.dart';
-import '../../../data/models/player_stats_model.dart';
 import '../../../data/models/quest_model.dart';
 import '../../../presentation/view_models/player_view_model.dart';
 import '../../../presentation/view_models/rewards_view_model.dart';
@@ -631,7 +630,7 @@ class _UnlockedAchievementsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final definitions = PlayerStats.achievementDefinitions;
+    const definitions = PlayerStats.achievementDefinitions;
     final unlocked = ids
         .map((id) => definitions.firstWhere(
               (d) => d['id'] == id,

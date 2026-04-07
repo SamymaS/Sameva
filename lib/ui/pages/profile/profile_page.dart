@@ -973,7 +973,7 @@ class _XpBarChartPainter extends CustomPainter {
   final List<double> values;
   final double maxVal;
 
-  _XpBarChartPainter({required this.values, required this.maxVal});
+  const _XpBarChartPainter({required this.values, required this.maxVal});
 
   @override
   void paint(Canvas canvas, Size size) {

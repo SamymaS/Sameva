@@ -12,8 +12,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class _MockAuthRepository extends Mock implements AuthRepository {}
 
-class _MockUser extends Mock implements User {}
-
 Widget _buildLogin(AuthViewModel vm) {
   return ChangeNotifierProvider<AuthViewModel>.value(
     value: vm,

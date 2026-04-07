@@ -6,7 +6,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
-import 'package:sameva/data/models/player_stats_model.dart';
 import 'package:sameva/data/models/quest_model.dart';
 import 'package:sameva/data/repositories/auth_repository.dart';
 import 'package:sameva/data/repositories/player_repository.dart';

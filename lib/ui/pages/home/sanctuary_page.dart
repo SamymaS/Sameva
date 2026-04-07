@@ -151,14 +151,14 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
     final dayOfWeek = now.weekday; // 1=Lundi … 7=Dimanche
     if (dayOfWeek < 2) return; // Lundi même jour : pas encore de résumé
 
+    final questVM = context.read<QuestViewModel>();
+    final playerVM = context.read<PlayerViewModel>();
+
     await settings.put('last_weekly_summary', weekKey);
 
     // Stats de la semaine précédente (lundi dernier → dimanche dernier)
     final prevMonday = monday.subtract(const Duration(days: 7));
     final prevSunday = monday.subtract(const Duration(seconds: 1));
-
-    final questVM = context.read<QuestViewModel>();
-    final playerVM = context.read<PlayerViewModel>();
 
     final weekQuests = questVM.completedQuests.where((q) =>
       q.completedAt != null &&
@@ -993,7 +993,7 @@ class _BossQuestCard extends StatelessWidget {
                 color: AppColors.gold,
                 label: '+${quest.goldReward ?? 0} or',
               ),
-              _RewardChip(
+              const _RewardChip(
                 icon: Icons.inventory_2_outlined,
                 color: AppColors.rarityLegendary,
                 label: 'Loot rare+',

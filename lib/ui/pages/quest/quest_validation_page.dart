@@ -989,12 +989,12 @@ class _TextProofSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             children: [
-              const Icon(Icons.psychology,
+              Icon(Icons.psychology,
                   color: AppColors.secondaryViolet, size: 18),
-              const SizedBox(width: 8),
-              const Text(
+              SizedBox(width: 8),
+              Text(
                 'Validation IA',
                 style: TextStyle(
                     color: AppColors.textSecondary,

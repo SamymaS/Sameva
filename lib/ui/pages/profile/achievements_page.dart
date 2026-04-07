@@ -9,7 +9,7 @@ class AchievementsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final unlocked = AchievementService.getUnlocked();
-    final all = AchievementService.all;
+    const all = AchievementService.all;
     final unlockedCount = all.where((a) => unlocked.containsKey(a.id)).length;
 
     return Scaffold(

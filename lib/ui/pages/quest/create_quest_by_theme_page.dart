@@ -119,7 +119,7 @@ class _CreateQuestByThemePageState extends State<CreateQuestByThemePage> {
                   const Text('Durée estimée :'),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<int>(
-                    value: duration,
+                    initialValue: duration,
                     items: [15, 20, 25, 30, 45, 60]
                         .map((m) => DropdownMenuItem(value: m, child: Text('$m min')))
                         .toList(),

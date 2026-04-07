@@ -121,7 +121,7 @@ class _ThemeTile extends StatelessWidget {
       ),
       trailing: Switch(
         value: isDark,
-        activeColor: AppColors.primaryTurquoise,
+        activeThumbColor: AppColors.primaryTurquoise,
         onChanged: (v) => context.read<SettingsViewModel>().setDarkMode(v),
       ),
     );
@@ -244,7 +244,7 @@ class _StreakNotifTile extends StatelessWidget {
       ),
       trailing: Switch(
         value: vm.streakNotifEnabled,
-        activeColor: AppColors.warning,
+        activeThumbColor: AppColors.warning,
         onChanged: (v) => context.read<SettingsViewModel>().setStreakNotif(v),
       ),
     );
@@ -267,7 +267,7 @@ class _DeadlineNotifTile extends StatelessWidget {
       ),
       trailing: Switch(
         value: vm.deadlineNotifEnabled,
-        activeColor: AppColors.coralRare,
+        activeThumbColor: AppColors.coralRare,
         onChanged: (v) => context.read<SettingsViewModel>().setDeadlineNotif(v),
       ),
     );

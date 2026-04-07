@@ -55,7 +55,7 @@ void main() {
       });
 
       test('authStateChanges délègue au stream GoTrue', () {
-        final stream = const Stream<AuthState>.empty();
+        const stream = Stream<AuthState>.empty();
         when(() => goTrue.onAuthStateChange).thenAnswer((_) => stream);
 
         expect(repo.authStateChanges, stream);

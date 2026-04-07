@@ -1,6 +1,5 @@
 import 'dart:math';
 import '../../data/models/item_model.dart';
-import '../../data/models/player_stats_model.dart';
 import '../../data/models/quest_model.dart';
 import '../../domain/services/activity_log_service.dart';
 import '../../domain/services/item_factory.dart';

@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:postgrest/postgrest.dart';
 import 'package:sameva/data/models/quest_model.dart';
 import 'package:sameva/data/repositories/quest_repository.dart';
 import 'package:sameva/data/repositories/user_repository.dart';
@@ -16,6 +15,7 @@ class _MockQueryBuilder extends Mock implements SupabaseQueryBuilder {}
 
 /// Fake filtre Supabase pour les opérations d'écriture (update/delete).
 /// La valeur retournée est ignorée par le repo ; on simule une réponse vide.
+// ignore: must_be_immutable
 class _FakeWriteFilter extends Fake
     implements PostgrestFilterBuilder<PostgrestList> {
   bool eqCalled = false;
