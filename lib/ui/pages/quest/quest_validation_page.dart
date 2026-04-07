@@ -18,6 +18,7 @@ import '../../../presentation/view_models/inventory_view_model.dart';
 import '../../../presentation/view_models/player_view_model.dart';
 import '../../../presentation/view_models/quest_view_model.dart';
 import '../../theme/app_colors.dart';
+import '../../utils/app_notification.dart';
 import '../../widgets/cat/cat_reaction_overlay.dart';
 import '../rewards/rewards_page.dart';
 
@@ -135,10 +136,11 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
       if (mounted) setState(() => _analysisResult = r);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Erreur analyse : $e'),
+        AppNotification.show(
+          context,
+          message: 'Erreur analyse : $e',
           backgroundColor: AppColors.error,
-        ));
+        );
       }
     } finally {
       if (mounted) setState(() => _isAnalyzing = false);
@@ -163,11 +165,10 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
       if (mounted) setState(() => _analysisResult = r);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur analyse : $e'),
-            backgroundColor: AppColors.error,
-          ),
+        AppNotification.show(
+          context,
+          message: 'Erreur analyse : $e',
+          backgroundColor: AppColors.error,
         );
       }
     } finally {
@@ -231,11 +232,10 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur : $e'),
-          backgroundColor: AppColors.error,
-        ),
+      AppNotification.show(
+        context,
+        message: 'Erreur : $e',
+        backgroundColor: AppColors.error,
       );
     } finally {
       if (mounted) setState(() => _isValidating = false);
@@ -922,8 +922,9 @@ class _ValidateButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+      padding: EdgeInsets.fromLTRB(20, 12, 20, 16 + bottomInset),
       decoration: BoxDecoration(
         color: AppColors.backgroundNightBlue,
         border: Border(

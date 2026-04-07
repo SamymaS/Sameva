@@ -8,6 +8,7 @@ import '../../../presentation/view_models/cat_view_model.dart';
 import '../../../presentation/view_models/inventory_view_model.dart';
 import '../../../presentation/view_models/player_view_model.dart';
 import '../../theme/app_colors.dart';
+import '../../utils/app_notification.dart';
 import '../../widgets/cat/cat_widget.dart';
 
 /// Page principale du chat compagnon.
@@ -81,13 +82,11 @@ class _CatPageContentState extends State<_CatPageContent> {
     }
     if (!mounted) return;
     setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Ronron... +5% moral !'),
-        backgroundColor: AppColors.mintMagic,
-        behavior: SnackBarBehavior.floating,
-        duration: Duration(seconds: 2),
-      ),
+    AppNotification.show(
+      context,
+      message: 'Ronron... +5% moral !',
+      backgroundColor: AppColors.mintMagic,
+      duration: const Duration(seconds: 2),
     );
   }
 
@@ -369,6 +368,7 @@ class _CosmeticSlots extends StatelessWidget {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.backgroundDarkPanel,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),

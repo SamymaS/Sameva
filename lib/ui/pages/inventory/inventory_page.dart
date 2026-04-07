@@ -7,6 +7,7 @@ import '../../../presentation/view_models/equipment_view_model.dart';
 import '../../../presentation/view_models/inventory_view_model.dart';
 import '../../../presentation/view_models/player_view_model.dart';
 import '../../theme/app_colors.dart';
+import '../../utils/app_notification.dart';
 import '../../widgets/common/item_icon.dart';
 import '../cat/cat_page.dart';
 
@@ -225,6 +226,7 @@ class _InventoryPageState extends State<InventoryPage> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      useSafeArea: true,
       builder: (_) => _ItemSheet(
         item: item,
         inventory: inventory,
@@ -964,10 +966,11 @@ class _ActionButtons extends StatelessWidget {
           inventory.removeItem(item.id);
           if (player.stats != null) player.addGold(userId, price);
           Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Vendu pour $price or'),
+          AppNotification.show(
+            context,
+            message: 'Vendu pour $price or',
             backgroundColor: AppColors.backgroundDarkPanel,
-          ));
+          );
         },
       ),
     ));

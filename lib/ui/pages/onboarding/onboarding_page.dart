@@ -128,7 +128,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
           const SizedBox(height: 16),
           // Bouton suivant / commencer
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            padding: EdgeInsets.fromLTRB(24, 16, 24, 16 + MediaQuery.of(context).padding.bottom),
             child: SizedBox(
               width: double.infinity,
               child: FilledButton(

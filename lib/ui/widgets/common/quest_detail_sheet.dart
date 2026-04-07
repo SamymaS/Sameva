@@ -37,6 +37,7 @@ class QuestDetailSheet extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      useSafeArea: true,
       builder: (_) => QuestDetailSheet(
         quest: quest,
         onValidate: onValidate,

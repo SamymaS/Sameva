@@ -14,6 +14,7 @@ import '../../../presentation/view_models/equipment_view_model.dart';
 import '../../../presentation/view_models/player_view_model.dart';
 import '../../../presentation/view_models/quest_view_model.dart';
 import '../../theme/app_colors.dart';
+import '../../utils/app_notification.dart';
 import '../../widgets/cat/cat_widget.dart';
 
 /// Page d'accueil : sanctuaire du joueur.
@@ -82,18 +83,14 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
     if (!mounted) return;
     for (final id in newlyUnlocked) {
       final achievement = AchievementService.all.firstWhere((a) => a.id == id);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Row(
-          children: [
-            Icon(achievement.icon, color: achievement.color, size: 18),
-            const SizedBox(width: 8),
-            Text('Succès débloqué : ${achievement.name}'),
-          ],
-        ),
+      AppNotification.show(
+        context,
+        message: 'Succès débloqué : ${achievement.name}',
+        icon: achievement.icon,
+        iconColor: achievement.color,
         backgroundColor: AppColors.backgroundDarkPanel,
-        behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 3),
-      ));
+      );
     }
   }
 
@@ -135,12 +132,10 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
     await questVM.addQuest(boss);
     await WeeklyBossService.markGenerated();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Un nouveau boss hebdomadaire est apparu !'),
-        backgroundColor: AppColors.rarityEpic,
-        behavior: SnackBarBehavior.floating,
-      ),
+    AppNotification.show(
+      context,
+      message: 'Un nouveau boss hebdomadaire est apparu !',
+      backgroundColor: AppColors.rarityEpic,
     );
   }
 
@@ -196,6 +191,7 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
+      useSafeArea: true,
       builder: (_) => _WeeklySummarySheet(
         questsCompleted: weekQuests.length,
         xpEarned: weekXp,
@@ -255,14 +251,10 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
     await playerVM.updateMoral(userId, -(missed.length * 0.1));
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '${missed.length} quête${missed.length > 1 ? 's' : ''} manquée${missed.length > 1 ? 's' : ''} — $totalDamage HP perdus',
-        ),
-        backgroundColor: AppColors.coralRare.withValues(alpha: 0.95),
-        behavior: SnackBarBehavior.floating,
-      ),
+    AppNotification.show(
+      context,
+      message: '${missed.length} quête${missed.length > 1 ? 's' : ''} manquée${missed.length > 1 ? 's' : ''} — $totalDamage HP perdus',
+      backgroundColor: AppColors.coralRare.withValues(alpha: 0.95),
     );
   }
 
@@ -673,27 +665,36 @@ class _StatsCard extends StatelessWidget {
                   ),
                 ],
               ),
-              Row(
-                children: [
-                  const Icon(Icons.monetization_on,
-                      color: AppColors.gold, size: 18),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${stats.gold}',
-                    style: const TextStyle(
-                        color: AppColors.gold, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(width: 12),
-                  const Icon(Icons.diamond,
-                      color: AppColors.crystalBlue, size: 18),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${stats.crystals}',
-                    style: const TextStyle(
-                        color: AppColors.crystalBlue,
-                        fontWeight: FontWeight.bold),
-                  ),
-                ],
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.monetization_on,
+                        color: AppColors.gold, size: 18),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        '${stats.gold}',
+                        style: const TextStyle(
+                            color: AppColors.gold, fontWeight: FontWeight.bold),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Icon(Icons.diamond,
+                        color: AppColors.crystalBlue, size: 18),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        '${stats.crystals}',
+                        style: const TextStyle(
+                            color: AppColors.crystalBlue,
+                            fontWeight: FontWeight.bold),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -961,6 +962,8 @@ class _BossQuestCard extends StatelessWidget {
               fontWeight: FontWeight.w800,
               fontSize: 16,
             ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
           if (quest.description != null) ...[
             const SizedBox(height: 4),
@@ -976,20 +979,20 @@ class _BossQuestCard extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 12),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
             children: [
               _RewardChip(
                 icon: Icons.star,
                 color: AppColors.primaryTurquoise,
                 label: '+${quest.xpReward ?? 0} XP',
               ),
-              const SizedBox(width: 8),
               _RewardChip(
                 icon: Icons.monetization_on,
                 color: AppColors.gold,
                 label: '+${quest.goldReward ?? 0} or',
               ),
-              const SizedBox(width: 8),
               _RewardChip(
                 icon: Icons.inventory_2_outlined,
                 color: AppColors.rarityLegendary,
@@ -1168,7 +1171,7 @@ class _WeeklySummarySheet extends StatelessWidget {
         color: AppColors.backgroundDarkPanel,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 36),
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

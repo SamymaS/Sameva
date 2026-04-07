@@ -5,6 +5,7 @@ import '../../../data/repositories/quest_repository.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/view_models/quests_list_view_model.dart';
 import '../../theme/app_colors.dart';
+import '../../utils/app_notification.dart';
 import '../../widgets/common/quest_detail_sheet.dart';
 import 'create_quest_choice_page.dart';
 import 'create_quest_page.dart';
@@ -422,6 +423,7 @@ class _FilterBar extends StatelessWidget {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.backgroundDarkPanel,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -663,12 +665,10 @@ class _QuestCard extends StatelessWidget {
     final id = quest.id;
     if (id == null) return;
     _vmOf(context).deleteQuest(id);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('"${quest.title}" supprimée'),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
+    AppNotification.show(
+      context,
+      message: '"${quest.title}" supprimée',
+      duration: const Duration(seconds: 2),
     );
   }
 

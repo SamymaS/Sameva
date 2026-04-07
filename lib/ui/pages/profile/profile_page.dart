@@ -15,6 +15,7 @@ import '../../../presentation/view_models/equipment_view_model.dart';
 import '../../../presentation/view_models/inventory_view_model.dart';
 import '../../../presentation/view_models/profile_view_model.dart';
 import '../../theme/app_colors.dart';
+import '../../utils/app_notification.dart';
 import '../../widgets/cat/cat_widget.dart';
 import '../../widgets/common/rarity_badge.dart';
 
@@ -733,36 +734,16 @@ class _AchievementsSection extends StatelessWidget {
 
   void _showAchievementTooltip(
       BuildContext context, Map<String, String> def, bool isUnlocked) {
-    ScaffoldMessenger.of(context).clearSnackBars();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Row(
-        children: [
-          Icon(_iconForName(def['icon'] ?? 'star'),
-              color: isUnlocked ? AppColors.gold : AppColors.textMuted,
-              size: 18),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(def['name'] ?? '',
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
-                Text(def['description'] ?? '',
-                    style: const TextStyle(fontSize: 12)),
-              ],
-            ),
-          ),
-          if (!isUnlocked)
-            const Text('🔒',
-                style: TextStyle(fontSize: 16)),
-        ],
-      ),
+    AppNotification.show(
+      context,
+      message: '${def['name'] ?? ''}${!isUnlocked ? ' 🔒' : ''}\n${def['description'] ?? ''}',
+      icon: _iconForName(def['icon'] ?? 'star'),
+      iconColor: isUnlocked ? AppColors.gold : AppColors.textMuted,
       duration: const Duration(seconds: 2),
       backgroundColor: isUnlocked
           ? AppColors.gold.withValues(alpha: 0.2)
           : AppColors.backgroundDarkPanel,
-    ));
+    );
   }
 
   IconData _iconForName(String name) {

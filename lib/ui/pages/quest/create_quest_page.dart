@@ -5,6 +5,7 @@ import '../../../data/repositories/quest_repository.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/view_models/create_quest_view_model.dart';
 import '../../theme/app_colors.dart';
+import '../../utils/app_notification.dart';
 
 /// Création de quête — formulaire complet avec validation temps réel.
 class CreateQuestPage extends StatefulWidget {
@@ -379,9 +380,7 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
     if (ok) {
       Navigator.of(context).pop();
       if (!_isEditMode) Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_isEditMode ? 'Quête modifiée !' : 'Quête créée !')),
-      );
+      AppNotification.show(context, message: _isEditMode ? 'Quête modifiée !' : 'Quête créée !');
     }
   }
 }

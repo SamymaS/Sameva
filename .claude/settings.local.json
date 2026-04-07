@@ -24,7 +24,10 @@
       "Bash(grep -n \"NotificationService.init\\\\|NotificationService.schedule\" lib/main.dart lib/app.dart lib/presentation/view_models/*.dart)",
       "Bash(echo \"EXIT:$?\")",
       "Bash(grep -v \"^warning.*test\\\\\\\\\")",
-      "Bash(grep -E \"^   error|^  error|warning.*lib\\\\\\\\\")"
+      "Bash(grep -E \"^   error|^  error|warning.*lib\\\\\\\\\")",
+      "Bash(git diff:*)",
+      "Bash(git restore:*)",
+      "Bash(grep -rn \"Suivant\\\\|onboarding\\\\|SafeArea\\\\|bottomNavigationBar\" \"C:\\\\Users\\\\SamyB\\\\Dev\\\\Sameva\\\\Sameva\\\\lib\\\\ui\\\\pages\"\" --include=\"*.dart \" -l)"
     ]
   }
 }

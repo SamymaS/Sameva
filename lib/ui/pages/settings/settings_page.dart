@@ -9,6 +9,7 @@ import '../../../presentation/view_models/player_view_model.dart';
 import '../../../presentation/view_models/settings_view_model.dart';
 import '../../../presentation/view_models/theme_view_model.dart';
 import '../../theme/app_colors.dart';
+import '../../utils/app_notification.dart';
 import '../profile/achievements_page.dart';
 
 /// Paramètres de l'application.
@@ -167,12 +168,9 @@ class _NotificationTimeTile extends StatelessWidget {
             .read<SettingsViewModel>()
             .setReminderTime(picked.hour, picked.minute);
         if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Rappel mis à jour : ${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}',
-            ),
-          ),
+        AppNotification.show(
+          context,
+          message: 'Rappel mis à jour : ${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}',
         );
       },
     );
@@ -224,9 +222,7 @@ class _ResetPlayerTile extends StatelessWidget {
         if (!context.mounted) return;
         await context.read<SettingsViewModel>().resetPlayer();
         if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Joueur réinitialisé.')),
-        );
+        AppNotification.show(context, message: 'Joueur réinitialisé.');
       },
     );
   }
@@ -318,9 +314,7 @@ class _ExportActivityTile extends StatelessWidget {
       onTap: () {
         final log = ActivityLogService.getLog();
         if (log.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Aucune activité à exporter.')),
-          );
+          AppNotification.show(context, message: 'Aucune activité à exporter.');
           return;
         }
         final lines = log.map((e) {

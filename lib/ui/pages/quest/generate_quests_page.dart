@@ -8,6 +8,7 @@ import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/view_models/player_view_model.dart';
 import '../../../presentation/view_models/quest_view_model.dart';
 import '../../theme/app_colors.dart';
+import '../../utils/app_notification.dart';
 
 /// Page de génération de quêtes personnalisées via Claude IA.
 class GenerateQuestsPage extends StatefulWidget {
@@ -64,17 +65,14 @@ class _GenerateQuestsPageState extends State<GenerateQuestsPage> {
     try {
       await context.read<QuestViewModel>().addQuest(_quests[index]);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('« ${_quests[index].title} » ajoutée !')),
-        );
+        AppNotification.show(context, message: '« ${_quests[index].title} » ajoutée !');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur : $e'),
-            backgroundColor: AppColors.error,
-          ),
+        AppNotification.show(
+          context,
+          message: 'Erreur : $e',
+          backgroundColor: AppColors.error,
         );
       }
     } finally {

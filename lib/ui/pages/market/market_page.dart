@@ -9,6 +9,7 @@ import '../../../presentation/view_models/cat_view_model.dart';
 import '../../../presentation/view_models/inventory_view_model.dart';
 import '../../../presentation/view_models/player_view_model.dart';
 import '../../theme/app_colors.dart';
+import '../../utils/app_notification.dart';
 import '../../widgets/cat/cat_widget.dart';
 import '../../widgets/common/rarity_badge.dart';
 import '../invocation/invocation_page.dart';
@@ -449,11 +450,10 @@ class _ItemTile extends StatelessWidget {
     player.addGold(userId, -item.goldValue);
     final newItem = item.copyWith(id: const Uuid().v4());
     inventory.addItem(newItem);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${item.name} acheté !'),
-        backgroundColor: AppColors.primaryViolet.withValues(alpha: 0.9),
-      ),
+    AppNotification.show(
+      context,
+      message: '${item.name} acheté !',
+      backgroundColor: AppColors.primaryViolet.withValues(alpha: 0.9),
     );
   }
 }
@@ -609,11 +609,10 @@ class _CosmeticTile extends StatelessWidget {
     player.addGold(userId, -item.goldValue);
     final newItem = item.copyWith(id: const Uuid().v4());
     inventory.addItem(newItem);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${item.name} acheté !'),
-        backgroundColor: AppColors.mintMagic.withValues(alpha: 0.9),
-      ),
+    AppNotification.show(
+      context,
+      message: '${item.name} acheté !',
+      backgroundColor: AppColors.mintMagic.withValues(alpha: 0.9),
     );
   }
 
@@ -624,6 +623,7 @@ class _CosmeticTile extends StatelessWidget {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.backgroundDarkPanel,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -754,12 +754,10 @@ class _CosmeticPreviewSheet extends StatelessWidget {
                           player.addGold(userId, -item.goldValue);
                           inventory.addItem(item.copyWith(id: const Uuid().v4()));
                           Navigator.pop(ctx);
-                          ScaffoldMessenger.of(ctx).showSnackBar(
-                            SnackBar(
-                              content: Text('${item.name} acheté !'),
-                              backgroundColor:
-                                  AppColors.mintMagic.withValues(alpha: 0.9),
-                            ),
+                          AppNotification.show(
+                            ctx,
+                            message: '${item.name} acheté !',
+                            backgroundColor: AppColors.mintMagic.withValues(alpha: 0.9),
                           );
                         }
                       : null,
@@ -940,11 +938,10 @@ class _CrystalTile extends StatelessWidget {
     player.spendCrystals(userId, item.crystalValue);
     final newItem = item.copyWith(id: const Uuid().v4());
     inventory.addItem(newItem);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${item.name} acheté !'),
-        backgroundColor: AppColors.crystalBlue.withValues(alpha: 0.9),
-      ),
+    AppNotification.show(
+      context,
+      message: '${item.name} acheté !',
+      backgroundColor: AppColors.crystalBlue.withValues(alpha: 0.9),
     );
   }
 }
@@ -1056,8 +1053,6 @@ class _SellTab extends StatelessWidget {
     final userId = auth.userId ?? '';
     inventory.removeItem(item.id);
     player.addGold(userId, sellPrice);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${item.name} vendu pour $sellPrice pièces.')),
-    );
+    AppNotification.show(context, message: '${item.name} vendu pour $sellPrice pièces.');
   }
 }

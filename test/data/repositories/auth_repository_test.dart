@@ -9,6 +9,10 @@ class _MockGoTrueClient extends Mock implements GoTrueClient {}
 
 class _MockUser extends Mock implements User {}
 
+// Valeurs fictives utilisées uniquement dans les mocks — aucun appel réseau réel.
+const _fakeEmail = 'test@example.com';
+const _fakePassword = 'fake-password-tests-only';
+
 void main() {
   late _MockSupabaseClient supabase;
   late _MockGoTrueClient goTrue;
@@ -92,12 +96,12 @@ void main() {
               password: any(named: 'password'),
             )).thenAnswer((_) async => response);
 
-        await repo.signInWithEmailAndPassword('  hello@test.fr  ', 'pass123');
+        await repo.signInWithEmailAndPassword('  $_fakeEmail  ', _fakePassword);
 
         // Vérifie l'appel avec les valeurs exactes (email trimmé)
         verify(() => goTrue.signInWithPassword(
-              email: 'hello@test.fr',
-              password: 'pass123',
+              email: _fakeEmail,
+              password: _fakePassword,
             )).called(1);
       });
 
@@ -110,7 +114,7 @@ void main() {
             )).thenAnswer((_) async => AuthResponse(user: user));
 
         final result =
-            await repo.signInWithEmailAndPassword('a@b.c', 'secret');
+            await repo.signInWithEmailAndPassword(_fakeEmail, _fakePassword);
 
         expect(result, user);
       });
@@ -126,12 +130,12 @@ void main() {
             )).thenAnswer((_) async => AuthResponse(user: user));
 
         final result =
-            await repo.createUserWithEmailAndPassword('new@user.fr', 'mypass');
+            await repo.createUserWithEmailAndPassword(_fakeEmail, _fakePassword);
 
         expect(result, user);
         verify(() => goTrue.signUp(
-              email: 'new@user.fr',
-              password: 'mypass',
+              email: _fakeEmail,
+              password: _fakePassword,
             )).called(1);
       });
     });

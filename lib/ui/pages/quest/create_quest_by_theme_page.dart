@@ -4,6 +4,7 @@ import '../../../data/models/quest_model.dart';
 import '../../../data/quest_templates.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/view_models/quest_view_model.dart';
+import '../../utils/app_notification.dart';
 
 /// Mode "Par thème" : choix du thème (Sport, Loisir, Maison) puis liste de tâches préconfigurées.
 class CreateQuestByThemePage extends StatefulWidget {
@@ -169,8 +170,6 @@ class _CreateQuestByThemePageState extends State<CreateQuestByThemePage> {
     if (!mounted) return;
     Navigator.of(context).pop(); // back to choice page
     Navigator.of(context).pop(); // back to list
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Quête créée')),
-    );
+    AppNotification.show(context, message: 'Quête créée');
   }
 }

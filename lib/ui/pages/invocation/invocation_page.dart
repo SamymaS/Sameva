@@ -11,6 +11,7 @@ import '../../../presentation/view_models/cat_view_model.dart';
 import '../../../presentation/view_models/inventory_view_model.dart';
 import '../../../presentation/view_models/player_view_model.dart';
 import '../../theme/app_colors.dart';
+import '../../utils/app_notification.dart';
 import '../../widgets/cat/cat_widget.dart';
 import '../../widgets/common/rarity_badge.dart';
 
@@ -92,10 +93,11 @@ class _InvocationPageState extends State<InvocationPage>
 
     if (!isFree) {
       if ((player.stats?.crystals ?? 0) < 50) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Pas assez de cristaux ! (50 requis)'),
+        AppNotification.show(
+          context,
+          message: 'Pas assez de cristaux ! (50 requis)',
           backgroundColor: AppColors.error,
-        ));
+        );
         return;
       }
       await player.spendCrystals(userId, 50);
@@ -147,10 +149,11 @@ class _InvocationPageState extends State<InvocationPage>
 
     if ((player.stats?.crystals ?? 0) < cost) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Pas assez de cristaux ! (450 requis)'),
+      AppNotification.show(
+        context,
+        message: 'Pas assez de cristaux ! (450 requis)',
         backgroundColor: AppColors.error,
-      ));
+      );
       return;
     }
     await player.spendCrystals(userId, cost);
@@ -714,10 +717,11 @@ class _CatInvocationTabState extends State<_CatInvocationTab>
     final userId = auth.userId ?? '';
 
     if ((player.stats?.crystals ?? 0) < _catCost) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Pas assez de cristaux ! (100 💎 requis)'),
+      AppNotification.show(
+        context,
+        message: 'Pas assez de cristaux ! (100 💎 requis)',
         backgroundColor: AppColors.error,
-      ));
+      );
       return;
     }
 
