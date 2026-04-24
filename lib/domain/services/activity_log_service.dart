@@ -38,26 +38,35 @@ class ActivityLogService {
   static const _key = 'activity_log';
   static const _maxEntries = 50;
 
+  static List<ActivityLogEntry>? _cache;
+
   static Box get _box => Hive.box('settings');
 
   static List<ActivityLogEntry> getLog() {
+    if (_cache != null) return List.unmodifiable(_cache!);
     try {
       final raw = _box.get(_key);
-      if (raw == null) return [];
+      if (raw == null) {
+        _cache = [];
+        return [];
+      }
       final list = (raw is String ? jsonDecode(raw) : raw) as List;
-      return list
+      _cache = list
           .map((e) => ActivityLogEntry.fromJson(Map<String, dynamic>.from(e as Map)))
           .toList();
+      return List.unmodifiable(_cache!);
     } catch (_) {
+      _cache = [];
       return [];
     }
   }
 
   static Future<void> addEntry(ActivityLogEntry entry) async {
     try {
-      final log = getLog();
+      final log = List<ActivityLogEntry>.from(getLog());
       log.insert(0, entry);
       if (log.length > _maxEntries) log.removeRange(_maxEntries, log.length);
+      _cache = log;
       await _box.put(_key, jsonEncode(log.map((e) => e.toJson()).toList()));
     } catch (e) {
       debugPrint('ActivityLogService: erreur écriture entrée: $e');
@@ -65,6 +74,7 @@ class ActivityLogService {
   }
 
   static Future<void> clearLog() async {
+    _cache = null;
     await _box.delete(_key);
   }
 }

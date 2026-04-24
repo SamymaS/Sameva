@@ -4,10 +4,9 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import '../../../data/models/quest_model.dart';
 import '../../../domain/services/achievement_service.dart';
-import '../../../domain/services/activity_log_service.dart';
 import '../../../domain/services/cat_mood_service.dart';
 import '../../../domain/services/minigame_service.dart';
-import '../../../domain/services/weekly_boss_service.dart';
+import '../../../presentation/use_cases/daily_reset_use_case.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/view_models/cat_view_model.dart';
 import '../../../presentation/view_models/equipment_view_model.dart';
@@ -36,23 +35,72 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
   Future<void> _load() async {
     final questVM = context.read<QuestViewModel>();
     final playerVM = context.read<PlayerViewModel>();
+    final equipVM = context.read<EquipmentViewModel>();
     final userId = context.read<AuthViewModel>().userId;
     if (userId == null) return;
+
     await questVM.loadQuests(userId);
     if (!mounted) return;
     await questVM.resetDailyQuests(userId);
     if (!mounted) return;
     await playerVM.loadPlayerStats(userId);
     if (!mounted) return;
-    await _applyEquipmentHpBonus(userId);
+
+    final result = await DailyResetUseCase(
+      player: playerVM,
+      quests: questVM,
+      equipment: equipVM,
+    ).execute(userId);
+
     if (!mounted) return;
-    await _applyMissedQuestPenalties();
+
+    if (result.penalties != null) {
+      AppNotification.show(
+        context,
+        message:
+            '${result.penalties!.missedCount} quête${result.penalties!.missedCount > 1 ? 's' : ''} manquée${result.penalties!.missedCount > 1 ? 's' : ''} — ${result.penalties!.totalDamage} HP perdus',
+        backgroundColor: AppColors.coralRare.withValues(alpha: 0.95),
+      );
+    }
+
     if (!mounted) return;
-    await _checkWeeklySummary(userId);
+    if (result.weeklySummary != null) {
+      final s = result.weeklySummary!;
+      await showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        useSafeArea: true,
+        builder: (_) => _WeeklySummarySheet(
+          questsCompleted: s.questsCompleted,
+          xpEarned: s.xpEarned,
+          bossDefeated: s.bossDefeated,
+          streak: s.streak,
+        ),
+      );
+    }
+
     if (!mounted) return;
-    await _checkDailyReward(userId);
+    if (result.dailyReward != null) {
+      final r = result.dailyReward!;
+      await showDialog<void>(
+        context: context,
+        builder: (_) => _DailyRewardDialog(
+          gold: r.gold,
+          crystals: r.crystals,
+          streak: r.streak,
+        ),
+      );
+    }
+
     if (!mounted) return;
-    await _checkWeeklyBoss(userId);
+    if (result.newBossGenerated) {
+      AppNotification.show(
+        context,
+        message: 'Un nouveau boss hebdomadaire est apparu !',
+        backgroundColor: AppColors.rarityEpic,
+      );
+    }
+
     if (!mounted) return;
     await _checkAchievements();
   }
@@ -92,170 +140,6 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
         duration: const Duration(seconds: 3),
       );
     }
-  }
-
-  Future<void> _checkDailyReward(String userId) async {
-    final settings = Hive.box('settings');
-    final today = DateTime.now().toIso8601String().substring(0, 10);
-    if ((settings.get('last_login_date') as String?) == today) return;
-    await settings.put('last_login_date', today);
-    if (!mounted) return;
-
-    final playerVM = context.read<PlayerViewModel>();
-    final streak = playerVM.stats?.streak ?? 0;
-
-    // Récompense : 50 or + 5 cristaux de base, +10 or/+2 cristaux par tranche de 7 jours
-    final streakBonus = streak ~/ 7;
-    final gold = 50 + streakBonus * 10;
-    final crystals = 5 + streakBonus * 2;
-
-    await playerVM.addGold(userId, gold);
-    await playerVM.addCrystals(userId, crystals);
-
-    if (!mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (_) => _DailyRewardDialog(gold: gold, crystals: crystals, streak: streak),
-    );
-  }
-
-  Future<void> _checkWeeklyBoss(String userId) async {
-    if (WeeklyBossService.hasGeneratedThisWeek()) return;
-    final questVM = context.read<QuestViewModel>();
-    // Vérifier qu'il n'existe pas déjà un boss actif cette semaine
-    final hasBoss = questVM.activeQuests.any((q) => q.category == 'boss');
-    if (hasBoss) {
-      await WeeklyBossService.markGenerated();
-      return;
-    }
-    final boss = WeeklyBossService.buildBossQuest(userId);
-    await questVM.addQuest(boss);
-    await WeeklyBossService.markGenerated();
-    if (!mounted) return;
-    AppNotification.show(
-      context,
-      message: 'Un nouveau boss hebdomadaire est apparu !',
-      backgroundColor: AppColors.rarityEpic,
-    );
-  }
-
-  Future<void> _checkWeeklySummary(String userId) async {
-    final settings = Hive.box('settings');
-    final now = DateTime.now();
-    final monday = now.subtract(Duration(days: now.weekday - 1));
-    final weekKey = '${monday.year}_${monday.month}_${monday.day}';
-
-    // Montrer le résumé une seule fois par semaine, seulement à partir du lundi (j≥1)
-    if (settings.get('last_weekly_summary') == weekKey) return;
-    // Attendre au moins 24h dans la semaine avant de l'afficher
-    final dayOfWeek = now.weekday; // 1=Lundi … 7=Dimanche
-    if (dayOfWeek < 2) return; // Lundi même jour : pas encore de résumé
-
-    final questVM = context.read<QuestViewModel>();
-    final playerVM = context.read<PlayerViewModel>();
-
-    await settings.put('last_weekly_summary', weekKey);
-
-    // Stats de la semaine précédente (lundi dernier → dimanche dernier)
-    final prevMonday = monday.subtract(const Duration(days: 7));
-    final prevSunday = monday.subtract(const Duration(seconds: 1));
-
-    final weekQuests = questVM.completedQuests.where((q) =>
-      q.completedAt != null &&
-      q.completedAt!.isAfter(prevMonday) &&
-      q.completedAt!.isBefore(prevSunday)
-    ).toList();
-
-    // XP depuis l'ActivityLog
-    final log = ActivityLogService.getLog();
-    int weekXp = 0;
-    for (final entry in log) {
-      if (entry.type == ActivityType.quest &&
-          entry.date.isAfter(prevMonday) &&
-          entry.date.isBefore(prevSunday) &&
-          entry.subtitle != null) {
-        final match = RegExp(r'\+(\d+) XP').firstMatch(entry.subtitle!);
-        if (match != null) weekXp += int.tryParse(match.group(1)!) ?? 0;
-      }
-    }
-
-    final bossDefeated = weekQuests.any((q) => q.category == 'boss');
-    final streak = playerVM.stats?.streak ?? 0;
-
-    // Récompense bonus si boss vaincu
-    if (bossDefeated) {
-      await playerVM.addCrystals(userId, 15);
-    }
-
-    if (!mounted) return;
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      useSafeArea: true,
-      builder: (_) => _WeeklySummarySheet(
-        questsCompleted: weekQuests.length,
-        xpEarned: weekXp,
-        bossDefeated: bossDefeated,
-        streak: streak,
-      ),
-    );
-  }
-
-  /// Synchronise le bonus maxHP de l'équipement au démarrage.
-  /// Utilise une clé Hive 'last_equipment_hp_bonus' pour détecter les delta.
-  Future<void> _applyEquipmentHpBonus(String userId) async {
-    final equipment = context.read<EquipmentViewModel>();
-    final playerVM = context.read<PlayerViewModel>();
-    final settings = Hive.box('settings');
-
-    final expected = equipment.hpBonus;
-    final stored = settings.get('last_equipment_hp_bonus', defaultValue: 0) as int;
-    if (expected == stored) return;
-
-    final delta = expected - stored;
-    await playerVM.adjustMaxHp(userId, delta);
-    await settings.put('last_equipment_hp_bonus', expected);
-  }
-
-  Future<void> _applyMissedQuestPenalties() async {
-    final settings = Hive.box('settings');
-    final today = DateTime.now().toIso8601String().substring(0, 10);
-    if ((settings.get('last_penalty_date') as String?) == today) return;
-
-    final questVM = context.read<QuestViewModel>();
-    final playerVM = context.read<PlayerViewModel>();
-    final userId = context.read<AuthViewModel>().userId;
-    if (userId == null) return;
-
-    final missed = questVM.getMissedQuests();
-    await settings.put('last_penalty_date', today);
-
-    if (missed.isEmpty) return;
-
-    // Dommages : 10 HP × difficulté par quête manquée
-    int totalDamage = 0;
-    for (final q in missed) {
-      final dmg = 10 * q.difficulty;
-      totalDamage += dmg;
-      await ActivityLogService.addEntry(ActivityLogEntry(
-        type: ActivityType.quest,
-        title: 'Quête manquée : ${q.title}',
-        subtitle: '-$dmg HP · -10% moral',
-        date: DateTime.now(),
-      ));
-      // Supprimer la quête manquée pour éviter la double pénalité
-      await questVM.deleteQuest(q.id!);
-    }
-
-    await playerVM.takeDamage(userId, totalDamage);
-    await playerVM.updateMoral(userId, -(missed.length * 0.1));
-
-    if (!mounted) return;
-    AppNotification.show(
-      context,
-      message: '${missed.length} quête${missed.length > 1 ? 's' : ''} manquée${missed.length > 1 ? 's' : ''} — $totalDamage HP perdus',
-      backgroundColor: AppColors.coralRare.withValues(alpha: 0.95),
-    );
   }
 
   @override
@@ -411,6 +295,8 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
 
                         if (quests.isLoading)
                           const Center(child: CircularProgressIndicator())
+                        else if (quests.error != null)
+                          _ErrorCard(message: quests.error!)
                         else if (todayQuests.isEmpty)
                           _EmptyQuestCard()
                         else
@@ -1023,6 +909,40 @@ class _BossQuestCard extends StatelessWidget {
     if (diff.inDays > 1) return 'Expire dans ${diff.inDays} jours';
     if (diff.inHours > 0) return 'Expire dans ${diff.inHours}h';
     return 'Expire bientôt !';
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Erreur chargement quêtes
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ErrorCard extends StatelessWidget {
+  final String message;
+
+  const _ErrorCard({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.error.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.wifi_off_rounded, color: AppColors.error, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(color: AppColors.error, fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

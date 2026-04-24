@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
@@ -21,6 +20,10 @@ import '../../theme/app_colors.dart';
 import '../../utils/app_notification.dart';
 import '../../widgets/cat/cat_reaction_overlay.dart';
 import '../rewards/rewards_page.dart';
+
+const int _kValidScoreThreshold = 70;
+const int _kPartialScoreThreshold = 40;
+const int _kTextProofMaxLength = 2000;
 
 /// Page de validation de quête.
 /// La validation directe est TOUJOURS possible.
@@ -57,8 +60,6 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
   bool _isAnalyzing = false;
   bool _isValidating = false;
   ValidationResult? _analysisResult;
-  Timer? _timer;
-
   // Champ texte pour ValidationType.ai
   final _textProofCtrl = TextEditingController();
 
@@ -72,23 +73,12 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
   @override
   void initState() {
     super.initState();
-    if (_hasDeadline) {
-      _timer = Timer.periodic(const Duration(seconds: 1), (_) => setState(() {}));
-    }
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
     _textProofCtrl.dispose();
     super.dispose();
-  }
-
-  Duration? get _remainingTime {
-    final deadline = widget.quest.deadline;
-    if (deadline == null) return null;
-    final remaining = deadline.difference(DateTime.now());
-    return remaining.isNegative ? Duration.zero : remaining;
   }
 
   Future<void> _pickImage() async {
@@ -297,7 +287,7 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
 
                   // ── Timer ───────────────────────────────────────────────
                   if (_hasDeadline) ...[
-                    _TimerBlock(remaining: _remainingTime),
+                    _TimerBlock(deadline: widget.quest.deadline!),
                     const SizedBox(height: 16),
                   ],
 
@@ -511,20 +501,49 @@ class _RewardsPreview extends StatelessWidget {
   }
 }
 
-class _TimerBlock extends StatelessWidget {
-  final Duration? remaining;
+class _TimerBlock extends StatefulWidget {
+  final DateTime deadline;
 
-  const _TimerBlock({this.remaining});
+  const _TimerBlock({required this.deadline});
+
+  @override
+  State<_TimerBlock> createState() => _TimerBlockState();
+}
+
+class _TimerBlockState extends State<_TimerBlock> {
+  late Timer _timer;
+  late Duration _remaining;
+
+  @override
+  void initState() {
+    super.initState();
+    _updateRemaining();
+    _timer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) {
+        if (mounted) setState(_updateRemaining);
+      },
+    );
+  }
+
+  void _updateRemaining() {
+    final diff = widget.deadline.difference(DateTime.now());
+    _remaining = diff.isNegative ? Duration.zero : diff;
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (remaining == null) return const SizedBox.shrink();
-    final r = remaining!;
+    final r = _remaining;
     final isOver = r == Duration.zero;
 
-    final String text = isOver
-        ? 'Échéance dépassée'
-        : '${r.inHours.toString().padLeft(2, '0')}:${(r.inMinutes % 60).toString().padLeft(2, '0')}:${(r.inSeconds % 60).toString().padLeft(2, '0')}';
+    final String text =
+        '${r.inHours.toString().padLeft(2, '0')}:${(r.inMinutes % 60).toString().padLeft(2, '0')}:${(r.inSeconds % 60).toString().padLeft(2, '0')}';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -556,8 +575,8 @@ class _TimerBlock extends StatelessWidget {
             const Spacer(),
             Text(
               text,
-              style: TextStyle(
-                  color: isOver ? AppColors.error : AppColors.warning,
+              style: const TextStyle(
+                  color: AppColors.warning,
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
                   fontFamily: 'monospace'),
@@ -852,8 +871,8 @@ class _AnalysisResult extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final score = result.score;
-    final isValid = score >= 70;
-    final isPartial = score >= 40 && score < 70;
+    final isValid = score >= _kValidScoreThreshold;
+    final isPartial = score >= _kPartialScoreThreshold && score < _kValidScoreThreshold;
     final color = isValid
         ? AppColors.success
         : isPartial
@@ -1012,6 +1031,7 @@ class _TextProofSection extends StatelessWidget {
           TextField(
             controller: controller,
             maxLines: 4,
+            maxLength: _kTextProofMaxLength,
             style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
             decoration: InputDecoration(
               hintText: 'Ex. J\'ai fait 30 min de sport, voici le détail...',

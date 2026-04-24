@@ -49,7 +49,9 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) return 'Indiquez votre email';
-                    if (!v.contains('@')) return 'Email invalide';
+                    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v.trim())) {
+                      return 'Email invalide';
+                    }
                     return null;
                   },
                 ),
