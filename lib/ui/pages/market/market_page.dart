@@ -260,6 +260,25 @@ class _ShopTabState extends State<_ShopTab> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Achat gold centralisé
+// ─────────────────────────────────────────────────────────────────────────────
+
+void _executeBuyWithGold(
+    BuildContext context, Item item, Color notificationColor) {
+  final auth = context.read<AuthViewModel>();
+  final player = context.read<PlayerViewModel>();
+  final inventory = context.read<InventoryViewModel>();
+  final userId = auth.userId ?? '';
+  inventory.addItem(item.copyWith(id: const Uuid().v4()));
+  player.addGold(userId, -item.goldValue);
+  AppNotification.show(
+    context,
+    message: '${item.name} acheté !',
+    backgroundColor: notificationColor,
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Tuile équipement / potion
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -301,7 +320,7 @@ class _ItemTile extends StatelessWidget {
 
         return GestureDetector(
           onTap: canAfford && hasSpace
-              ? () => _buy(ctx, player, inventory)
+              ? () => _buy(ctx)
               : null,
           child: Container(
             margin: const EdgeInsets.only(bottom: 10),
@@ -443,18 +462,8 @@ class _ItemTile extends StatelessWidget {
     );
   }
 
-  void _buy(BuildContext context, PlayerViewModel player,
-      InventoryViewModel inventory) {
-    final auth = context.read<AuthViewModel>();
-    final userId = auth.userId ?? '';
-    player.addGold(userId, -item.goldValue);
-    final newItem = item.copyWith(id: const Uuid().v4());
-    inventory.addItem(newItem);
-    AppNotification.show(
-      context,
-      message: '${item.name} acheté !',
-      backgroundColor: AppColors.primaryViolet.withValues(alpha: 0.9),
-    );
+  void _buy(BuildContext context) {
+    _executeBuyWithGold(context, item, AppColors.primaryViolet.withValues(alpha: 0.9));
   }
 }
 
@@ -564,7 +573,7 @@ class _CosmeticTile extends StatelessWidget {
                     final hasSpace = !inventory.isFull;
                     return GestureDetector(
                       onTap: canAfford && hasSpace
-                          ? () => _buy(ctx, player, inventory)
+                          ? () => _buy(ctx)
                           : null,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
@@ -581,7 +590,11 @@ class _CosmeticTile extends StatelessWidget {
                           ),
                         ),
                         child: Text(
-                          'Acheter',
+                          canAfford && hasSpace
+                              ? 'Acheter'
+                              : !hasSpace
+                                  ? 'Plein'
+                                  : 'Trop cher',
                           style: GoogleFonts.nunito(
                             color: canAfford && hasSpace
                                 ? AppColors.primaryVioletLight
@@ -602,18 +615,8 @@ class _CosmeticTile extends StatelessWidget {
     );
   }
 
-  void _buy(BuildContext context, PlayerViewModel player,
-      InventoryViewModel inventory) {
-    final auth = context.read<AuthViewModel>();
-    final userId = auth.userId ?? '';
-    player.addGold(userId, -item.goldValue);
-    final newItem = item.copyWith(id: const Uuid().v4());
-    inventory.addItem(newItem);
-    AppNotification.show(
-      context,
-      message: '${item.name} acheté !',
-      backgroundColor: AppColors.mintMagic.withValues(alpha: 0.9),
-    );
+  void _buy(BuildContext context) {
+    _executeBuyWithGold(context, item, AppColors.mintMagic.withValues(alpha: 0.9));
   }
 
   void _showPreviewSheet(BuildContext context) {
@@ -765,16 +768,8 @@ class _CosmeticPreviewSheet extends StatelessWidget {
                   ),
                   onPressed: canAfford && hasSpace
                       ? () {
-                          final auth = ctx.read<AuthViewModel>();
-                          final userId = auth.userId ?? '';
-                          player.addGold(userId, -item.goldValue);
-                          inventory.addItem(item.copyWith(id: const Uuid().v4()));
+                          _executeBuyWithGold(ctx, item, AppColors.mintMagic.withValues(alpha: 0.9));
                           Navigator.pop(ctx);
-                          AppNotification.show(
-                            ctx,
-                            message: '${item.name} acheté !',
-                            backgroundColor: AppColors.mintMagic.withValues(alpha: 0.9),
-                          );
                         }
                       : null,
                   icon: const Icon(Icons.monetization_on,
@@ -1041,7 +1036,7 @@ class _SellTab extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   TextButton(
-                    onPressed: () => _sell(context, inventory, item, sellPrice),
+                    onPressed: () => _confirmSell(context, inventory, item, sellPrice),
                     style: TextButton.styleFrom(
                       padding: EdgeInsets.zero,
                       minimumSize: Size.zero,
@@ -1062,6 +1057,49 @@ class _SellTab extends StatelessWidget {
     );
   }
 
+  Future<void> _confirmSell(BuildContext context, InventoryViewModel inventory,
+      Item item, int sellPrice) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.backgroundDarkPanel,
+        title: Text(
+          'Vendre',
+          style: GoogleFonts.nunito(
+            color: AppColors.textSecondary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          'Vendre ${item.name} pour $sellPrice pièces ?',
+          style: GoogleFonts.nunito(color: AppColors.textMuted),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'Annuler',
+              style: GoogleFonts.nunito(color: AppColors.textMuted),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              'Vendre',
+              style: GoogleFonts.nunito(
+                color: AppColors.primaryVioletLight,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true && context.mounted) {
+      _sell(context, inventory, item, sellPrice);
+    }
+  }
+
   void _sell(BuildContext context, InventoryViewModel inventory, Item item,
       int sellPrice) {
     final player = context.read<PlayerViewModel>();
@@ -1069,6 +1107,10 @@ class _SellTab extends StatelessWidget {
     final userId = auth.userId ?? '';
     inventory.removeItem(item.id);
     player.addGold(userId, sellPrice);
-    AppNotification.show(context, message: '${item.name} vendu pour $sellPrice pièces.');
+    AppNotification.show(
+      context,
+      message: '${item.name} vendu pour $sellPrice pièces.',
+      backgroundColor: AppColors.gold.withValues(alpha: 0.85),
+    );
   }
 }
