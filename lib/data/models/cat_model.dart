@@ -8,6 +8,8 @@ class CatStats {
   final bool isMain;         // true = chat principal affiché
   final String? equippedHat;
   final String? equippedOutfit;
+  final String? equippedPants;
+  final String? equippedShoes;
   final String? equippedAura;
   final String? equippedAccessory;
   final String? equippedTitle;
@@ -21,6 +23,8 @@ class CatStats {
     this.isMain = false,
     this.equippedHat,
     this.equippedOutfit,
+    this.equippedPants,
+    this.equippedShoes,
     this.equippedAura,
     this.equippedAccessory,
     this.equippedTitle,
@@ -35,6 +39,8 @@ class CatStats {
         'isMain': isMain,
         'equippedHat': equippedHat,
         'equippedOutfit': equippedOutfit,
+        'equippedPants': equippedPants,
+        'equippedShoes': equippedShoes,
         'equippedAura': equippedAura,
         'equippedAccessory': equippedAccessory,
         'equippedTitle': equippedTitle,
@@ -49,6 +55,8 @@ class CatStats {
         isMain: json['isMain'] as bool? ?? false,
         equippedHat: json['equippedHat'] as String?,
         equippedOutfit: json['equippedOutfit'] as String?,
+        equippedPants: json['equippedPants'] as String?,
+        equippedShoes: json['equippedShoes'] as String?,
         equippedAura: json['equippedAura'] as String?,
         equippedAccessory: json['equippedAccessory'] as String?,
         equippedTitle: json['equippedTitle'] as String?,
@@ -63,6 +71,8 @@ class CatStats {
     bool? isMain,
     Object? equippedHat = _sentinel,
     Object? equippedOutfit = _sentinel,
+    Object? equippedPants = _sentinel,
+    Object? equippedShoes = _sentinel,
     Object? equippedAura = _sentinel,
     Object? equippedAccessory = _sentinel,
     Object? equippedTitle = _sentinel,
@@ -80,6 +90,12 @@ class CatStats {
         equippedOutfit: equippedOutfit == _sentinel
             ? this.equippedOutfit
             : equippedOutfit as String?,
+        equippedPants: equippedPants == _sentinel
+            ? this.equippedPants
+            : equippedPants as String?,
+        equippedShoes: equippedShoes == _sentinel
+            ? this.equippedShoes
+            : equippedShoes as String?,
         equippedAura: equippedAura == _sentinel
             ? this.equippedAura
             : equippedAura as String?,

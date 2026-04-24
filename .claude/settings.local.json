@@ -27,7 +27,8 @@
       "Bash(grep -E \"^   error|^  error|warning.*lib\\\\\\\\\")",
       "Bash(git diff:*)",
       "Bash(git restore:*)",
-      "Bash(grep -rn \"Suivant\\\\|onboarding\\\\|SafeArea\\\\|bottomNavigationBar\" \"C:\\\\Users\\\\SamyB\\\\Dev\\\\Sameva\\\\Sameva\\\\lib\\\\ui\\\\pages\"\" --include=\"*.dart \" -l)"
+      "Bash(grep -rn \"Suivant\\\\|onboarding\\\\|SafeArea\\\\|bottomNavigationBar\" \"C:\\\\Users\\\\SamyB\\\\Dev\\\\Sameva\\\\Sameva\\\\lib\\\\ui\\\\pages\"\" --include=\"*.dart \" -l)",
+      "Bash(claude plugin:*)"
     ]
   }
 }

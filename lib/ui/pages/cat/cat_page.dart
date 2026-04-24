@@ -374,11 +374,13 @@ class _CosmeticSlots extends StatelessWidget {
   const _CosmeticSlots({required this.cat, required this.catProvider});
 
   static const _slots = [
-    (slot: 'hat',       label: 'Chapeau',    icon: Icons.dry_outlined),
-    (slot: 'outfit',    label: 'Tenue',      icon: Icons.checkroom_outlined),
-    (slot: 'aura',      label: 'Aura',       icon: Icons.auto_awesome_outlined),
-    (slot: 'accessory', label: 'Accessoire', icon: Icons.diamond_outlined),
-    (slot: 'title',     label: 'Titre',      icon: Icons.workspace_premium_outlined),
+    (slot: 'hat',       label: 'Chapeau',      icon: Icons.dry_outlined),
+    (slot: 'outfit',    label: 'Tenue',        icon: Icons.checkroom_outlined),
+    (slot: 'pants',     label: 'Pantalon',     icon: Icons.accessibility_outlined),
+    (slot: 'shoes',     label: 'Chaussures',   icon: Icons.directions_walk_outlined),
+    (slot: 'aura',      label: 'Aura',         icon: Icons.auto_awesome_outlined),
+    (slot: 'accessory', label: 'Accessoire',   icon: Icons.diamond_outlined),
+    (slot: 'title',     label: 'Titre',        icon: Icons.workspace_premium_outlined),
   ];
 
   @override
@@ -403,6 +405,8 @@ class _CosmeticSlots extends StatelessWidget {
   String? _equippedForSlot(String slot) => switch (slot) {
         'hat'       => cat.equippedHat,
         'outfit'    => cat.equippedOutfit,
+        'pants'     => cat.equippedPants,
+        'shoes'     => cat.equippedShoes,
         'aura'      => cat.equippedAura,
         'accessory' => cat.equippedAccessory,
         'title'     => cat.equippedTitle,
@@ -567,6 +571,8 @@ class _CosmeticSheet extends StatelessWidget {
                 final equippedId = switch (slot) {
                   'hat'       => catProvider.mainCat?.equippedHat,
                   'outfit'    => catProvider.mainCat?.equippedOutfit,
+                  'pants'     => catProvider.mainCat?.equippedPants,
+                  'shoes'     => catProvider.mainCat?.equippedShoes,
                   'aura'      => catProvider.mainCat?.equippedAura,
                   'accessory' => catProvider.mainCat?.equippedAccessory,
                   'title'     => catProvider.mainCat?.equippedTitle,

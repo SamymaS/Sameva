@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../../../data/models/item_model.dart';
 import '../../../data/models/quest_model.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
+import '../../../data/models/cat_model.dart';
+import '../../../presentation/view_models/cat_view_model.dart';
 import '../../../presentation/view_models/equipment_view_model.dart';
 import '../../../presentation/view_models/inventory_view_model.dart';
 import '../../../presentation/view_models/player_view_model.dart';
@@ -11,6 +13,21 @@ import '../../utils/app_notification.dart';
 import '../../widgets/common/item_icon.dart';
 import '../cat/cat_page.dart';
 import 'craft_page.dart';
+
+bool _isCosmeticWorn(CatStats? cat, String slot, String itemId) {
+  if (cat == null) return false;
+  final equipped = switch (slot) {
+    'hat'       => cat.equippedHat,
+    'outfit'    => cat.equippedOutfit,
+    'pants'     => cat.equippedPants,
+    'shoes'     => cat.equippedShoes,
+    'aura'      => cat.equippedAura,
+    'accessory' => cat.equippedAccessory,
+    'title'     => cat.equippedTitle,
+    _           => null,
+  };
+  return equipped == itemId;
+}
 
 /// Page inventaire — grille 4 colonnes avec cartes item visuelles.
 class InventoryPage extends StatefulWidget {
@@ -913,7 +930,9 @@ class _ActionButtons extends StatelessWidget {
     // Cosmétique
     if (item.type == ItemType.cosmetic && cosSlot != null) {
       if (buttons.isNotEmpty) buttons.add(const SizedBox(width: 8));
-      final isWorn = equipment.getCosmeticSlot(cosSlot!)?.id == item.id;
+      final catVm = context.read<CatViewModel>();
+      final mainCat = catVm.mainCat;
+      final isWorn = _isCosmeticWorn(mainCat, cosSlot!, item.id);
       buttons.add(Expanded(
         child: _ActionBtn(
           label: isWorn ? 'Retirer' : 'Porter',
@@ -922,13 +941,14 @@ class _ActionButtons extends StatelessWidget {
               : Icons.face_retouching_natural,
           color: isWorn ? AppColors.textMuted : AppColors.primaryViolet,
           outlined: isWorn,
-          onTap: () {
+          onTap: () async {
+            if (mainCat == null) return;
             if (isWorn) {
-              equipment.unequipCosmetic(cosSlot!, inventory);
+              await catVm.equipCosmetic(mainCat.id, cosSlot!, null);
             } else {
-              equipment.equipCosmetic(item, cosSlot!, inventory);
+              await catVm.equipCosmetic(mainCat.id, cosSlot!, item.id);
             }
-            Navigator.pop(context);
+            if (context.mounted) Navigator.pop(context);
           },
         ),
       ));

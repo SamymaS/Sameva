@@ -83,6 +83,8 @@ class CatViewModel extends ChangeNotifier {
       final updated = switch (slot) {
         'hat'       => cat.copyWith(equippedHat: cosmeticId),
         'outfit'    => cat.copyWith(equippedOutfit: cosmeticId),
+        'pants'     => cat.copyWith(equippedPants: cosmeticId),
+        'shoes'     => cat.copyWith(equippedShoes: cosmeticId),
         'aura'      => cat.copyWith(equippedAura: cosmeticId),
         'accessory' => cat.copyWith(equippedAccessory: cosmeticId),
         'title'     => cat.copyWith(equippedTitle: cosmeticId),
