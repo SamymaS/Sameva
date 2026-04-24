@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../data/models/quest_model.dart';
 import '../../data/models/player_stats_model.dart';
@@ -47,11 +48,14 @@ class ProfileViewModel extends ChangeNotifier {
         await _playerRepo.saveLocalStats(remote);
         notifyListeners();
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('ProfileViewModel: erreur sync stats: $e');
+    }
 
     try {
       _quests = await _questRepo.loadQuests(userId);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('ProfileViewModel: erreur chargement quêtes: $e');
       _quests = [];
     }
 

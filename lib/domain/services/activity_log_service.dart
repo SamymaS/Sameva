@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 enum ActivityType { quest, levelUp, item, achievement, streak }
@@ -58,7 +59,9 @@ class ActivityLogService {
       log.insert(0, entry);
       if (log.length > _maxEntries) log.removeRange(_maxEntries, log.length);
       await _box.put(_key, jsonEncode(log.map((e) => e.toJson()).toList()));
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('ActivityLogService: erreur écriture entrée: $e');
+    }
   }
 
   static Future<void> clearLog() async {

@@ -50,7 +50,10 @@ class CompleteQuestUseCase {
         _inventoryProvider = inventoryProvider;
 
   Future<CompleteQuestResult> execute(String questId) async {
-    final quest = _questProvider.quests.firstWhere((q) => q.id == questId);
+    final quest = _questProvider.quests.firstWhere(
+      (q) => q.id == questId,
+      orElse: () => throw StateError('Quête introuvable : $questId'),
+    );
     final now = DateTime.now();
 
     // Niveau avant récompenses

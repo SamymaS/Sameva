@@ -199,7 +199,9 @@ class PlayerViewModel with ChangeNotifier {
 
     try {
       await NotificationService.rescheduleStreakReminder();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('PlayerViewModel: erreur reschedule streak: $e');
+    }
 
     if (inventory != null) {
       await _checkStreakMilestones(userId, previousStreak, _stats!.streak, inventory);
@@ -226,7 +228,9 @@ class PlayerViewModel with ChangeNotifier {
         if (reward.crystals > 0) await addCrystals(userId, reward.crystals);
         try {
           await NotificationService.showStreakMilestone(entry.key, reward.rarity);
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('PlayerViewModel: erreur notification streak milestone: $e');
+        }
         await ActivityLogService.addEntry(ActivityLogEntry(
           type: ActivityType.streak,
           title: 'Streak ${entry.key} jours atteint !',

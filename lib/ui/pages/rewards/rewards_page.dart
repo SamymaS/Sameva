@@ -103,7 +103,7 @@ class _RewardsPageState extends State<RewardsPage>
             : _SummaryView(countAnimation: _countAnimation);
 
     return ChangeNotifierProvider<RewardsViewModel>.value(
-      value: vm ?? RewardsViewModel(context.read<PlayerViewModel>()),
+      value: _vm!,
       child: Scaffold(
         backgroundColor: AppColors.backgroundNightBlue,
         appBar: AppBar(

@@ -65,15 +65,15 @@ class CraftViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // 1. Retirer les ingrédients
+      // 1. Déduire le coût en or en premier (rollback trivial si échec ultérieur)
+      if (recipe.goldCost > 0) {
+        await player.addGold(userId, -recipe.goldCost);
+      }
+
+      // 2. Retirer les ingrédients
       final toRemove = CraftService.ingredientsToRemove(recipe, inventory.items);
       for (final entry in toRemove) {
         inventory.removeItem(entry.id, quantity: entry.qty);
-      }
-
-      // 2. Déduire le coût en or
-      if (recipe.goldCost > 0) {
-        await player.addGold(userId, -recipe.goldCost);
       }
 
       // 3. Créer et ajouter l'item résultat
