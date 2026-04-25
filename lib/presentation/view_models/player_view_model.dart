@@ -309,6 +309,14 @@ class PlayerViewModel with ChangeNotifier {
     await savePlayerStats(userId);
   }
 
+  /// Définit directement le compteur pity (utile pour batch multi-pull).
+  Future<void> setPity(String userId, int count) async {
+    if (_stats == null) return;
+    _stats = _stats!.copyWith(pityCount: count.clamp(0, 999));
+    notifyListeners();
+    await savePlayerStats(userId);
+  }
+
   Future<void> incrementQuestsCompleted(String userId) async {
     if (_stats == null) return;
     _stats = _stats!.copyWith(

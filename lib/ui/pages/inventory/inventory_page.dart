@@ -37,16 +37,119 @@ class InventoryPage extends StatefulWidget {
   State<InventoryPage> createState() => _InventoryPageState();
 }
 
+enum _SortMode { rarityDesc, valueDesc, name }
+
 class _InventoryPageState extends State<InventoryPage> {
   QuestRarity? _rarityFilter;
   ItemType? _typeFilter;
+  String _searchQuery = '';
+  _SortMode _sortMode = _SortMode.rarityDesc;
+  late final TextEditingController _searchCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchCtrl = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
 
   List<Item> _applyFilters(List<Item> items) {
-    return items.where((item) {
+    final filtered = items.where((item) {
       if (_rarityFilter != null && item.rarity != _rarityFilter) return false;
       if (_typeFilter != null && item.type != _typeFilter) return false;
+      if (_searchQuery.isNotEmpty) {
+        final q = _searchQuery.toLowerCase();
+        if (!item.name.toLowerCase().contains(q)) return false;
+      }
       return true;
     }).toList();
+
+    int rarityRank(QuestRarity r) => QuestRarity.values.length - r.index;
+    switch (_sortMode) {
+      case _SortMode.rarityDesc:
+        filtered.sort((a, b) {
+          final cmp = rarityRank(a.rarity).compareTo(rarityRank(b.rarity));
+          return cmp != 0 ? cmp : a.name.compareTo(b.name);
+        });
+      case _SortMode.valueDesc:
+        filtered.sort((a, b) => b.goldValue.compareTo(a.goldValue));
+      case _SortMode.name:
+        filtered.sort((a, b) =>
+            a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    }
+    return filtered;
+  }
+
+  String _sortLabel(_SortMode m) => switch (m) {
+        _SortMode.rarityDesc => 'Rareté ↓',
+        _SortMode.valueDesc  => 'Valeur ↓',
+        _SortMode.name       => 'Nom A-Z',
+      };
+
+  Future<void> _bulkSellLowRarity(BuildContext context,
+      InventoryViewModel inventory, EquipmentViewModel equipment) async {
+    final player = context.read<PlayerViewModel>();
+    final userId = context.read<AuthViewModel>().userId ?? '';
+    final eligible = inventory.items.where((item) {
+      if (item.rarity != QuestRarity.common &&
+          item.rarity != QuestRarity.uncommon) {
+        return false;
+      }
+      final equipped =
+          equipment.equipped.values.any((e) => e?.id == item.id);
+      return !equipped;
+    }).toList();
+
+    if (eligible.isEmpty) {
+      AppNotification.show(context,
+          message: 'Aucun objet commun à vendre',
+          backgroundColor: AppColors.backgroundDarkPanel);
+      return;
+    }
+
+    final totalGold = eligible.fold<int>(
+        0, (s, i) => s + (i.goldValue * 0.5).round() * i.quantity);
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.backgroundDarkPanel,
+        title: const Text('Vendre objets communs',
+            style: TextStyle(color: AppColors.textPrimary)),
+        content: Text(
+          'Vendre ${eligible.length} objet${eligible.length > 1 ? "s" : ""} commun${eligible.length > 1 ? "s" : ""} et peu commun${eligible.length > 1 ? "s" : ""} pour $totalGold or ?\n\n(Objets équipés exclus)',
+          style: const TextStyle(color: AppColors.textMuted),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler',
+                style: TextStyle(color: AppColors.textMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Vendre',
+                style: TextStyle(
+                    color: AppColors.gold, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    for (final item in eligible) {
+      inventory.removeItem(item.id, quantity: item.quantity);
+    }
+    await player.addGold(userId, totalGold);
+    if (!mounted) return;
+    AppNotification.show(this.context,
+        message: '+$totalGold or · ${eligible.length} objets vendus',
+        backgroundColor: AppColors.gold.withValues(alpha: 0.85));
   }
 
   @override
@@ -115,10 +218,124 @@ class _InventoryPageState extends State<InventoryPage> {
       body: Consumer2<InventoryViewModel, EquipmentViewModel>(
         builder: (context, inventory, equipment, _) {
           final filtered = _applyFilters(inventory.items);
-          final hasFilter = _rarityFilter != null || _typeFilter != null;
+          final hasFilter = _rarityFilter != null ||
+              _typeFilter != null ||
+              _searchQuery.isNotEmpty;
 
           return Column(
             children: [
+              // ── Recherche + Tri + Bulk-sell ─────────────────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 38,
+                        child: TextField(
+                          controller: _searchCtrl,
+                          style: const TextStyle(
+                              color: AppColors.textPrimary, fontSize: 13),
+                          decoration: InputDecoration(
+                            isDense: true,
+                            hintText: 'Rechercher...',
+                            hintStyle: const TextStyle(
+                                color: AppColors.textMuted, fontSize: 13),
+                            prefixIcon: const Icon(Icons.search,
+                                color: AppColors.textMuted, size: 18),
+                            suffixIcon: _searchQuery.isEmpty
+                                ? null
+                                : IconButton(
+                                    icon: const Icon(Icons.close,
+                                        color: AppColors.textMuted, size: 16),
+                                    onPressed: () {
+                                      _searchCtrl.clear();
+                                      setState(() => _searchQuery = '');
+                                    },
+                                  ),
+                            filled: true,
+                            fillColor: AppColors.backgroundDarkPanel,
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 0),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(
+                                  color: AppColors.inputBorder
+                                      .withValues(alpha: 0.4)),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(
+                                  color: AppColors.inputBorder
+                                      .withValues(alpha: 0.4)),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(
+                                  color: AppColors.primaryTurquoise),
+                            ),
+                          ),
+                          onChanged: (v) =>
+                              setState(() => _searchQuery = v.trim()),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    PopupMenuButton<_SortMode>(
+                      tooltip: 'Trier',
+                      initialValue: _sortMode,
+                      color: AppColors.backgroundDarkPanel,
+                      onSelected: (m) => setState(() => _sortMode = m),
+                      itemBuilder: (_) => _SortMode.values
+                          .map((m) => PopupMenuItem(
+                                value: m,
+                                child: Text(
+                                  _sortLabel(m),
+                                  style: TextStyle(
+                                    color: m == _sortMode
+                                        ? AppColors.primaryTurquoise
+                                        : AppColors.textPrimary,
+                                  ),
+                                ),
+                              ))
+                          .toList(),
+                      child: Container(
+                        height: 38,
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: AppColors.backgroundDarkPanel,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                              color: AppColors.inputBorder
+                                  .withValues(alpha: 0.4)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.sort,
+                                color: AppColors.textMuted, size: 16),
+                            const SizedBox(width: 4),
+                            Text(
+                              _sortLabel(_sortMode),
+                              style: const TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 11),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    IconButton(
+                      tooltip: 'Vendre objets communs',
+                      icon: const Icon(Icons.cleaning_services_outlined,
+                          color: AppColors.gold, size: 20),
+                      onPressed: () =>
+                          _bulkSellLowRarity(context, inventory, equipment),
+                    ),
+                  ],
+                ),
+              ),
               // ── Chips de filtre ─────────────────────────────────────────
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,

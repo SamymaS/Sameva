@@ -34,6 +34,10 @@ class _InvocationPageState extends State<InvocationPage>
   bool _isRevealing = false;
   final List<Item> _history = [];
   List<Item>? _multiPullResults;
+  int _lastDupeRefund = 0;
+
+  static const _historyKey = 'gacha_history';
+  static const _historyMax = 20;
 
   @override
   void initState() {
@@ -56,6 +60,55 @@ class _InvocationPageState extends State<InvocationPage>
       TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 50),
       TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 50),
     ]).animate(CurvedAnimation(parent: _revealController, curve: Curves.easeInOut));
+
+    _loadHistory();
+  }
+
+  void _loadHistory() {
+    try {
+      final raw = Hive.box('settings').get(_historyKey);
+      if (raw is List) {
+        final loaded = raw
+            .whereType<Map>()
+            .map((m) => Item.fromJson(Map<String, dynamic>.from(m)))
+            .toList();
+        if (mounted) {
+          setState(() {
+            _history
+              ..clear()
+              ..addAll(loaded);
+          });
+        } else {
+          _history.addAll(loaded);
+        }
+      }
+    } catch (_) {}
+  }
+
+  void _persistHistory() {
+    try {
+      Hive.box('settings').put(
+        _historyKey,
+        _history.take(_historyMax).map((i) => i.toJson()).toList(),
+      );
+    } catch (_) {}
+  }
+
+  /// Détecte un cosmétique déjà possédé. Retourne le refund cristaux selon rareté.
+  /// Retourne 0 si pas un doublon.
+  int _checkDupeRefund(Item item, InventoryViewModel inv) {
+    if (item.type != ItemType.cosmetic) return 0;
+    final exists = inv.items.any((i) =>
+        i.type == ItemType.cosmetic && i.name == item.name && i.id != item.id);
+    if (!exists) return 0;
+    return switch (item.rarity) {
+      QuestRarity.common    => 2,
+      QuestRarity.uncommon  => 5,
+      QuestRarity.rare      => 10,
+      QuestRarity.epic      => 25,
+      QuestRarity.legendary => 50,
+      QuestRarity.mythic    => 100,
+    };
   }
 
   @override
@@ -112,14 +165,19 @@ class _InvocationPageState extends State<InvocationPage>
     final pullResult = ItemFactory.rollGachaRarityWithPity(pityCount);
     final item = ItemFactory.generateRandomItem(pullResult.rarity);
 
-    // Mise à jour du compteur pity
-    if (pullResult.pityTriggered ||
-        pullResult.rarity == QuestRarity.epic ||
-        pullResult.rarity == QuestRarity.legendary ||
-        pullResult.rarity == QuestRarity.mythic) {
+    // Mise à jour du compteur pity (centralisé via pityTriggered)
+    if (pullResult.pityTriggered) {
       await player.resetPity(userId);
     } else {
       await player.incrementPity(userId);
+    }
+
+    // Doublon cosmétique → refund cristaux au lieu d'ajouter à l'inventaire
+    final refund = _checkDupeRefund(item, inventory);
+    if (refund > 0) {
+      await player.addCrystals(userId, refund);
+    } else {
+      inventory.addItem(item);
     }
 
     await _revealController.forward();
@@ -127,13 +185,14 @@ class _InvocationPageState extends State<InvocationPage>
     if (mounted) {
       setState(() {
         _lastItem = item;
+        _lastDupeRefund = refund;
         _isRevealing = false;
         _history.insert(0, item);
-        if (_history.length > 10) _history.removeLast();
+        if (_history.length > _historyMax) _history.removeLast();
       });
+      _persistHistory();
     }
 
-    inventory.addItem(item);
     await _settings.put('gacha_first_done', true);
   }
 
@@ -161,43 +220,43 @@ class _InvocationPageState extends State<InvocationPage>
     setState(() => _isRevealing = true);
     final results = <Item>[];
     int pityCount = player.stats?.pityCount ?? 0;
+    int totalRefund = 0;
 
     for (int i = 0; i < count; i++) {
       final pullResult = ItemFactory.rollGachaRarityWithPity(pityCount);
       final item = ItemFactory.generateRandomItem(pullResult.rarity);
       results.add(item);
-      inventory.addItem(item);
-      if (pullResult.pityTriggered ||
-          pullResult.rarity == QuestRarity.epic ||
-          pullResult.rarity == QuestRarity.legendary ||
-          pullResult.rarity == QuestRarity.mythic) {
-        pityCount = 0;
+
+      // Doublon cosmétique → refund au lieu d'ajout
+      final refund = _checkDupeRefund(item, inventory);
+      if (refund > 0) {
+        totalRefund += refund;
       } else {
-        pityCount++;
+        inventory.addItem(item);
       }
+
+      pityCount = pullResult.pityTriggered ? 0 : pityCount + 1;
     }
 
-    // Sync pity final
-    if (pityCount == 0) {
-      await player.resetPity(userId);
-    } else {
-      // Sync: set pityCount directly by resetting then incrementing
-      await player.resetPity(userId);
-      for (int i = 0; i < pityCount; i++) {
-        await player.incrementPity(userId);
-      }
+    // Sync pity final en une seule écriture
+    await player.setPity(userId, pityCount);
+
+    if (totalRefund > 0) {
+      await player.addCrystals(userId, totalRefund);
     }
 
     if (mounted) {
       setState(() {
         _multiPullResults = results;
         _lastItem = results.last;
+        _lastDupeRefund = totalRefund;
         _isRevealing = false;
         for (final item in results) {
           _history.insert(0, item);
         }
-        if (_history.length > 10) _history.length = 10;
+        if (_history.length > _historyMax) _history.length = _historyMax;
       });
+      _persistHistory();
     }
     await _settings.put('gacha_first_done', true);
     await _settings.put('gacha_multi_done', true);
@@ -334,6 +393,29 @@ class _InvocationPageState extends State<InvocationPage>
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
+                                  if (_lastDupeRefund > 0) ...[
+                                    const SizedBox(height: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.crystalBlue
+                                            .withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                            color: AppColors.crystalBlue
+                                                .withValues(alpha: 0.5)),
+                                      ),
+                                      child: Text(
+                                        'Doublon · +$_lastDupeRefund 💎',
+                                        style: const TextStyle(
+                                          color: AppColors.crystalBlue,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               )
                             : const Column(
@@ -513,6 +595,8 @@ class _InvocationPageState extends State<InvocationPage>
             Consumer<PlayerViewModel>(
               builder: (_, player, __) {
                 final pity = player.stats?.pityCount ?? 0;
+                final epicLeft = (20 - pity).clamp(0, 20);
+                final legLeft = (80 - pity).clamp(0, 80);
                 return Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
@@ -524,17 +608,32 @@ class _InvocationPageState extends State<InvocationPage>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
                         children: [
-                          Icon(Icons.shield_outlined,
+                          const Icon(Icons.shield_outlined,
                               color: AppColors.primaryVioletLight, size: 14),
-                          SizedBox(width: 6),
-                          Text(
+                          const SizedBox(width: 6),
+                          const Text(
                             'Garanties Pity',
                             style: TextStyle(
                                 color: AppColors.textSecondary,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600),
+                          ),
+                          const Spacer(),
+                          Text(
+                            epicLeft == 0
+                                ? 'Épique garanti au prochain pull !'
+                                : '$epicLeft pulls avant épique',
+                            style: TextStyle(
+                              color: epicLeft == 0
+                                  ? AppColors.rarityEpic
+                                  : AppColors.textMuted,
+                              fontSize: 10,
+                              fontWeight: epicLeft == 0
+                                  ? FontWeight.w700
+                                  : FontWeight.normal,
+                            ),
                           ),
                         ],
                       ),
@@ -551,6 +650,21 @@ class _InvocationPageState extends State<InvocationPage>
                         current: pity,
                         max: 80,
                         color: AppColors.rarityLegendary,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        legLeft == 0
+                            ? '★ Légendaire garanti au prochain pull !'
+                            : '$legLeft pulls avant légendaire garanti',
+                        style: TextStyle(
+                          color: legLeft == 0
+                              ? AppColors.rarityLegendary
+                              : AppColors.textMuted,
+                          fontSize: 10,
+                          fontWeight: legLeft == 0
+                              ? FontWeight.w700
+                              : FontWeight.normal,
+                        ),
                       ),
                     ],
                   ),

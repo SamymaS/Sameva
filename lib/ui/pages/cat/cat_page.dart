@@ -161,12 +161,31 @@ class _CatPageContentState extends State<_CatPageContent> {
                 // ── Slots cosmétiques ─────────────────────────────────────
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Text(
-                    'Cosmétiques',
-                    style: GoogleFonts.nunito(fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
-                      fontSize: 18,
-                    ),
+                  child: Row(
+                    children: [
+                      Text(
+                        'Cosmétiques',
+                        style: GoogleFonts.nunito(
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                          fontSize: 18,
+                        ),
+                      ),
+                      const Spacer(),
+                      _MiniActionBtn(
+                        icon: Icons.shuffle,
+                        label: 'Aléatoire',
+                        color: AppColors.primaryVioletLight,
+                        onTap: () => _randomizeOutfit(context),
+                      ),
+                      const SizedBox(width: 8),
+                      _MiniActionBtn(
+                        icon: Icons.layers_clear_outlined,
+                        label: 'Retirer',
+                        color: AppColors.textMuted,
+                        onTap: () => _clearAll(context),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -180,6 +199,58 @@ class _CatPageContentState extends State<_CatPageContent> {
         ],
       ),
     );
+  }
+
+  Future<void> _clearAll(BuildContext context) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.backgroundDarkPanel,
+        title: Text('Tout retirer',
+            style: GoogleFonts.nunito(
+                color: AppColors.textPrimary, fontWeight: FontWeight.w800)),
+        content: Text(
+          'Retirer tous les cosmétiques équipés de ${widget.cat.name} ?',
+          style: const TextStyle(color: AppColors.textMuted),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler',
+                style: TextStyle(color: AppColors.textMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Retirer',
+                style: TextStyle(
+                    color: AppColors.coralRare, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    await widget.catProvider.clearAllCosmetics(widget.cat.id);
+  }
+
+  Future<void> _randomizeOutfit(BuildContext context) async {
+    final inventory = context.read<InventoryViewModel>();
+    final bySlot = <String, List<String>>{};
+    for (final item in inventory.items) {
+      final slot = item.cosmeticSlot;
+      if (slot == null) continue;
+      bySlot.putIfAbsent(slot, () => []).add(item.id);
+    }
+    if (bySlot.isEmpty) {
+      AppNotification.show(context,
+          message: 'Aucun cosmétique disponible',
+          backgroundColor: AppColors.backgroundDarkPanel);
+      return;
+    }
+    await widget.catProvider.randomizeCosmetics(widget.cat.id, bySlot);
+    if (!mounted) return;
+    AppNotification.show(this.context,
+        message: 'Tenue aléatoire appliquée !',
+        backgroundColor: AppColors.primaryViolet.withValues(alpha: 0.85));
   }
 
   void _showRenameDialog(BuildContext context) {
@@ -265,9 +336,12 @@ class _CatHeroSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final outfitColor = _resolveColor(context, cat.equippedOutfit);
-    final auraColor   = _resolveColor(context, cat.equippedAura);
-    final titleName   = _resolveName(context, cat.equippedTitle);
+    final outfitColor    = _resolveColor(context, cat.equippedOutfit);
+    final pantsColor     = _resolveColor(context, cat.equippedPants);
+    final shoesColor     = _resolveColor(context, cat.equippedShoes);
+    final accessoryColor = _resolveColor(context, cat.equippedAccessory);
+    final auraColor      = _resolveColor(context, cat.equippedAura);
+    final titleName      = _resolveName(context, cat.equippedTitle);
 
     return Column(
       children: [
@@ -290,6 +364,9 @@ class _CatHeroSection extends StatelessWidget {
               race: cat.race,
               equippedHat: cat.equippedHat,
               outfitColor: outfitColor,
+              pantsColor: pantsColor,
+              shoesColor: shoesColor,
+              accessoryColor: accessoryColor,
               auraColor: auraColor,
               size: 200,
               mood: 'happy',
@@ -387,8 +464,10 @@ class _CosmeticSlots extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 14,
+        alignment: WrapAlignment.center,
         children: _slots.map((s) {
           final equipped = _equippedForSlot(s.slot);
           return _SlotButton(
@@ -516,6 +595,16 @@ class _CosmeticSheet extends StatelessWidget {
     required this.catProvider,
   });
 
+  static String _rarityLabelShort(String r) => switch (r.toLowerCase()) {
+        'common'    => 'Commun',
+        'uncommon'  => 'Peu commun',
+        'rare'      => 'Rare',
+        'epic'      => 'Épique',
+        'legendary' => 'Légendaire',
+        'mythic'    => 'Mythique',
+        _           => r,
+      };
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -579,6 +668,13 @@ class _CosmeticSheet extends StatelessWidget {
                   _           => null,
                 };
                 final isEquipped = equippedId == item.id;
+                final rarityColor =
+                    AppColors.getRarityColor(item.rarity.name);
+                final colorVal = item.stats['colorValue'];
+                final swatch = colorVal != null
+                    ? Color(colorVal | 0xFF000000)
+                    : null;
+
                 return ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                   tileColor: isEquipped
@@ -592,14 +688,39 @@ class _CosmeticSheet extends StatelessWidget {
                           : AppColors.inputBorder,
                     ),
                   ),
-                  leading: Icon(
-                    IconData(item.iconCodePoint,
-                        fontFamily: 'MaterialIcons'),
-                    color: AppColors.getRarityColor(item.rarity.name),
+                  leading: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Icon(
+                        IconData(item.iconCodePoint,
+                            fontFamily: 'MaterialIcons'),
+                        color: rarityColor,
+                      ),
+                      if (swatch != null)
+                        Positioned(
+                          right: -4,
+                          bottom: -2,
+                          child: Container(
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color: swatch,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                  color: AppColors.backgroundDarkPanel,
+                                  width: 1.5),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                   title: Text(item.name,
                       style: GoogleFonts.nunito(
                           color: AppColors.textPrimary, fontSize: 14)),
+                  subtitle: Text(
+                    _rarityLabelShort(item.rarity.name),
+                    style: TextStyle(color: rarityColor, fontSize: 11),
+                  ),
                   trailing: isEquipped
                       ? const Icon(Icons.check_circle,
                           color: AppColors.mintMagic, size: 20)
@@ -654,6 +775,54 @@ class _EmptyCatState extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Mini bouton d'action (Randomize / Clear)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MiniActionBtn extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _MiniActionBtn({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 14),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ),
       ),
     );

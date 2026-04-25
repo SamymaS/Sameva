@@ -99,6 +99,58 @@ class CatViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Retire tous les cosmétiques équipés du chat.
+  Future<void> clearAllCosmetics(String catId) async {
+    _error = null;
+    try {
+      final index = _cats.indexWhere((c) => c.id == catId);
+      if (index == -1) return;
+      _cats[index] = _cats[index].copyWith(
+        equippedHat: null,
+        equippedOutfit: null,
+        equippedPants: null,
+        equippedShoes: null,
+        equippedAura: null,
+        equippedAccessory: null,
+        equippedTitle: null,
+      );
+      await _persist();
+    } catch (e) {
+      _error = 'Erreur retrait cosmétiques : $e';
+    }
+    notifyListeners();
+  }
+
+  /// Équipe une combinaison aléatoire de cosmétiques parmi ceux fournis.
+  /// [bySlot] : map slot → liste d'IDs disponibles. Slot vide = inchangé.
+  Future<void> randomizeCosmetics(
+      String catId, Map<String, List<String>> bySlot) async {
+    _error = null;
+    try {
+      final index = _cats.indexWhere((c) => c.id == catId);
+      if (index == -1) return;
+      String? pick(String slot) {
+        final ids = bySlot[slot];
+        if (ids == null || ids.isEmpty) return null;
+        ids.shuffle();
+        return ids.first;
+      }
+      _cats[index] = _cats[index].copyWith(
+        equippedHat: pick('hat'),
+        equippedOutfit: pick('outfit'),
+        equippedPants: pick('pants'),
+        equippedShoes: pick('shoes'),
+        equippedAura: pick('aura'),
+        equippedAccessory: pick('accessory'),
+        equippedTitle: pick('title'),
+      );
+      await _persist();
+    } catch (e) {
+      _error = 'Erreur randomisation : $e';
+    }
+    notifyListeners();
+  }
+
   Future<void> renameCat(String catId, String newName) async {
     _error = null;
     try {

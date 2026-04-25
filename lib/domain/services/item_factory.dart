@@ -407,7 +407,7 @@ class ItemFactory {
   /// Comme [rollGachaRarity] mais applique le système pity.
   /// - pityCount ≥ 80 → Légendaire garanti, reset
   /// - pityCount ≥ 20 → Épique minimum garanti, reset
-  /// Retourne aussi un booléen indiquant si le pity a été déclenché.
+  /// pityTriggered = true si la rareté justifie un reset (pity forcé OU épique+ naturel).
   static ({QuestRarity rarity, bool pityTriggered}) rollGachaRarityWithPity(
       int pityCount) {
     if (pityCount >= 80) {
@@ -418,26 +418,36 @@ class ItemFactory {
       final forced = result.index < QuestRarity.epic.index
           ? QuestRarity.epic
           : result;
-      return (rarity: forced, pityTriggered: forced == QuestRarity.epic && result.index < QuestRarity.epic.index);
+      return (rarity: forced, pityTriggered: true);
     }
-    return (rarity: rollGachaRarity(), pityTriggered: false);
+    final result = rollGachaRarity();
+    return (rarity: result, pityTriggered: result.index >= QuestRarity.epic.index);
   }
 
   /// Génère un item aléatoire de la rareté donnée.
+  /// Si aucun template ne correspond exactement, descend d'un cran de rareté
+  /// (au lieu de retomber silencieusement sur le commun).
   static Item generateRandomItem(QuestRarity rarity) {
-    final matching =
-        _catalog.where((c) => c['rarity'] == rarity).toList();
+    QuestRarity target = rarity;
+    List<Map<String, dynamic>> matching = const [];
+    while (true) {
+      matching = _catalog.where((c) => c['rarity'] == target).toList();
+      if (matching.isNotEmpty) break;
+      if (target.index == 0) {
+        matching = _catalog;
+        break;
+      }
+      target = QuestRarity.values[target.index - 1];
+    }
 
-    final template = matching.isNotEmpty
-        ? matching[_random.nextInt(matching.length)]
-        : _catalog.first;
+    final template = matching[_random.nextInt(matching.length)];
 
     return Item(
       id: _uuid.v4(),
       name: template['name'] as String,
       description: template['description'] as String,
       type: template['type'] as ItemType,
-      rarity: rarity,
+      rarity: target,
       iconCodePoint: template['iconCodePoint'] as int,
       stats: Map<String, int>.from((template['stats'] as Map?) ?? {}),
       quantity: 1,

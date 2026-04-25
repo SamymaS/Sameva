@@ -17,18 +17,13 @@ Color catBodyColor(String race) => switch (race) {
 Color _earInnerColor(Color body) => Color.lerp(body, Colors.white, 0.45)!;
 
 /// Widget affichant le chat compagnon du joueur.
-///
-/// Paramètres :
-/// - [race]         : race du chat (michi/lune/braise/neige/cosmos/sakura)
-/// - [equippedHat]  : identifiant du chapeau équipé (null = aucun)
-/// - [outfitColor]  : couleur de la tenue équipée (null = aucune)
-/// - [auraColor]    : couleur de l'aura équipée (null = aucune)
-/// - [size]         : taille totale du widget (carré)
-/// - [mood]         : expression (happy/neutral/sad/excited/sleepy)
 class CatWidget extends StatefulWidget {
   final String race;
   final String? equippedHat;
   final Color? outfitColor;
+  final Color? pantsColor;
+  final Color? shoesColor;
+  final Color? accessoryColor;
   final Color? auraColor;
   final double size;
   final String mood;
@@ -38,6 +33,9 @@ class CatWidget extends StatefulWidget {
     required this.race,
     this.equippedHat,
     this.outfitColor,
+    this.pantsColor,
+    this.shoesColor,
+    this.accessoryColor,
     this.auraColor,
     this.size = 160,
     this.mood = 'happy',
@@ -122,6 +120,27 @@ class _CatWidgetState extends State<CatWidget>
               if (widget.outfitColor != null)
                 _OutfitLayer(
                   color: widget.outfitColor!,
+                  size: widget.size,
+                ),
+
+              // ── Pantalon (sous la tenue) ───────────────────────────────────
+              if (widget.pantsColor != null)
+                _PantsLayer(
+                  color: widget.pantsColor!,
+                  size: widget.size,
+                ),
+
+              // ── Chaussures (bas du corps) ──────────────────────────────────
+              if (widget.shoesColor != null)
+                _ShoesLayer(
+                  color: widget.shoesColor!,
+                  size: widget.size,
+                ),
+
+              // ── Accessoire (collier/nœud à la base du cou) ────────────────
+              if (widget.accessoryColor != null)
+                _AccessoryLayer(
+                  color: widget.accessoryColor!,
                   size: widget.size,
                 ),
 
@@ -213,6 +232,113 @@ class _OutfitLayer extends StatelessWidget {
             color: color.withValues(alpha: 0.80),
             width: 1.2,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Couche pantalon — bande sous la tenue
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PantsLayer extends StatelessWidget {
+  final Color color;
+  final double size;
+
+  const _PantsLayer({required this.color, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: size * 0.76,
+      left: size * 0.30,
+      child: Container(
+        width: size * 0.40,
+        height: size * 0.13,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.65),
+          borderRadius: BorderRadius.circular(size * 0.05),
+          border: Border.all(
+            color: color.withValues(alpha: 0.85),
+            width: 1.2,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Couche chaussures — deux petits ovales en bas
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ShoesLayer extends StatelessWidget {
+  final Color color;
+  final double size;
+
+  const _ShoesLayer({required this.color, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: size * 0.86,
+      left: size * 0.30,
+      child: SizedBox(
+        width: size * 0.40,
+        height: size * 0.10,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _shoe(),
+            _shoe(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _shoe() => Container(
+        width: size * 0.16,
+        height: size * 0.09,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.85),
+          borderRadius: BorderRadius.circular(size * 0.04),
+          border: Border.all(
+            color: color.withValues(alpha: 1.0),
+            width: 1.0,
+          ),
+        ),
+      );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Couche accessoire — petit nœud/collier à la base du cou
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _AccessoryLayer extends StatelessWidget {
+  final Color color;
+  final double size;
+
+  const _AccessoryLayer({required this.color, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: size * 0.49,
+      child: Container(
+        width: size * 0.18,
+        height: size * 0.08,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.85),
+          shape: BoxShape.rectangle,
+          borderRadius: BorderRadius.circular(size * 0.03),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.5),
+              blurRadius: size * 0.03,
+            ),
+          ],
         ),
       ),
     );

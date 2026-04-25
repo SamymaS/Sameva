@@ -14,6 +14,17 @@ import '../../widgets/cat/cat_widget.dart';
 import '../../widgets/common/rarity_badge.dart';
 import '../invocation/invocation_page.dart';
 
+/// Format compact pour grands nombres (ex. 1234 → 1.2k).
+String _compactNumber(int n) {
+  if (n < 1000) return '$n';
+  if (n < 1000000) {
+    final v = n / 1000;
+    return v >= 100 ? '${v.toStringAsFixed(0)}k' : '${v.toStringAsFixed(1)}k';
+  }
+  final v = n / 1000000;
+  return v >= 100 ? '${v.toStringAsFixed(0)}M' : '${v.toStringAsFixed(1)}M';
+}
+
 /// Page marché : boutique cosmétiques pour chats + vente d'items.
 class MarketPage extends StatelessWidget {
   const MarketPage({super.key});
@@ -39,24 +50,25 @@ class MarketPage extends StatelessWidget {
               padding: const EdgeInsets.only(right: 4),
               child: Center(
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(Icons.monetization_on,
                         color: AppColors.gold, size: 16),
                     const SizedBox(width: 4),
                     Text(
-                      '${player.stats?.gold ?? 0}',
+                      _compactNumber(player.stats?.gold ?? 0),
                       style: GoogleFonts.nunito(
                         color: AppColors.gold,
                         fontWeight: FontWeight.w700,
                         fontSize: 14,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     const Icon(Icons.diamond,
                         color: AppColors.crystalBlue, size: 16),
                     const SizedBox(width: 4),
                     Text(
-                      '${player.stats?.crystals ?? 0}',
+                      _compactNumber(player.stats?.crystals ?? 0),
                       style: GoogleFonts.nunito(
                         color: AppColors.crystalBlue,
                         fontWeight: FontWeight.w700,
@@ -649,19 +661,22 @@ class _CosmeticPreviewSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final rarityColor = AppColors.getRarityColor(item.rarity.name);
 
-    // Preview : chapeau, tenue et aura → aperçu chat en direct
+    // Preview : la plupart des cosmétiques → aperçu chat en direct
     final slot = item.cosmeticSlot;
-    final showCatPreview = slot == 'hat' || slot == 'outfit' || slot == 'aura';
+    const previewableSlots = {
+      'hat', 'outfit', 'pants', 'shoes', 'accessory', 'aura',
+    };
+    final showCatPreview = previewableSlots.contains(slot);
     final hatId = slot == 'hat' ? item.id : null;
 
-    // Résoudre la couleur pour tenue/aura depuis stats['colorValue']
+    // Résoudre couleur depuis stats['colorValue'] selon le slot
     final colorVal = item.stats['colorValue'];
-    final outfitColor = (slot == 'outfit' && colorVal != null)
-        ? Color(colorVal | 0xFF000000)
-        : null;
-    final auraColor = (slot == 'aura' && colorVal != null)
-        ? Color(colorVal | 0xFF000000)
-        : null;
+    final resolved = colorVal != null ? Color(colorVal | 0xFF000000) : null;
+    final outfitColor    = slot == 'outfit'    ? resolved : null;
+    final pantsColor     = slot == 'pants'     ? resolved : null;
+    final shoesColor     = slot == 'shoes'     ? resolved : null;
+    final accessoryColor = slot == 'accessory' ? resolved : null;
+    final auraColor      = slot == 'aura'      ? resolved : null;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
@@ -704,6 +719,9 @@ class _CosmeticPreviewSheet extends StatelessWidget {
                   race: race,
                   equippedHat: hatId,
                   outfitColor: outfitColor,
+                  pantsColor: pantsColor,
+                  shoesColor: shoesColor,
+                  accessoryColor: accessoryColor,
                   auraColor: auraColor,
                   size: 150,
                 ),
@@ -1014,37 +1032,41 @@ class _SellTab extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(item.name,
-                            style: GoogleFonts.nunito(
-                                color: color, fontWeight: FontWeight.w700)),
+                        Text(
+                          item.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.nunito(
+                              color: color, fontWeight: FontWeight.w700),
+                        ),
                         Text(
                           'Revente : $sellPrice pièces (50%)',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.nunito(
                               color: AppColors.textMuted, fontSize: 11),
                         ),
                       ],
                     ),
                   ),
-                  Row(
-                    children: [
-                      const Icon(Icons.monetization_on,
-                          color: AppColors.gold, size: 14),
-                      const SizedBox(width: 2),
-                      Text('$sellPrice',
-                          style: const TextStyle(color: AppColors.gold)),
-                    ],
-                  ),
                   const SizedBox(width: 8),
-                  TextButton(
+                  TextButton.icon(
                     onPressed: () => _confirmSell(context, inventory, item, sellPrice),
                     style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      backgroundColor:
+                          AppColors.primaryViolet.withValues(alpha: 0.15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
-                    child: const Text(
-                      'Vendre',
-                      style: TextStyle(
+                    icon: const Icon(Icons.monetization_on,
+                        color: AppColors.gold, size: 14),
+                    label: Text(
+                      '+${_compactNumber(sellPrice)}',
+                      style: const TextStyle(
                           color: AppColors.primaryVioletLight, fontSize: 12),
                     ),
                   ),
