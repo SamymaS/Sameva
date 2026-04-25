@@ -96,6 +96,7 @@ class _InventoryPageState extends State<InventoryPage> {
     final player = context.read<PlayerViewModel>();
     final userId = context.read<AuthViewModel>().userId ?? '';
     final eligible = inventory.items.where((item) {
+      if (item.isLocked) return false;
       if (item.rarity != QuestRarity.common &&
           item.rarity != QuestRarity.uncommon) {
         return false;
@@ -143,7 +144,7 @@ class _InventoryPageState extends State<InventoryPage> {
     if (ok != true || !mounted) return;
 
     for (final item in eligible) {
-      inventory.removeItem(item.id, quantity: item.quantity);
+      inventory.removeItem(item.id, quantity: item.quantity, force: true);
     }
     await player.addGold(userId, totalGold);
     if (!mounted) return;
@@ -633,6 +634,21 @@ class _FilledSlot extends StatelessWidget {
                 ),
               ),
             ),
+            // Cadenas si verrouillé (haut-gauche)
+            if (item.isLocked)
+              Positioned(
+                top: 4,
+                left: 4,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: AppColors.gold.withValues(alpha: 0.9),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Icon(Icons.lock,
+                      size: 9, color: AppColors.backgroundNightBlue),
+                ),
+              ),
           ],
         ),
       ),
@@ -1199,25 +1215,42 @@ class _ActionButtons extends StatelessWidget {
       ));
     }
 
-    // Vendre (toujours)
+    // Verrouiller / Déverrouiller
     if (buttons.isNotEmpty) buttons.add(const SizedBox(width: 8));
     buttons.add(Expanded(
       child: _ActionBtn(
-        label: 'Vendre',
-        icon: Icons.sell_outlined,
+        label: item.isLocked ? 'Déverr.' : 'Verrouiller',
+        icon: item.isLocked ? Icons.lock : Icons.lock_open,
         color: AppColors.gold,
-        outlined: true,
+        outlined: !item.isLocked,
         onTap: () {
-          final price = (item.goldValue * 0.5).round();
-          inventory.removeItem(item.id);
-          if (player.stats != null) player.addGold(userId, price);
+          inventory.toggleLock(item.id);
           Navigator.pop(context);
-          AppNotification.show(
-            context,
-            message: 'Vendu pour $price or',
-            backgroundColor: AppColors.backgroundDarkPanel,
-          );
         },
+      ),
+    ));
+
+    // Vendre (désactivé si verrouillé)
+    if (buttons.isNotEmpty) buttons.add(const SizedBox(width: 8));
+    buttons.add(Expanded(
+      child: _ActionBtn(
+        label: item.isLocked ? 'Verrouillé' : 'Vendre',
+        icon: Icons.sell_outlined,
+        color: item.isLocked ? AppColors.textMuted : AppColors.gold,
+        outlined: true,
+        onTap: item.isLocked
+            ? () {}
+            : () {
+                final price = (item.goldValue * 0.5).round();
+                inventory.removeItem(item.id, force: true);
+                if (player.stats != null) player.addGold(userId, price);
+                Navigator.pop(context);
+                AppNotification.show(
+                  context,
+                  message: 'Vendu pour $price or',
+                  backgroundColor: AppColors.backgroundDarkPanel,
+                );
+              },
       ),
     ));
 

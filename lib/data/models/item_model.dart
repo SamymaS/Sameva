@@ -24,6 +24,9 @@ class Item {
   /// Null = fallback sur [iconCodePoint] (Material Icons).
   final String? assetPath;
 
+  /// Verrou favoris : empêche vente individuelle accidentelle et bulk-sell.
+  final bool isLocked;
+
   const Item({
     required this.id,
     required this.name,
@@ -38,6 +41,7 @@ class Item {
     this.crystalValue = 0,
     this.cosmeticSlot,
     this.assetPath,
+    this.isLocked = false,
   });
 
   IconData getIcon() => IconData(iconCodePoint, fontFamily: 'MaterialIcons');
@@ -71,6 +75,7 @@ class Item {
         if (crystalValue > 0) 'crystalValue': crystalValue,
         if (cosmeticSlot != null) 'cosmeticSlot': cosmeticSlot,
         if (assetPath != null) 'assetPath': assetPath,
+        if (isLocked) 'isLocked': true,
       };
 
   factory Item.fromJson(Map<String, dynamic> json) => Item(
@@ -89,6 +94,7 @@ class Item {
         crystalValue: json['crystalValue'] as int? ?? 0,
         cosmeticSlot: json['cosmeticSlot'] as String?,
         assetPath: json['assetPath'] as String?,
+        isLocked: json['isLocked'] as bool? ?? false,
       );
 
   Item copyWith({
@@ -105,6 +111,7 @@ class Item {
     int? crystalValue,
     String? cosmeticSlot,
     String? assetPath,
+    bool? isLocked,
   }) =>
       Item(
         id: id ?? this.id,
@@ -120,5 +127,6 @@ class Item {
         crystalValue: crystalValue ?? this.crystalValue,
         cosmeticSlot: cosmeticSlot ?? this.cosmeticSlot,
         assetPath: assetPath ?? this.assetPath,
+        isLocked: isLocked ?? this.isLocked,
       );
 }

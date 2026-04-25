@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Accès à la table `users` de Supabase.
@@ -32,6 +33,8 @@ class UserRepository {
     // Création de l'équipement de base (best-effort — peut déjà exister)
     try {
       await _supabase.from('user_equipment').insert({'user_id': userId});
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('UserRepository: insert user_equipment skip (déjà existant?): $e');
+    }
   }
 }

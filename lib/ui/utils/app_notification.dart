@@ -2,8 +2,16 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
 /// Affiche une notification animée en haut de l'écran (remplace les SnackBar bas).
+/// File d'attente : max 3 simultanées, dédup du dernier message identique
+/// dans une fenêtre de 1.5s (évite spam sur multi-pull).
 class AppNotification {
   AppNotification._();
+
+  static const int _maxConcurrent = 3;
+  static const Duration _dedupWindow = Duration(milliseconds: 1500);
+  static final List<OverlayEntry> _active = [];
+  static String? _lastMessage;
+  static DateTime? _lastShownAt;
 
   static void show(
     BuildContext context, {
@@ -13,22 +21,47 @@ class AppNotification {
     Color backgroundColor = AppColors.backgroundDarkPanel,
     Duration duration = const Duration(seconds: 3),
   }) {
+    // Dédup : même message dans la fenêtre récente → ignore
+    final now = DateTime.now();
+    if (_lastMessage == message &&
+        _lastShownAt != null &&
+        now.difference(_lastShownAt!) < _dedupWindow) {
+      return;
+    }
+    _lastMessage = message;
+    _lastShownAt = now;
+
+    // Cap concurrent : retire la plus ancienne si plein
+    if (_active.length >= _maxConcurrent) {
+      final oldest = _active.removeAt(0);
+      try {
+        oldest.remove();
+      } catch (_) {}
+    }
+
     final overlay = Overlay.of(context);
     final topPadding = MediaQuery.of(context).padding.top;
 
     late OverlayEntry entry;
+    final stackIndex = _active.length;
     entry = OverlayEntry(
       builder: (_) => _TopNotificationWidget(
         message: message,
         icon: icon,
         iconColor: iconColor,
         backgroundColor: backgroundColor,
-        topPadding: topPadding,
-        onDismiss: () => entry.remove(),
+        topPadding: topPadding + stackIndex * 64.0,
+        onDismiss: () {
+          _active.remove(entry);
+          try {
+            entry.remove();
+          } catch (_) {}
+        },
         duration: duration,
       ),
     );
 
+    _active.add(entry);
     overlay.insert(entry);
   }
 }

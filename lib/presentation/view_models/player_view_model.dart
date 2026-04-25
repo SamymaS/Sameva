@@ -124,20 +124,22 @@ class PlayerViewModel with ChangeNotifier {
 
   Future<void> addGold(String userId, int amount) async {
     if (_stats == null) return;
-    _stats = _stats!.copyWith(gold: _stats!.gold + amount);
+    final newGold = (_stats!.gold + amount).clamp(0, 999999999);
+    _stats = _stats!.copyWith(gold: newGold);
     notifyListeners();
     await savePlayerStats(userId);
   }
 
   Future<void> addCrystals(String userId, int amount) async {
-    if (_stats == null) return;
-    _stats = _stats!.copyWith(crystals: _stats!.crystals + amount);
+    if (_stats == null || amount <= 0) return;
+    final newCrystals = (_stats!.crystals + amount).clamp(0, 999999999);
+    _stats = _stats!.copyWith(crystals: newCrystals);
     notifyListeners();
     await savePlayerStats(userId);
   }
 
   Future<void> spendCrystals(String userId, int amount) async {
-    if (_stats == null || _stats!.crystals < amount) return;
+    if (_stats == null || amount <= 0 || _stats!.crystals < amount) return;
     _stats = _stats!.copyWith(crystals: _stats!.crystals - amount);
     notifyListeners();
     await savePlayerStats(userId);
@@ -313,6 +315,20 @@ class PlayerViewModel with ChangeNotifier {
   Future<void> setPity(String userId, int count) async {
     if (_stats == null) return;
     _stats = _stats!.copyWith(pityCount: count.clamp(0, 999));
+    notifyListeners();
+    await savePlayerStats(userId);
+  }
+
+  Future<void> incrementCatPity(String userId) async {
+    if (_stats == null) return;
+    _stats = _stats!.copyWith(catPityCount: _stats!.catPityCount + 1);
+    notifyListeners();
+    await savePlayerStats(userId);
+  }
+
+  Future<void> resetCatPity(String userId) async {
+    if (_stats == null) return;
+    _stats = _stats!.copyWith(catPityCount: 0);
     notifyListeners();
     await savePlayerStats(userId);
   }

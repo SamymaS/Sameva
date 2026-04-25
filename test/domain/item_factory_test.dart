@@ -42,10 +42,44 @@ void main() {
         expect(r.pityTriggered, isTrue);
       });
 
-      test('pityCount < 20 utilise le tirage standard', () {
+      test('pityCount < 20 utilise le tirage standard (rareté valide)', () {
+        // pityTriggered peut être true si épique+ naturel — on ne teste pas false
         final r = ItemFactory.rollGachaRarityWithPity(0);
         expect(QuestRarity.values, contains(r.rarity));
-        expect(r.pityTriggered, isFalse);
+      });
+
+      test('pityCount >= 20 garantit minimum épique', () {
+        for (var i = 0; i < 30; i++) {
+          final r = ItemFactory.rollGachaRarityWithPity(20);
+          expect(r.rarity.index, greaterThanOrEqualTo(QuestRarity.epic.index),
+              reason: 'pityCount=20 doit forcer épique minimum');
+          expect(r.pityTriggered, isTrue,
+              reason: 'pity triggered doit être true');
+        }
+      });
+
+      test('pityTriggered true si rareté ≥ épique (reset compteur)', () {
+        // Force plusieurs tirages pour vérifier la cohérence
+        for (var i = 0; i < 200; i++) {
+          final r = ItemFactory.rollGachaRarityWithPity(0);
+          if (r.rarity.index >= QuestRarity.epic.index) {
+            expect(r.pityTriggered, isTrue,
+                reason: 'épique+ doit déclencher reset pity');
+          }
+        }
+      });
+    });
+
+    group('generateRandomItem cascade fallback', () {
+      test('toujours retourne item avec rareté valide même si template absent',
+          () {
+        // Toutes les raretés ont au moins un template dans le catalogue,
+        // donc la rareté retournée doit toujours être ≤ rareté demandée.
+        for (final rarity in QuestRarity.values) {
+          final item = ItemFactory.generateRandomItem(rarity);
+          expect(item.rarity.index, lessThanOrEqualTo(rarity.index),
+              reason: 'cascade ne doit jamais monter en rareté');
+        }
       });
     });
 

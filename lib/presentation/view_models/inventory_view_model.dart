@@ -60,12 +60,24 @@ class InventoryViewModel with ChangeNotifier {
     return true;
   }
 
+  /// Bascule le verrou favoris d'un item.
+  void toggleLock(String id) {
+    final idx = _items.indexWhere((i) => i.id == id);
+    if (idx < 0) return;
+    _items[idx] = _items[idx].copyWith(isLocked: !_items[idx].isLocked);
+    _save();
+    notifyListeners();
+  }
+
   /// Retire [quantity] unités de l'item [id]. Supprime si quantité = 0.
-  void removeItem(String id, {int quantity = 1}) {
+  /// Items verrouillés ignorés sauf [force]=true (équipement, vente unitaire confirmée).
+  void removeItem(String id, {int quantity = 1, bool force = false}) {
     final idx = _items.indexWhere((i) => i.id == id);
     if (idx < 0) return;
 
     final current = _items[idx];
+    if (current.isLocked && !force) return;
+
     if (current.quantity <= quantity) {
       _items.removeAt(idx);
     } else {

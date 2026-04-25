@@ -277,9 +277,12 @@ class _ShopTabState extends State<_ShopTab> {
 
 void _executeBuyWithGold(
     BuildContext context, Item item, Color notificationColor) {
+  if (item.goldValue <= 0) return;
   final auth = context.read<AuthViewModel>();
   final player = context.read<PlayerViewModel>();
   final inventory = context.read<InventoryViewModel>();
+  if ((player.stats?.gold ?? 0) < item.goldValue) return;
+  if (inventory.isFull) return;
   final userId = auth.userId ?? '';
   inventory.addItem(item.copyWith(id: const Uuid().v4()));
   player.addGold(userId, -item.goldValue);
@@ -962,6 +965,9 @@ class _CrystalTile extends StatelessWidget {
 
   void _buy(BuildContext context, PlayerViewModel player,
       InventoryViewModel inventory) {
+    if (item.crystalValue <= 0) return;
+    if ((player.stats?.crystals ?? 0) < item.crystalValue) return;
+    if (inventory.isFull) return;
     final auth = context.read<AuthViewModel>();
     final userId = auth.userId ?? '';
     player.spendCrystals(userId, item.crystalValue);
@@ -986,6 +992,7 @@ class _SellTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<InventoryViewModel>(
       builder: (context, inventory, _) {
+        final sellable = inventory.items.where((i) => !i.isLocked).toList();
         if (inventory.items.isEmpty) {
           return Center(
             child: Text(
@@ -994,11 +1001,19 @@ class _SellTab extends StatelessWidget {
             ),
           );
         }
+        if (sellable.isEmpty) {
+          return Center(
+            child: Text(
+              'Tous tes objets sont verrouillés.',
+              style: GoogleFonts.nunito(color: AppColors.textMuted),
+            ),
+          );
+        }
         return ListView.builder(
           padding: const EdgeInsets.all(12),
-          itemCount: inventory.items.length,
+          itemCount: sellable.length,
           itemBuilder: (context, i) {
-            final item = inventory.items[i];
+            final item = sellable[i];
             final sellPrice = (item.goldValue * 0.5).round();
             final color = AppColors.getRarityColor(item.rarity.name);
             return Container(
@@ -1127,7 +1142,7 @@ class _SellTab extends StatelessWidget {
     final player = context.read<PlayerViewModel>();
     final auth = context.read<AuthViewModel>();
     final userId = auth.userId ?? '';
-    inventory.removeItem(item.id);
+    inventory.removeItem(item.id, force: true);
     player.addGold(userId, sellPrice);
     AppNotification.show(
       context,

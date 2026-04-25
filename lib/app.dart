@@ -51,11 +51,20 @@ class _SamevaAppState extends State<SamevaApp> {
     ProfilePage(),
   ];
 
+  // Pages fréquemment consultées : KeepAlive activé.
+  // Pages occasionnelles (Marché, Invocation, Mini-jeux, Profil) : rebuild OK,
+  // évite consommation RAM constante.
+  static const _keepAliveIndices = {0, 1, 2, 3};
+
   @override
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: _currentIndex);
-    _pages = _rawPages.map((p) => _KeepAlivePage(child: p)).toList();
+    _pages = List.generate(_rawPages.length, (i) {
+      return _keepAliveIndices.contains(i)
+          ? _KeepAlivePage(child: _rawPages[i])
+          : _rawPages[i];
+    });
   }
 
   @override

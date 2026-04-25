@@ -82,7 +82,9 @@ class _InvocationPageState extends State<InvocationPage>
           _history.addAll(loaded);
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('InvocationPage: erreur chargement historique: $e');
+    }
   }
 
   void _persistHistory() {
@@ -91,17 +93,50 @@ class _InvocationPageState extends State<InvocationPage>
         _historyKey,
         _history.take(_historyMax).map((i) => i.toJson()).toList(),
       );
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('InvocationPage: erreur persist historique: $e');
+    }
+  }
+
+  static const _refundDailyCap = 200;
+  static const _refundDateKey = 'dupe_refund_date';
+  static const _refundAmountKey = 'dupe_refund_today';
+
+  /// Récupère le total déjà refund aujourd'hui (reset à minuit).
+  int _todayRefundTotal() {
+    try {
+      final box = Hive.box('settings');
+      final dateStr = box.get(_refundDateKey) as String?;
+      final today = DateTime.now().toIso8601String().substring(0, 10);
+      if (dateStr != today) return 0;
+      return box.get(_refundAmountKey, defaultValue: 0) as int;
+    } catch (e) {
+      debugPrint('refund cap read error: $e');
+      return 0;
+    }
+  }
+
+  Future<void> _addRefundToToday(int amount) async {
+    try {
+      final box = Hive.box('settings');
+      final today = DateTime.now().toIso8601String().substring(0, 10);
+      final current = _todayRefundTotal();
+      await box.put(_refundDateKey, today);
+      await box.put(_refundAmountKey, current + amount);
+    } catch (e) {
+      debugPrint('refund cap write error: $e');
+    }
   }
 
   /// Détecte un cosmétique déjà possédé. Retourne le refund cristaux selon rareté.
-  /// Retourne 0 si pas un doublon.
+  /// Retourne 0 si pas un doublon OU si cap journalier atteint.
+  /// Items verrouillés non comptés comme doublons (utilisateur garde le dupe).
   int _checkDupeRefund(Item item, InventoryViewModel inv) {
     if (item.type != ItemType.cosmetic) return 0;
     final exists = inv.items.any((i) =>
         i.type == ItemType.cosmetic && i.name == item.name && i.id != item.id);
     if (!exists) return 0;
-    return switch (item.rarity) {
+    final base = switch (item.rarity) {
       QuestRarity.common    => 2,
       QuestRarity.uncommon  => 5,
       QuestRarity.rare      => 10,
@@ -109,6 +144,9 @@ class _InvocationPageState extends State<InvocationPage>
       QuestRarity.legendary => 50,
       QuestRarity.mythic    => 100,
     };
+    final usedToday = _todayRefundTotal();
+    final remaining = (_refundDailyCap - usedToday).clamp(0, _refundDailyCap);
+    return base.clamp(0, remaining);
   }
 
   @override
@@ -176,6 +214,7 @@ class _InvocationPageState extends State<InvocationPage>
     final refund = _checkDupeRefund(item, inventory);
     if (refund > 0) {
       await player.addCrystals(userId, refund);
+      await _addRefundToToday(refund);
     } else {
       inventory.addItem(item);
     }
@@ -243,6 +282,7 @@ class _InvocationPageState extends State<InvocationPage>
 
     if (totalRefund > 0) {
       await player.addCrystals(userId, totalRefund);
+      await _addRefundToToday(totalRefund);
     }
 
     if (mounted) {
@@ -843,16 +883,13 @@ class _CatInvocationTabState extends State<_CatInvocationTab>
     setState(() => _isRevealing = true);
     _revealCtrl.reset();
 
-    final pityCount = player.stats?.pityCount ?? 0;
-    final pullResult = ItemFactory.rollGachaRarityWithPity(pityCount);
+    final catPityCount = player.stats?.catPityCount ?? 0;
+    final pullResult = ItemFactory.rollGachaRarityWithPity(catPityCount);
 
-    if (pullResult.pityTriggered ||
-        pullResult.rarity == QuestRarity.epic ||
-        pullResult.rarity == QuestRarity.legendary ||
-        pullResult.rarity == QuestRarity.mythic) {
-      await player.resetPity(userId);
+    if (pullResult.pityTriggered) {
+      await player.resetCatPity(userId);
     } else {
-      await player.incrementPity(userId);
+      await player.incrementCatPity(userId);
     }
 
     final newCat = await catProvider.addRolledCat(pullResult.rarity);

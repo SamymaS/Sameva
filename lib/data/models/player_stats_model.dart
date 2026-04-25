@@ -15,6 +15,7 @@ class PlayerStats {
   final Map<String, int> achievements;
   final int totalQuestsCompleted;
   final int pityCount;
+  final int catPityCount;
 
   PlayerStats({
     this.level = 1,
@@ -31,6 +32,7 @@ class PlayerStats {
     Map<String, int>? achievements,
     this.totalQuestsCompleted = 0,
     this.pityCount = 0,
+    this.catPityCount = 0,
   }) : achievements = achievements ?? {};
 
   // Sérialisation Hive (camelCase)
@@ -49,6 +51,7 @@ class PlayerStats {
         'achievements': achievements,
         'totalQuestsCompleted': totalQuestsCompleted,
         'pityCount': pityCount,
+        'catPityCount': catPityCount,
       };
 
   factory PlayerStats.fromJson(Map<String, dynamic> json) => PlayerStats(
@@ -70,6 +73,7 @@ class PlayerStats {
             : {},
         totalQuestsCompleted: json['totalQuestsCompleted'] as int? ?? 0,
         pityCount: json['pityCount'] as int? ?? 0,
+        catPityCount: json['catPityCount'] as int? ?? 0,
       );
 
   // Sérialisation Supabase (snake_case)
@@ -125,6 +129,7 @@ class PlayerStats {
     Map<String, int>? achievements,
     int? totalQuestsCompleted,
     int? pityCount,
+    int? catPityCount,
   }) =>
       PlayerStats(
         level: level ?? this.level,
@@ -141,6 +146,7 @@ class PlayerStats {
         achievements: achievements ?? this.achievements,
         totalQuestsCompleted: totalQuestsCompleted ?? this.totalQuestsCompleted,
         pityCount: pityCount ?? this.pityCount,
+        catPityCount: catPityCount ?? this.catPityCount,
       );
 
   static const List<Map<String, String>> achievementDefinitions = [

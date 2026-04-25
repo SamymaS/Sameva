@@ -84,6 +84,8 @@ class HealthRegenerationService {
   static void _updateTimestamp() {
     try {
       _box.put(_lastRegenKey, DateTime.now().toIso8601String());
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('HealthRegen: erreur updateTimestamp: $e');
+    }
   }
 }
