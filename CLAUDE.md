@@ -1,81 +1,96 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Ce fichier guide les agents de code qui travaillent sur le projet Sameva.
 
-## Project Overview
+## Vue d'ensemble du projet
 
-Sameva is a gamified task management Flutter app where users complete quests to earn XP, gold, and items. It features RPG mechanics (leveling, inventory, equipment, gacha system, mini-games) built on Clean Architecture with Provider state management.
+Sameva est une application Flutter de gestion de tâches gamifiée, inspirée des RPG. Les utilisateurs accomplissent des quêtes pour gagner de l'XP, de l'or, des cristaux et des items. Le projet suit une Clean Architecture avec Provider / ChangeNotifier pour l'état partagé.
 
-## Commands
+## Commandes utiles
 
 ```bash
-flutter pub get                    # Install dependencies
-flutter run                        # Run app (auto-detects device)
-flutter run -d chrome              # Run on Chrome
-flutter run -d windows             # Run on Windows
-flutter analyze                    # Run static analysis (flutter_lints)
-flutter test                       # Run tests
-flutter test test/widget_test.dart # Run single test file
-dart run build_runner build        # Generate Hive adapters (after modifying @HiveType models)
+flutter pub get                    # Installer les dépendances
+flutter run                        # Lancer l'app avec détection automatique
+flutter run -d chrome              # Lancer sur Chrome
+flutter run -d windows             # Lancer sur Windows
+flutter analyze                    # Analyse statique
+flutter test                       # Lancer les tests
+flutter test test/widget_test.dart # Lancer un test précis
+dart run build_runner build        # Régénérer les adapters Hive après modification @HiveType/@HiveField
 flutter build apk                  # Build Android release
-flutter build web                  # Build web release
+flutter build web                  # Build Web release
 ```
 
 ## Architecture
 
-**Clean Architecture** with 4 layers:
+Clean Architecture en 4 couches :
 
 ```
 lib/
-├── config/          # Supabase configuration (reads from .env)
-├── data/            # Repositories impl, models, datasources (Supabase + Hive)
-├── domain/          # Entities, abstract repositories, business services
-├── presentation/    # Providers (ChangeNotifier state management)
+├── config/          # Configuration Supabase et constantes
+├── data/            # Models, repositories, datasources (Supabase + Hive)
+├── domain/          # Entités, services métier, repositories abstraits
+├── presentation/    # ViewModels ChangeNotifier et use cases
 ├── ui/
-│   ├── pages/       # Screens organized by feature (auth/, home/, quest/, etc.)
-│   ├── theme/       # AppTheme, AppColors, AppStyles (Material 3)
-│   └── widgets/     # Reusable widgets: minimalist/, magical/, fantasy/, common/
-└── utils/           # SVG/Figma asset helpers
+│   ├── pages/       # Écrans par fonctionnalité
+│   ├── theme/       # AppTheme, AppColors, AppStyles
+│   └── widgets/     # Widgets réutilisables
+└── utils/           # Helpers divers
 ```
 
-**Entry point**: `lib/main.dart` initializes dotenv, Supabase, and Hive boxes (`quests`, `playerStats`, `inventory`, `equipment`), then runs the app via `lib/app_new.dart`.
+Point d'entrée : `lib/main.dart` initialise dotenv, Supabase, Hive (`quests`, `playerStats`, `settings`, `inventory`, `equipment`, `cats`), `NotificationService`, puis expose les repositories et ViewModels avec `MultiProvider`.
 
-**Navigation**: `app_new.dart` uses a Stack with AnimatedSwitcher and a floating dock bar. 8 main pages: Sanctuary (home), Quests, Inventory, Avatar, Market, Invocation, Minigames, Profile. A floating FAB opens quest creation.
+## État et accès aux données
 
-## State Management (Provider)
+- Utiliser Provider / ChangeNotifier uniquement ; ne pas introduire BLoC ou Riverpod.
+- Les ChangeNotifier actuels sont dans `lib/presentation/view_models/`.
+- L'UI utilise `context.watch<T>()` pour la réactivité et `context.read<T>()` pour les actions ponctuelles.
+- Les opérations Supabase et Hive passent par les repositories, use cases ou ViewModels, jamais directement depuis les pages.
+- Après toute mutation d'état dans un ChangeNotifier, appeler `notifyListeners()`.
+- Les erreurs sont capturées avec `try/catch`, exposées via un état `_error` ou équivalent, puis affichées proprement par l'UI.
 
-6 providers registered via MultiProvider in `main.dart`:
+## Persistance et backend
 
-| Provider | Storage | Purpose |
-|----------|---------|---------|
-| `AuthProvider` | Supabase Auth | Email/password & anonymous login, auth state listener |
-| `QuestProvider` | Supabase DB | Quest CRUD, filtering (active/completed/today/missed), reward calculation |
-| `PlayerProvider` | Hive | Level, XP, gold, crystals, HP, moral, streak |
-| `InventoryProvider` | Hive | 50-slot item management with stacking |
-| `EquipmentProvider` | Hive | Equipment slots and equipped items |
-| `ThemeProvider` | Hive | Dark/light/system theme persistence |
+- Supabase : Auth + PostgreSQL. La configuration est dans `lib/config/supabase_config.dart` et les secrets dans `.env`.
+- Hive : persistance locale. Les boîtes principales sont ouvertes dans `main.dart`.
+- IA : appels Claude via `http` direct, avec clés/API dans `.env` ou configuration dédiée.
+- Notifications : `flutter_local_notifications` + `timezone`, initialisés via `NotificationService`.
+- Pour les migrations Supabase, respecter les RLS existantes ; les foreign keys vers `auth.users` utilisent `ON DELETE CASCADE`.
 
-## Backend & Persistence
+## Règles de développement
 
-- **Supabase**: Authentication + PostgreSQL for quests, user profiles, equipment. Config in `lib/config/supabase_config.dart`, credentials via `.env` (not committed).
-- **Hive**: Local persistence for player stats, inventory, settings. Boxes opened at startup in `main.dart`.
-- `.env` must contain `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
+1. Lire le fichier complet avant de le modifier.
+2. Choisir la solution la plus simple qui respecte l'architecture existante.
+3. Ne modifier que les fichiers nécessaires à la demande.
+4. Ne pas faire de refactoring non demandé.
+5. Écrire l'UI, les commentaires utiles, la documentation et les commits en français.
+6. Ne commenter que la logique non évidente.
+7. Utiliser `withValues(alpha: x)` plutôt que `withOpacity()`.
+8. Après chaque `await` suivi d'une utilisation de `context`, vérifier `context.mounted`.
+9. Ne jamais hardcoder les clés API ; utiliser `.env` et `config/`.
+10. Après modification `@HiveType` / `@HiveField`, exécuter `dart run build_runner build`.
+11. Corriger les warnings pertinents de `flutter analyze` pour les fichiers touchés.
+12. Commits en français au format `feat:`, `fix:`, `refactor:`, `style:` ou `chore:`.
 
-## Design System
+## Design system
 
-- **Material 3** with custom light/dark themes defined in `ui/theme/`
-- **Colors**: `AppColors` — turquoise primary (#4FD1C5), violet secondary (#805AD5), gold accent (#F6E05E), night blue dark bg (#0F172A)
-- **Fonts**: MedievalSharp (fantasy headings), Press Start 2P (pixel game stats), Quicksand/Poppins (body)
-- **Rarity colors**: Common (gray), Uncommon (green), Rare (blue), Epic (violet), Legendary (gold), Mythic (red)
-- **Widget categories**: `minimalist/` (clean flat components), `magical/` (animated glow/particles), `fantasy/` (RPG-themed)
+- Material 3 avec thèmes light/dark dans `lib/ui/theme/`.
+- Couleurs : utiliser `AppColors` depuis `lib/ui/theme/app_colors.dart`.
+- Direction artistique actuelle : cosmos/fantasy sombre, violet profond, or, bleu cristal, vert succès, rouge/rose erreur.
+- Polices : MedievalSharp pour les titres fantasy, Press Start 2P pour les stats, Quicksand/Poppins pour le corps.
+- Widgets : réutiliser `minimalist/`, `magical/`, `fantasy/` et `common/` avant de créer un nouveau composant.
+- Assets visuels : PNG pour images, SVG pour icônes ; les placer dans `assets/images/` ou `assets/icons/` selon le type et référencer `pubspec.yaml` si nécessaire.
 
-## Key Domain Services
+## Logique métier de référence
 
-- `QuestRewardsCalculator`: XP = 10 × difficulty, Gold = 25 × difficulty, with timing bonuses (+25% early, -20% late) and streak bonus (+10% at 7+ days)
-- `BonusMalusService`: Quest modifier system
-- `HealthRegenerationService`: HP recovery mechanics
-- `ItemFactory`: Creates items with rarity levels
+- Récompenses de base : XP = `10 × difficulty`, Or = `25 × difficulty`, cristaux si difficulté > 3.
+- Ponctualité : terminé en avance (< 80 % du temps estimé) = ×1.25 ; à temps = ×1.10 ; en retard = ×0.80.
+- Streak : +0.10 au multiplicateur si streak >= 7 jours.
+- Level-up : seuil XP `(100 × level × 1.5).round()`, HP max `100 + (level - 1) × 10`.
+- Gacha : Mythic 0,1 %, Legendary 0,9 %, Epic 4 %, Rare 10 %, Uncommon 25 %, Common 60 %.
 
-## Language
+## Réponse et collaboration
 
-The app UI, documentation, and commit messages are in **French**.
+- Expliquer brièvement pourquoi une modification est faite.
+- Montrer uniquement les sections modifiées ou le diff, pas des fichiers entiers.
+- En cas de doute bloquant sur l'intention, demander une clarification.

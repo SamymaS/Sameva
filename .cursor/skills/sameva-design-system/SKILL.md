@@ -7,11 +7,11 @@ description: Applique le design system Sameva (couleurs, polices, rareté, widge
 
 ## Couleurs (AppColors)
 
-- **Primaire** : `AppColors.primaryTurquoise` (#4FD1C5), `primaryTurquoiseDark` (#38B2AC)
-- **Secondaire** : `AppColors.secondaryViolet` (#805AD5), `secondaryVioletGlow` (#B794F4)
-- **Accent** : `AppColors.gold` (#F6E05E), `goldDark` (#D69E2E)
-- **Fonds** : `backgroundNightBlue` (#0F172A), `backgroundDeepViolet` (#2D2B55), `backgroundDarkPanel` (#1A202C)
+- **Primaire** : `AppColors.primaryViolet` (#805AD5), `primaryVioletLight`, `primaryVioletGlow`
+- **Accents** : `AppColors.gold`, `goldDark`, `crystalBlue`, `mintMagic`, `coralRare`
+- **Fonds** : `backgroundNightCosmos`, `backgroundNightBlue` (alias), `backgroundDeepViolet`, `backgroundDarkPanel`
 - **Texte** : `textPrimary`, `textSecondary`, `textMuted` ; clair : `cream100`, `parchment`
+- **Compatibilité** : les anciens alias (`primaryTurquoise`, `secondaryViolet`, etc.) existent encore, mais préférer les noms alignés avec la DA actuelle quand du nouveau code est créé.
 
 Toujours importer et utiliser `AppColors` depuis `ui/theme/app_colors.dart`. Ne pas définir de couleurs en dur pour l'UI.
 
@@ -45,6 +45,12 @@ Choisir le dossier en fonction du style de la page (Sanctuaire/Quêtes → souve
 ## Material 3
 
 Thèmes light/dark dans `ui/theme/app_theme.dart`. Utiliser le thème via `Theme.of(context)` pour les couleurs schématiques quand c'est cohérent avec le design system.
+
+## Assets visuels
+
+- Style : fantasy RPG sombre / cosmos, effets lumineux et particules sobres.
+- PNG pour images, SVG pour icônes vectorielles.
+- Placer les fichiers dans `assets/images/`, `assets/icons/` ou le dossier d'assets existant le plus cohérent, puis référencer `pubspec.yaml` si nécessaire.
 
 ## Fichiers de référence
 

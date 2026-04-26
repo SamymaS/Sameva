@@ -11,8 +11,8 @@ description: Applique l'architecture Clean et Provider du projet Sameva. Utilise
 lib/
 ├── config/          # Configuration (Supabase, .env)
 ├── data/            # Implémentations repositories, models, datasources (Supabase + Hive)
-├── domain/          # Entities, repositories abstraits, services métier
-├── presentation/    # Providers (ChangeNotifier)
+├── domain/          # Entités, repositories abstraits, services métier
+├── presentation/    # ViewModels ChangeNotifier et use cases
 ├── ui/
 │   ├── pages/       # Écrans par feature (auth/, home/, quest/, etc.)
 │   ├── theme/       # AppTheme, AppColors, AppStyles
@@ -24,21 +24,22 @@ lib/
 
 ## Point d'entrée et navigation
 
-- **main.dart** : initialise dotenv, Supabase, Hive (boxes `quests`, `playerStats`, `inventory`, `equipment`), enregistre les 6 providers, lance `SamevaApp`.
-- **app_new.dart** : Stack + AnimatedSwitcher + barre dock flottante. 8 pages principales (Sanctuaire, Quêtes, Inventaire, Avatar, Marché, Invocation, Minijeux, Profil). FAB flottant pour création de quête.
+- **main.dart** : initialise dotenv, Supabase, Hive (boxes `quests`, `playerStats`, `settings`, `inventory`, `equipment`, `cats`), `NotificationService`, enregistre les repositories et ViewModels, lance `SamevaApp`.
+- **app.dart** : configure l'application, le thème et la navigation principale.
 
-## Providers (état)
+## ViewModels / Providers (état)
 
 | Provider | Stockage | Rôle |
 |----------|----------|------|
-| AuthProvider | Supabase Auth | Connexion email/mdp et anonyme, écoute auth |
-| QuestProvider | Supabase DB | CRUD quêtes, filtres (actives/terminées/aujourd'hui/ratées), récompenses |
-| PlayerProvider | Hive | Niveau, XP, or, cristaux, HP, moral, streak |
-| InventoryProvider | Hive | 50 emplacements, stack d'items |
-| EquipmentProvider | Hive | Slots d'équipement et items équipés |
-| ThemeProvider | Hive | Thème sombre/clair/système |
+| AuthViewModel | Supabase Auth | Connexion email/mdp et anonyme, écoute auth |
+| QuestViewModel | Supabase DB | CRUD quêtes, filtres, récompenses |
+| PlayerViewModel | Hive + Supabase | Niveau, XP, or, cristaux, HP, moral, streak |
+| InventoryViewModel | Hive | 50 emplacements, stack d'items |
+| EquipmentViewModel | Hive | Slots d'équipement et items équipés |
+| ThemeViewModel | Hive | Thème sombre/clair/système |
+| NotificationViewModel | Hive + notifications locales | Préférences et rappels |
 
-Nouveau provider : le créer dans `presentation/providers/`, l'enregistrer dans `main.dart` avec `MultiProvider`, et utiliser les boxes Hive ou Supabase selon le besoin.
+Nouveau ViewModel : le créer dans `presentation/view_models/`, l'enregistrer dans `main.dart` avec `MultiProvider`, et utiliser les repositories, use cases, boxes Hive ou Supabase selon le besoin. Appeler `notifyListeners()` après toute mutation d'état.
 
 ## Où placer le code
 
@@ -46,7 +47,7 @@ Nouveau provider : le créer dans `presentation/providers/`, l'enregistrer dans 
 - **Règle métier / calcul** → `domain/services/`
 - **Repository abstrait** → `domain/` (interface)
 - **Implémentation repo + models** → `data/`
-- **État partagé (UI)** → `presentation/providers/`
+- **État partagé (UI)** → `presentation/view_models/`
 - **Nouvelle page** → `ui/pages/<feature>/`
 - **Widget réutilisable** → `ui/widgets/` (minimalist, magical, fantasy ou common selon le style)
 

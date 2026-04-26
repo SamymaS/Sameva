@@ -9,6 +9,7 @@ alwaysApply: false
 ## Couleurs et thème
 
 - Utiliser **AppColors** (`lib/ui/theme/app_colors.dart`) pour toutes les couleurs. Pas de `Color(0x...)` en dur pour l'UI.
+- Direction artistique actuelle : fantasy RPG sombre / cosmos, violet profond, or/ambre, bleu cristal, vert succès, rouge/rose pour les erreurs ou HP bas.
 - Rareté : `AppColors.getRarityColor(rarity)` et `AppColors.shouldGlow(rarity)` pour bordures/effets.
 - Styles communs : `AppStyles.radius`, `AppStyles.titleStyle`, `AppStyles.subtitleStyle`, `AppStyles.softShadow`.
 
@@ -25,3 +26,4 @@ Réutiliser ces widgets plutôt que recréer des composants équivalents. Choisi
 
 - Polices : MedievalSharp (titres fantasy), Press Start 2P (stats/jeu), Quicksand/Poppins (corps).
 - Fonds sombres : `AppColors.backgroundNightBlue`, `backgroundDarkPanel` pour cartes/panneaux.
+- Assets visuels : générer ou ajouter les images en PNG et les icônes vectorielles en SVG ; placer les fichiers dans `assets/images/`, `assets/icons/` ou le dossier d'assets existant le plus cohérent, puis référencer `pubspec.yaml` si nécessaire.

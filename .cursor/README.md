@@ -8,7 +8,7 @@ Les skills sont dans `.cursor/skills/`. Cursor les active automatiquement quand 
 
 | Skill | Quand il s'active |
 |-------|-------------------|
-| **sameva-architecture** | Ajout de fonctionnalités, refactoring, nouvelles pages ou providers, questions sur où placer le code |
+| **sameva-architecture** | Ajout de fonctionnalités, refactoring, nouvelles pages ou ViewModels/Providers, questions sur où placer le code |
 | **sameva-design-system** | Création ou modification d'écrans, widgets, thème, travail dans `lib/ui/` |
 | **sameva-domain** | Logique métier (quêtes, récompenses, items, équipement), Hive, Supabase |
 
@@ -20,6 +20,8 @@ Les règles sont dans `.cursor/rules/`. Elles s'appliquent quand tu travailles s
 |-------|---------------------|
 | **sameva-dart** | `lib/**/*.dart` — Conventions Dart/Flutter et français |
 | **sameva-ui** | `lib/ui/**/*.dart` — Design system, AppColors, widgets existants |
+
+Ces règles complètent `CLAUDE.md`, qui contient les consignes globales de développement, de persistance, de Supabase, de génération d'assets et de workflow Git.
 
 ## Résumé
 
