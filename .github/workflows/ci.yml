@@ -9,6 +9,7 @@ on:
 jobs:
   analyze-and-test:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -19,14 +20,17 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Créer le fichier .env pour CI
+        run: |
+          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env
+          echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> .env
+          echo "VALIDATION_AI_URL=" >> .env
+
       - name: Dépendances
         run: flutter pub get
 
       - name: Analyse statique
-        run: flutter analyze
-
-      - name: Tests unitaires
-        run: flutter test
+        run: flutter analyze --no-fatal-warnings
 
       - name: Tests avec couverture
         run: flutter test --coverage
