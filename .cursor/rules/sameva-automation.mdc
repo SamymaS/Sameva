@@ -1,0 +1,39 @@
+---
+description: Lignes directrices globales pour les agents et automatisations Sameva
+alwaysApply: true
+---
+
+# Automations Sameva
+
+## Principes généraux
+
+- Lire le fichier complet avant toute modification.
+- Appliquer la solution la plus simple compatible avec l'architecture existante.
+- Ne modifier que les fichiers nécessaires à la demande.
+- Ne commenter le code que lorsque la logique n'est pas évidente.
+- Garder l'UI, la documentation, les commentaires utiles, les variables métier et les commits en français.
+- Commiter en français avec le format `feat:`, `fix:`, `refactor:`, `style:` ou `chore:`.
+
+## Flutter et Provider
+
+- Utiliser Provider / ChangeNotifier ; ne pas introduire BLoC ou Riverpod.
+- Appeler `notifyListeners()` après toute mutation d'état dans un provider.
+- Les pages UI utilisent les providers ; elles n'accèdent pas directement à Supabase, Hive ou la couche `data`.
+- Exposer les erreurs via `_error` ou un état équivalent, avec `try/catch` autour des opérations réseau/disque.
+- Utiliser `withValues(alpha: x)` au lieu de `withOpacity()`.
+- Après un `await` dans une méthode qui réutilise `BuildContext`, vérifier `context.mounted`.
+
+## Hive, Supabase et configuration
+
+- Après modification d'un modèle `@HiveType` ou `@HiveField`, lancer `dart run build_runner build`.
+- Les clés API et secrets restent dans `.env` ; ne pas les hardcoder.
+- Les migrations Supabase doivent respecter les policies RLS existantes.
+- Tester avec un `SELECT` avant tout `UPDATE` ou `DELETE`.
+- Les foreign keys vers `auth.users` utilisent `ON DELETE CASCADE`.
+
+## Assets visuels
+
+- Générer les assets avec Python + PIL/Pillow ou cairosvg.
+- Placer les images dans `assets/images/` et les icônes dans `assets/icons/`.
+- Ajouter les références dans `pubspec.yaml` si nécessaire.
+- Respecter le style fantasy RPG dark de Sameva : violet profond, or/ambre, fonds sombres, accents lumineux.

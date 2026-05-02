@@ -18,6 +18,7 @@ Les règles sont dans `.cursor/rules/`. Elles s'appliquent quand tu travailles s
 
 | Règle | Fichiers concernés |
 |-------|---------------------|
+| **sameva-automation** | Globale — lignes directrices pour agents, automatisations, commits et persistance |
 | **sameva-dart** | `lib/**/*.dart` — Conventions Dart/Flutter et français |
 | **sameva-ui** | `lib/ui/**/*.dart` — Design system, AppColors, widgets existants |
 
