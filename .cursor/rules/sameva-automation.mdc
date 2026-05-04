@@ -1,0 +1,57 @@
+---
+description: Lignes directrices globales pour les automations et agents Sameva
+globs: **/*
+alwaysApply: true
+---
+
+# Lignes directrices Sameva pour les agents
+
+## Principes de travail
+
+- Lire le fichier complet avant toute modification.
+- Choisir la solution la plus simple qui respecte l'architecture existante.
+- Ne modifier que les fichiers nécessaires à la demande.
+- Eviter le refactoring non demandé.
+- Commenter uniquement lorsque la logique n'est pas évidente.
+- Utiliser le français pour l'UI, la documentation, les commentaires métier et les commits.
+- Rédiger les commits au format `feat:`, `fix:`, `refactor:`, `style:` ou `chore:`.
+
+## Flutter et architecture
+
+- Respecter la Clean Architecture existante : `config`, `data`, `domain`, `presentation`, `ui`.
+- Garder la logique métier hors des pages UI : passer par les providers et les services du domaine.
+- Utiliser Provider / ChangeNotifier, jamais BLoC ni Riverpod.
+- Appeler `notifyListeners()` après toute mutation d'état exposée par un provider.
+- Encadrer les opérations asynchrones ou I/O avec `try/catch`, alimenter un champ `_error` lisible par l'UI, et éviter les échecs silencieux.
+- Après un `await` qui précède l'utilisation d'un `BuildContext`, vérifier `context.mounted`.
+- Utiliser `withValues(alpha: x)` au lieu de `withOpacity()`.
+- Ne pas coder de secrets en dur : utiliser `.env` et les constantes de configuration.
+
+## Hive, Supabase et données
+
+- Après toute modification d'un modèle `@HiveType` ou `@HiveField`, lancer `dart run build_runner build`.
+- Les boîtes Hive attendues sont `quests`, `playerStats`, `inventory`, `equipment` et `settings`.
+- Les accès base de données Supabase passent par les providers ou les couches data, jamais directement depuis l'UI.
+- Pour une migration Supabase, documenter le SQL, respecter les policies RLS existantes et utiliser `ON DELETE CASCADE` pour les clés étrangères vers `auth.users`.
+- Avant un `UPDATE` ou `DELETE` SQL, préparer un `SELECT` équivalent de vérification.
+
+## Design system et assets
+
+- Utiliser le design system Sameva et les couleurs déclarées dans `AppColors`.
+- Pour les assets visuels, privilégier un style fantasy RPG sombre avec violet profond, or/ambre, fonds sombres et effets lumineux.
+- Placer les images dans `assets/images/` et les icônes dans `assets/icons/`.
+- Ajouter la référence dans `pubspec.yaml` lorsque le nouvel asset n'est pas déjà couvert.
+- Utiliser PNG pour les images et SVG pour les icônes vectorielles.
+
+## Logique métier à préserver
+
+- Récompenses de quête : XP = `10 * difficulty`, or = `25 * difficulty`, cristaux si `difficulty > 3`.
+- Multiplicateurs : en avance `x1.25`, à temps `x1.10`, en retard `x0.80`, streak `>= 7` ajoute `+0.10`.
+- Seuil de niveau : `(100 * level * 1.5).round()`.
+- HP max : `100 + (level - 1) * 10`.
+- Gacha : Mythic 0,1 %, Legendary 0,9 %, Epic 4 %, Rare 10 %, Uncommon 25 %, Common 60 %.
+
+## Vérification
+
+- Exécuter les commandes ciblées selon le changement : `flutter analyze`, `flutter test`, `dart run build_runner build`, ou les tests spécifiques touchés.
+- Corriger les warnings introduits par le changement avant de finaliser.
