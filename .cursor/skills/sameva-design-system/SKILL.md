@@ -7,13 +7,14 @@ description: Applique le design system Sameva (couleurs, polices, rareté, widge
 
 ## Couleurs (AppColors)
 
-- **Primaire** : `AppColors.primaryTurquoise` (#4FD1C5), `primaryTurquoiseDark` (#38B2AC)
-- **Secondaire** : `AppColors.secondaryViolet` (#805AD5), `secondaryVioletGlow` (#B794F4)
-- **Accent** : `AppColors.gold` (#F6E05E), `goldDark` (#D69E2E)
-- **Fonds** : `backgroundNightBlue` (#0F172A), `backgroundDeepViolet` (#2D2B55), `backgroundDarkPanel` (#1A202C)
+- **Primaire** : `AppColors.primaryViolet` (#805AD5), `primaryVioletLight` (#B794F4), `primaryVioletGlow` (#E9D5FF)
+- **Accent** : `AppColors.gold` (#FDE68A), `goldDark` (#F59E0B)
+- **Fonds** : `backgroundNightCosmos` (#120A2E), `backgroundDarkPanel` (#1A0F3C)
+- **Accents métier** : `crystalBlue`, `mintMagic`, `coralRare`
 - **Texte** : `textPrimary`, `textSecondary`, `textMuted` ; clair : `cream100`, `parchment`
 
 Toujours importer et utiliser `AppColors` depuis `ui/theme/app_colors.dart`. Ne pas définir de couleurs en dur pour l'UI.
+Les anciens alias (`primaryTurquoise`, `backgroundNightBlue`, etc.) existent pour compatibilité, mais les nouveaux écrans doivent privilégier les noms actuels.
 
 ## Rareté (items, équipement)
 
@@ -45,6 +46,7 @@ Choisir le dossier en fonction du style de la page (Sanctuaire/Quêtes → souve
 ## Material 3
 
 Thèmes light/dark dans `ui/theme/app_theme.dart`. Utiliser le thème via `Theme.of(context)` pour les couleurs schématiques quand c'est cohérent avec le design system.
+Utiliser `withValues(alpha: x)` au lieu de `withOpacity()`.
 
 ## Fichiers de référence
 

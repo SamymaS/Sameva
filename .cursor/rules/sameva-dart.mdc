@@ -18,8 +18,14 @@ alwaysApply: false
 - Imports : ordre recommandé (package Flutter/Dart, puis packages tiers, puis imports relatifs du projet).
 - Préférer `const` pour widgets et constructeurs quand c'est possible.
 - Utiliser les providers avec `context.watch<T>()` pour réactivité et `context.read<T>()` pour actions ponctuelles.
+- Appeler `notifyListeners()` après toute mutation d'état observable dans un `ChangeNotifier`.
+- Exposer les erreurs via un champ d'état (`error`, `errorMessage`, etc.) avec `try/catch`.
+- Utiliser `withValues(alpha: x)` plutôt que `withOpacity()`.
+- Après un `await`, vérifier `context.mounted` avant d'utiliser `context`.
 
 ## Architecture
 
 - Ne pas mettre de logique métier dans les pages ; utiliser les providers et les services du domain.
 - Nouveaux fichiers : les placer dans la couche appropriée (data / domain / presentation / ui).
+- Les accès Supabase et Hive passent par les repositories ou ViewModels, jamais directement depuis l'UI.
+- Après modification d'un modèle `@HiveType` / `@HiveField`, lancer `dart run build_runner build`.

@@ -1,6 +1,6 @@
 ---
 name: sameva-architecture
-description: Applique l'architecture Clean et Provider du projet Sameva. Utiliser lors de l'ajout de fonctionnalités, du refactoring, de la création de pages ou providers, ou quand l'utilisateur demande où placer du code ou comment structurer une feature.
+description: Applique l'architecture MVVM/Clean et Provider du projet Sameva. Utiliser lors de l'ajout de fonctionnalités, du refactoring, de la création de pages ou ViewModels, ou quand l'utilisateur demande où placer du code ou comment structurer une feature.
 ---
 
 # Architecture Sameva
@@ -9,44 +9,48 @@ description: Applique l'architecture Clean et Provider du projet Sameva. Utilise
 
 ```
 lib/
-├── config/          # Configuration (Supabase, .env)
-├── data/            # Implémentations repositories, models, datasources (Supabase + Hive)
-├── domain/          # Entities, repositories abstraits, services métier
-├── presentation/    # Providers (ChangeNotifier)
+├── config/          # Configuration Supabase, constantes et .env
+├── data/            # Modèles et repositories (Supabase + Hive)
+├── domain/          # Services métier purs
+├── presentation/    # ViewModels ChangeNotifier et use cases
 ├── ui/
-│   ├── pages/       # Écrans par feature (auth/, home/, quest/, etc.)
+│   ├── pages/       # Écrans par feature (auth/, home/, quest, etc.)
 │   ├── theme/       # AppTheme, AppColors, AppStyles
-│   └── widgets/     # minimalist/, magical/, fantasy/, common/
-└── utils/           # Helpers (SVG, Figma)
+│   └── widgets/     # common/, minimalist/, magical/, fantasy/
+└── utils/           # Helpers SVG/Figma
 ```
 
-**Règles** : Les pages dans `ui/pages/` n'appellent pas directement les couches data. Elles utilisent `Provider.of<T>(context)` ou `context.watch<T>()` / `context.read<T>()`.
+**Règle** : les pages dans `ui/pages/` n'appellent jamais directement Supabase, Hive ou les repositories. Elles consomment les ViewModels avec `context.watch<T>()` pour l'affichage et `context.read<T>()` pour les actions.
 
 ## Point d'entrée et navigation
 
-- **main.dart** : initialise dotenv, Supabase, Hive (boxes `quests`, `playerStats`, `inventory`, `equipment`), enregistre les 6 providers, lance `SamevaApp`.
-- **app_new.dart** : Stack + AnimatedSwitcher + barre dock flottante. 8 pages principales (Sanctuaire, Quêtes, Inventaire, Avatar, Marché, Invocation, Minijeux, Profil). FAB flottant pour création de quête.
+- **main.dart** : initialise dotenv, Supabase, Hive (boxes `quests`, `playerStats`, `settings`, `inventory`, `equipment`, `cats`), repositories, ViewModels globaux et `MultiProvider`.
+- **app.dart** : Stack + AnimatedSwitcher + barre dock flottante. Pages principales (Sanctuaire, Quêtes, Inventaire, Avatar, Marché, Invocation, Minijeux, Profil, etc.). FAB flottant pour création de quête.
 
-## Providers (état)
+## ViewModels (état)
 
-| Provider | Stockage | Rôle |
+Provider reste le mécanisme d'injection et d'écoute. Ne pas introduire BLoC ni Riverpod.
+
+| ViewModel | Stockage / dépendances | Rôle |
 |----------|----------|------|
-| AuthProvider | Supabase Auth | Connexion email/mdp et anonyme, écoute auth |
-| QuestProvider | Supabase DB | CRUD quêtes, filtres (actives/terminées/aujourd'hui/ratées), récompenses |
-| PlayerProvider | Hive | Niveau, XP, or, cristaux, HP, moral, streak |
-| InventoryProvider | Hive | 50 emplacements, stack d'items |
-| EquipmentProvider | Hive | Slots d'équipement et items équipés |
-| ThemeProvider | Hive | Thème sombre/clair/système |
+| AuthViewModel | AuthRepository / Supabase Auth | Connexion, inscription, session |
+| QuestViewModel | QuestRepository / Supabase | CRUD quêtes et état partagé |
+| PlayerViewModel | PlayerRepository / Hive + Supabase | Niveau, XP, or, cristaux, HP, streak |
+| InventoryViewModel | Hive `inventory` | Inventaire, stacks, objets |
+| EquipmentViewModel | Hive `equipment` | Slots d'équipement et items équipés |
+| CatViewModel | Hive `cats` | Chats compagnons |
+| ThemeViewModel | Hive `settings` | Thème sombre/clair/système |
+| NotificationViewModel | Hive `settings` | Préférences et rappels |
 
-Nouveau provider : le créer dans `presentation/providers/`, l'enregistrer dans `main.dart` avec `MultiProvider`, et utiliser les boxes Hive ou Supabase selon le besoin.
+Nouveau ViewModel partagé : le créer dans `presentation/view_models/`, l'enregistrer dans `main.dart` avec `MultiProvider`, et injecter repositories ou boxes selon le besoin. Toujours appeler `notifyListeners()` après une mutation d'état observable et exposer les erreurs à l'UI.
 
 ## Où placer le code
 
-- **Nouvelle entité métier** → `domain/entities/`
+- **Nouvelle entité métier** → `domain/entities/` si elle est pure métier, sinon modèle dans `data/models/`
 - **Règle métier / calcul** → `domain/services/`
-- **Repository abstrait** → `domain/` (interface)
-- **Implémentation repo + models** → `data/`
-- **État partagé (UI)** → `presentation/providers/`
+- **Repository / datasource / modèle sérialisé** → `data/`
+- **État partagé (UI)** → `presentation/view_models/`
+- **Orchestration d'un cas UI complexe** → `presentation/use_cases/`
 - **Nouvelle page** → `ui/pages/<feature>/`
 - **Widget réutilisable** → `ui/widgets/` (minimalist, magical, fantasy ou common selon le style)
 
