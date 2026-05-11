@@ -138,20 +138,21 @@ void main() {
     });
 
     testWidgets('cocher une sous-tâche met à jour le compteur', (tester) async {
-  // Réinitialiser Hive pour ce test (un autre fichier peut avoir appelé Hive.init avec un autre chemin)
-  final dir = await Directory.systemTemp.createTemp('hive_qds_checkbox');
-  Hive.init(dir.path);
-  if (!Hive.isBoxOpen('settings')) {
-    await Hive.openBox('settings');
+        // Fermer la box si ouverte avec un ancien chemin, puis réouvrir proprement
+        if (Hive.isBoxOpen('settings')) {
+        await Hive.box('settings').close();
   }
+        final dir = await Directory.systemTemp.createTemp('hive_qds_settings');
+        Hive.init(dir.path);
+        await Hive.openBox('settings');
 
-  await tester.pumpWidget(_buildSheet(_makeQuest(hasSubQuests: true)));
-  await tester.pump();
+        await tester.pumpWidget(_buildSheet(_makeQuest(hasSubQuests: true)));
+        await tester.pump();
 
-  await tester.tap(find.text('Étape 1'));
-  await tester.pump();
+        await tester.tap(find.text('Étape 1'));
+        await tester.pump();
 
-  expect(find.text('1/2'), findsOneWidget);
+        expect(find.text('1/2'), findsOneWidget);
 });
 
     testWidgets('appuyer sur Valider ferme le sheet et appelle le callback',
