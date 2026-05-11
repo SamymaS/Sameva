@@ -14,8 +14,11 @@ import 'package:sameva/presentation/view_models/auth_view_model.dart';
 import 'package:sameva/presentation/view_models/cat_view_model.dart';
 import 'package:sameva/presentation/view_models/player_view_model.dart';
 import 'package:sameva/presentation/view_models/quest_view_model.dart';
+import 'package:sameva/presentation/view_models/equipment_view_model.dart';
+import 'package:sameva/presentation/view_models/inventory_view_model.dart';
 import 'package:sameva/ui/pages/home/sanctuary_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 
 class _MockAuthRepository extends Mock implements AuthRepository {}
 class _MockPlayerRepository extends Mock implements PlayerRepository {}
@@ -23,11 +26,13 @@ class _MockQuestRepository extends Mock implements QuestRepository {}
 class _MockBox extends Mock implements Box<dynamic> {}
 class _MockUser extends Mock implements User {}
 
+
 Widget _buildSanctuary({
   AuthViewModel? authVm,
   PlayerViewModel? playerVm,
   QuestViewModel? questVm,
   CatViewModel? catVm,
+  EquipmentViewModel? equipVm,
 }) {
   return MultiProvider(
     providers: [
@@ -35,6 +40,7 @@ Widget _buildSanctuary({
       ChangeNotifierProvider<PlayerViewModel>.value(value: playerVm ?? _makePlayerVm()),
       ChangeNotifierProvider<QuestViewModel>.value(value: questVm ?? _makeQuestVm()),
       ChangeNotifierProvider<CatViewModel>.value(value: catVm ?? _makeCatVm()),
+      ChangeNotifierProvider<EquipmentViewModel>.value(value: equipVm ?? _makeEquipmentVm()),
     ],
     child: const MaterialApp(home: SanctuaryPage()),
   );
@@ -73,6 +79,18 @@ CatViewModel _makeCatVm() {
   when(() => box.get(any())).thenReturn(null);
   when(() => box.put(any(), any())).thenAnswer((_) async {});
   return CatViewModel(box);
+}
+
+EquipmentViewModel _makeEquipmentVm() {
+  final box = _MockBox();
+  when(() => box.get(any())).thenReturn(null);
+  when(() => box.put(any(), any())).thenAnswer((_) async {});
+  final invBox = _MockBox();
+  when(() => invBox.get(any())).thenReturn(null);
+  when(() => invBox.put(any(), any())).thenAnswer((_) async {});
+  when(() => invBox.values).thenReturn([]);
+  final inventoryVm = InventoryViewModel(invBox);
+  return EquipmentViewModel(box, inventoryVm);
 }
 
 void main() {
