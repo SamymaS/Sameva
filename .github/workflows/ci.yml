@@ -38,8 +38,14 @@ jobs:
       - name: Tests avec couverture
         run: flutter test --coverage
 
-      - name: Résumé couverture (lcov)
-        continue-on-error: true
+      - name: Résumé couverture
+        if: always()
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq lcov
-          lcov --summary coverage/lcov.info
+          if [ -f coverage/lcov.info ]; then
+            echo "📊 Lignes couvertes :"
+            grep -c "^DA:" coverage/lcov.info || echo "0"
+            echo "📊 Fichiers couverts :"
+            grep -c "^SF:" coverage/lcov.info || echo "0"
+          else
+            echo "⚠️ Pas de fichier de couverture généré"
+          fi
