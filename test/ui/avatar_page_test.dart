@@ -25,12 +25,7 @@ EquipmentViewModel _makeEquipmentVm() {
   final box = _MockBox();
   when(() => box.get(any())).thenReturn(null);
   when(() => box.put(any(), any())).thenAnswer((_) async {});
-  final invBox = _MockBox();
-  when(() => invBox.get(any())).thenReturn(null);
-  when(() => invBox.put(any(), any())).thenAnswer((_) async {});
-  when(() => invBox.values).thenReturn([]);
-  final inventoryVm = InventoryViewModel(invBox);
-  return EquipmentViewModel(box, inventoryVm);
+  return EquipmentViewModel(box);
 }
 
 Widget _buildAvatar({
