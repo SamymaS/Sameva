@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 import 'package:sameva/data/repositories/auth_repository.dart';
 import 'package:sameva/data/repositories/player_repository.dart';
 import 'package:sameva/presentation/view_models/auth_view_model.dart';
 import 'package:sameva/presentation/view_models/player_view_model.dart';
+import 'package:sameva/presentation/view_models/equipment_view_model.dart';
+import 'package:sameva/presentation/view_models/inventory_view_model.dart';
 import 'package:sameva/ui/pages/avatar/avatar_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -16,9 +19,24 @@ class _MockPlayerRepository extends Mock implements PlayerRepository {}
 
 class _MockUser extends Mock implements User {}
 
+class _MockBox extends Mock implements Box<dynamic> {}
+
+EquipmentViewModel _makeEquipmentVm() {
+  final box = _MockBox();
+  when(() => box.get(any())).thenReturn(null);
+  when(() => box.put(any(), any())).thenAnswer((_) async {});
+  final invBox = _MockBox();
+  when(() => invBox.get(any())).thenReturn(null);
+  when(() => invBox.put(any(), any())).thenAnswer((_) async {});
+  when(() => invBox.values).thenReturn([]);
+  final inventoryVm = InventoryViewModel(invBox);
+  return EquipmentViewModel(box, inventoryVm);
+}
+
 Widget _buildAvatar({
   AuthViewModel? authVm,
   PlayerViewModel? playerVm,
+  EquipmentViewModel? equipVm,
 }) {
   return MultiProvider(
     providers: [
@@ -26,6 +44,8 @@ Widget _buildAvatar({
           value: authVm ?? _makeAuthVm()),
       ChangeNotifierProvider<PlayerViewModel>.value(
           value: playerVm ?? _makePlayerVm()),
+      ChangeNotifierProvider<EquipmentViewModel>.value(
+          value: equipVm ?? _makeEquipmentVm()),
     ],
     child: const MaterialApp(home: AvatarPage()),
   );
