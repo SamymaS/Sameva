@@ -138,7 +138,9 @@ void main() {
     });
 
     testWidgets('cocher une sous-tâche met à jour le compteur', (tester) async {
-  // S'assurer que la box est ouverte (peut être fermée par un autre test)
+  // Réinitialiser Hive pour ce test (un autre fichier peut avoir appelé Hive.init avec un autre chemin)
+  final dir = await Directory.systemTemp.createTemp('hive_qds_checkbox');
+  Hive.init(dir.path);
   if (!Hive.isBoxOpen('quests')) {
     await Hive.openBox('quests');
   }
