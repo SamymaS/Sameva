@@ -26,7 +26,7 @@ dependencies:
   hive_flutter: ^1.1.0
 
   # UI
-  google_fonts: ^6.2.1
+  google_fonts: ^8.1.0
   flutter_svg: ^2.0.10+1
 
   # Preuve visuelle (validation de quête)
