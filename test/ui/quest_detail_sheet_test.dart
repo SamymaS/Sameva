@@ -37,12 +37,12 @@ Widget _buildSheet(
 }
 
 void main() {
-  setUpAll(() {
-      GoogleFonts.config.allowRuntimeFetching = false;
-      final dir = await Directory.systemTemp.createTemp('hive_quest_detail_test');
-      Hive.init(dir.path);
-      await Hive.openBox('quests');
-  });
+  setUpAll(() async {
+  GoogleFonts.config.allowRuntimeFetching = false;
+  final dir = await Directory.systemTemp.createTemp('hive_quest_detail_test');
+  Hive.init(dir.path);
+  await Hive.openBox('quests');
+});
 
   group('QuestDetailSheet', () {
     testWidgets('affiche le titre de la quête', (tester) async {
