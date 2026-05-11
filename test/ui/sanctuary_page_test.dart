@@ -15,7 +15,6 @@ import 'package:sameva/presentation/view_models/cat_view_model.dart';
 import 'package:sameva/presentation/view_models/player_view_model.dart';
 import 'package:sameva/presentation/view_models/quest_view_model.dart';
 import 'package:sameva/presentation/view_models/equipment_view_model.dart';
-import 'package:sameva/presentation/view_models/inventory_view_model.dart';
 import 'package:sameva/ui/pages/home/sanctuary_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -71,6 +70,16 @@ PlayerViewModel _makePlayerVm() {
 QuestViewModel _makeQuestVm() {
   final repo = _MockQuestRepository();
   when(() => repo.loadQuests(any())).thenAnswer((_) async => <Quest>[]);
+  when(() => repo.addQuest(any())).thenAnswer((_) async => Quest(
+    userId: 'u1',
+    title: 'stub',
+    difficulty: 1,
+    category: 'Test',
+    rarity: QuestRarity.common,
+    frequency: QuestFrequency.oneOff,
+    status: QuestStatus.active,
+    validationType: ValidationType.manual,
+  ));
   return QuestViewModel(repo);
 }
 
