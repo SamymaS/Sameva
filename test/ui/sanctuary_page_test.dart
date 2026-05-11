@@ -79,6 +79,7 @@ QuestViewModel _makeQuestVm() {
     frequency: QuestFrequency.oneOff,
     status: QuestStatus.active,
     validationType: ValidationType.manual,
+    estimatedDurationMinutes: 30,
   ));
   return QuestViewModel(repo);
 }
@@ -110,6 +111,7 @@ void main() {
     frequency: QuestFrequency.oneOff,
     status: QuestStatus.active,
     validationType: ValidationType.manual,
+    estimatedDurationMinutes: 30,
   ));
   final dir = await Directory.systemTemp.createTemp('hive_sanctuary_test');
   Hive.init(dir.path);
