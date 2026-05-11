@@ -169,7 +169,7 @@ void main() {
         final qb = _MockQueryBuilder();
         // Première appel from('users') → select → null (user absent)
         // Deuxième appel from('users') → insert
-        when(() => supabase.from('users')).thenReturn(qb);
+        when(() => supabase.from('users')).thenAnswer((_) => qb);
         when(() => qb.select(any()))
             .thenAnswer((_) => _FakeSelectFilter(null));
         when(() => goTrue.currentUser).thenReturn(authUser);
