@@ -9,7 +9,6 @@ import 'package:sameva/data/repositories/player_repository.dart';
 import 'package:sameva/presentation/view_models/auth_view_model.dart';
 import 'package:sameva/presentation/view_models/player_view_model.dart';
 import 'package:sameva/presentation/view_models/equipment_view_model.dart';
-import 'package:sameva/presentation/view_models/inventory_view_model.dart';
 import 'package:sameva/ui/pages/avatar/avatar_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
