@@ -138,14 +138,19 @@ void main() {
     });
 
     testWidgets('cocher une sous-tâche met à jour le compteur', (tester) async {
-      await tester.pumpWidget(_buildSheet(_makeQuest(hasSubQuests: true)));
-      await tester.pump();
+  // S'assurer que la box est ouverte (peut être fermée par un autre test)
+  if (!Hive.isBoxOpen('quests')) {
+    await Hive.openBox('quests');
+  }
 
-      await tester.tap(find.text('Étape 1'));
-      await tester.pump();
+  await tester.pumpWidget(_buildSheet(_makeQuest(hasSubQuests: true)));
+  await tester.pump();
 
-      expect(find.text('1/2'), findsOneWidget);
-    });
+  await tester.tap(find.text('Étape 1'));
+  await tester.pump();
+
+  expect(find.text('1/2'), findsOneWidget);
+});
 
     testWidgets('appuyer sur Valider ferme le sheet et appelle le callback',
         (tester) async {
