@@ -141,8 +141,8 @@ void main() {
   // Réinitialiser Hive pour ce test (un autre fichier peut avoir appelé Hive.init avec un autre chemin)
   final dir = await Directory.systemTemp.createTemp('hive_qds_checkbox');
   Hive.init(dir.path);
-  if (!Hive.isBoxOpen('quests')) {
-    await Hive.openBox('quests');
+  if (!Hive.isBoxOpen('settings')) {
+    await Hive.openBox('settings');
   }
 
   await tester.pumpWidget(_buildSheet(_makeQuest(hasSubQuests: true)));
