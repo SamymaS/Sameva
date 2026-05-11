@@ -38,10 +38,10 @@ Widget _buildSheet(
 
 void main() {
   setUpAll(() async {
-  GoogleFonts.config.allowRuntimeFetching = false;
-  final dir = await Directory.systemTemp.createTemp('hive_quest_detail_test');
-  Hive.init(dir.path);
-  await Hive.openBox('quests');
+      GoogleFonts.config.allowRuntimeFetching = false;
+      final dir = await Directory.systemTemp.createTemp('hive_quest_detail_test');
+      Hive.init(dir.path);
+      await Hive.openBox('quests');
 });
 
   group('QuestDetailSheet', () {
