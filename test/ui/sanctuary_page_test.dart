@@ -99,12 +99,22 @@ EquipmentViewModel _makeEquipmentVm() {
 
 void main() {
   setUpAll(() async {
-    GoogleFonts.config.allowRuntimeFetching = false;
-    registerFallbackValue(PlayerStats());
-    final dir = await Directory.systemTemp.createTemp('hive_sanctuary_test');
-    Hive.init(dir.path);
-    await Hive.openBox('settings');
-  });
+  GoogleFonts.config.allowRuntimeFetching = false;
+  registerFallbackValue(PlayerStats());
+  registerFallbackValue(Quest(
+    userId: '',
+    title: '',
+    difficulty: 1,
+    category: '',
+    rarity: QuestRarity.common,
+    frequency: QuestFrequency.oneOff,
+    status: QuestStatus.active,
+    validationType: ValidationType.manual,
+  ));
+  final dir = await Directory.systemTemp.createTemp('hive_sanctuary_test');
+  Hive.init(dir.path);
+  await Hive.openBox('settings');
+});
 
   // Pas de tearDownAll : Hive.close() bloque le runner de tests.
   // Le processus de test se termine et libère les ressources automatiquement.
