@@ -36,7 +36,12 @@
       "Bash(node_modules\\\\supabase\\\\bin\\\\supabase.exe functions *)",
       "Bash(\"./node_modules/supabase/bin/supabase.exe\" functions *)",
       "Bash(node_modules/supabase/bin/supabase.exe functions *)",
-      "Bash(node_modules/supabase/bin/supabase secrets *)"
+      "Bash(node_modules/supabase/bin/supabase secrets *)",
+      "Bash(psql --version)",
+      "Bash(node_modules\\\\supabase\\\\bin\\\\supabase.exe db *)",
+      "Bash(./node_modules/supabase/bin/supabase db *)",
+      "Bash(C:\\\\Users\\\\SamyB\\\\Documents\\\\ProjetsFlutter\\\\Sameva\\\\node_modules\\\\supabase\\\\bin\\\\supabase.exe db *)",
+      "Bash(C:\\\\Users\\\\SamyB\\\\Documents\\\\ProjetsFlutter\\\\Sameva\\\\node_modules\\\\supabase\\\\bin\\\\supabase.exe migration *)"
     ]
   }
 }
