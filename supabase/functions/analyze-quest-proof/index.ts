@@ -11,7 +11,7 @@
 //   - ANTHROPIC_API_KEY : clé API Anthropic
 //
 // Déploiement :
-//   supabase functions deploy analyze-quest-proof --no-verify-jwt
+//   supabase functions deploy analyze-quest-proof
 //
 // Format de requête (POST) :
 //   {
