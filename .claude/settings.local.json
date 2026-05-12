@@ -41,7 +41,9 @@
       "Bash(node_modules\\\\supabase\\\\bin\\\\supabase.exe db *)",
       "Bash(./node_modules/supabase/bin/supabase db *)",
       "Bash(C:\\\\Users\\\\SamyB\\\\Documents\\\\ProjetsFlutter\\\\Sameva\\\\node_modules\\\\supabase\\\\bin\\\\supabase.exe db *)",
-      "Bash(C:\\\\Users\\\\SamyB\\\\Documents\\\\ProjetsFlutter\\\\Sameva\\\\node_modules\\\\supabase\\\\bin\\\\supabase.exe migration *)"
+      "Bash(C:\\\\Users\\\\SamyB\\\\Documents\\\\ProjetsFlutter\\\\Sameva\\\\node_modules\\\\supabase\\\\bin\\\\supabase.exe migration *)",
+      "Bash(deno --version)",
+      "Bash(git *)"
     ]
   }
 }

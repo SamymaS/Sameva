@@ -34,3 +34,6 @@ enabled = true
 # JWT vérifié par défaut pour les Edge Functions
 [functions.analyze-quest-proof]
 verify_jwt = true
+
+[functions.suggest-quests]
+verify_jwt = true
