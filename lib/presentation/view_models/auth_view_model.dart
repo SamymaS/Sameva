@@ -18,14 +18,24 @@ class AuthViewModel with ChangeNotifier {
     _authSub = _repo.authStateChanges.listen((data) {
       final event = data.event;
       final session = data.session;
+      final previousUserId = _user?.id;
+
       if (event == AuthChangeEvent.signedIn && session != null) {
         _user = session.user;
         _errorMessage = null;
+      } else if (event == AuthChangeEvent.tokenRefreshed && session != null) {
+        _user = session.user;
+        return; // refresh silencieux, pas de notify
       } else if (event == AuthChangeEvent.signedOut) {
         _user = null;
         _errorMessage = null;
+      } else {
+        return; // autres events ignorés
       }
-      notifyListeners();
+
+      if (_user?.id != previousUserId) {
+        notifyListeners();
+      }
     });
   }
 

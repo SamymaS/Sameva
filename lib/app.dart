@@ -113,20 +113,7 @@ class _SamevaAppState extends State<SamevaApp> {
             }
             return null;
           },
-          home: Consumer<AuthViewModel>(
-            builder: (context, authProvider, _) {
-              // Afficher l'onboarding une seule fois (flag Hive 'has_onboarded')
-              final hasOnboarded =
-                  Hive.box('settings').get('has_onboarded', defaultValue: false) as bool;
-              if (!hasOnboarded) {
-                return const OnboardingPage();
-              }
-              if (!authProvider.isAuthenticated) {
-                return const LoginPage();
-              }
-              return _buildHome(context);
-            },
-          ),
+          home: _AuthGate(homeBuilder: _buildHome),
         );
       },
     );
@@ -172,6 +159,28 @@ class _SamevaAppState extends State<SamevaApp> {
         ],
       ),
     );
+  }
+}
+
+/// Isole le Consumer<AuthViewModel> du MaterialApp pour éviter que le
+/// Navigator racine soit reconstruit lors des notifyListeners() d'AuthViewModel.
+class _AuthGate extends StatelessWidget {
+  final Widget Function(BuildContext) homeBuilder;
+
+  const _AuthGate({required this.homeBuilder});
+
+  @override
+  Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthViewModel>();
+    final hasOnboarded =
+        Hive.box('settings').get('has_onboarded', defaultValue: false) as bool;
+    if (!hasOnboarded) {
+      return const OnboardingPage();
+    }
+    if (!authProvider.isAuthenticated) {
+      return const LoginPage();
+    }
+    return homeBuilder(context);
   }
 }
 
