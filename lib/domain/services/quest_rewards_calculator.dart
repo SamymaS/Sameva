@@ -28,6 +28,8 @@ class QuestRewardsCalculator {
   /// Calcule les récompenses de base selon la difficulté
   /// Formule: XP = 10 × difficulté, Or = 25 × difficulté
   static QuestRewards calculateBaseRewards(int difficulty) {
+    assert(difficulty >= 1 && difficulty <= 4,
+        'difficulty doit être entre 1 et 4 (reçu: $difficulty)');
     final baseXP = 10 * difficulty;
     final baseGold = 25 * difficulty;
     final crystals = difficulty > 3 ? 1 : 0;

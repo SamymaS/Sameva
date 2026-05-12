@@ -37,7 +37,7 @@ class ClaudeQuestGeneratorService {
         'Génère exactement 3 quêtes variées et motivantes adaptées à ce profil. '
         'Réponds UNIQUEMENT avec un tableau JSON valide (sans balise markdown) : '
         '[{"title": string, "description": string, "category": string, '
-        '"difficulty": int (1-5), "estimated_duration_minutes": int, '
+        '"difficulty": int (1-4), "estimated_duration_minutes": int, '
         '"frequency": "one_off"|"daily"|"weekly"}]. '
         'Les titres et descriptions doivent être en français.';
 
@@ -85,7 +85,7 @@ class ClaudeQuestGeneratorService {
       final frequency = QuestFrequency.fromSupabaseString(
         (map['frequency'] as String?) ?? 'one_off',
       );
-      final difficulty = ((map['difficulty'] as num?) ?? 1).toInt().clamp(1, 5);
+      final difficulty = ((map['difficulty'] as num?) ?? 1).toInt().clamp(1, 4);
       final duration = ((map['estimated_duration_minutes'] as num?) ?? 30).toInt();
 
       return Quest(

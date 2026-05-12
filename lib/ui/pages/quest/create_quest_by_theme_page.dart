@@ -15,6 +15,8 @@ class CreateQuestByThemePage extends StatefulWidget {
 }
 
 class _CreateQuestByThemePageState extends State<CreateQuestByThemePage> {
+  static const List<int> _durationOptions = [5, 10, 15, 20, 25, 30, 45, 60];
+
   String? _selectedTheme;
 
   @override
@@ -104,7 +106,9 @@ class _CreateQuestByThemePageState extends State<CreateQuestByThemePage> {
   }
 
   Future<void> _showCreateDialog(QuestTemplate template) async {
-    int duration = template.defaultDurationMinutes;
+    int duration = _durationOptions.contains(template.defaultDurationMinutes)
+        ? template.defaultDurationMinutes
+        : 15;
     final created = await showDialog<bool>(
       context: context,
       builder: (ctx) {
@@ -120,7 +124,7 @@ class _CreateQuestByThemePageState extends State<CreateQuestByThemePage> {
                   const SizedBox(height: 8),
                   DropdownButtonFormField<int>(
                     initialValue: duration,
-                    items: [15, 20, 25, 30, 45, 60]
+                    items: _durationOptions
                         .map((m) => DropdownMenuItem(value: m, child: Text('$m min')))
                         .toList(),
                     onChanged: (v) => setDialogState(() => duration = v ?? duration),

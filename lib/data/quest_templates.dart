@@ -89,7 +89,7 @@ Map<String, List<QuestTemplate>> get questTemplatesByTheme {
       QuestTemplate(
         title: 'Faire le lit',
         category: 'Maison',
-        defaultDurationMinutes: 5,
+        defaultDurationMinutes: 15,
         validationType: ValidationType.photo,
       ),
       QuestTemplate(

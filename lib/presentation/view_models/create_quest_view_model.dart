@@ -56,7 +56,7 @@ class CreateQuestViewModel extends ChangeNotifier {
         description: (desc != null && desc.isNotEmpty) ? desc : null,
         estimatedDurationMinutes: durationMinutes,
         frequency: frequency,
-        difficulty: difficulty,
+        difficulty: difficulty.clamp(1, 4),
         category: category,
         rarity: QuestRarity.common,
         status: QuestStatus.active,

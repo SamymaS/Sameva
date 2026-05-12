@@ -462,14 +462,14 @@ class _DifficultyPicker extends StatelessWidget {
 
   const _DifficultyPicker({required this.value, required this.onChanged});
 
-  static const _labels = ['Trivial', 'Facile', 'Normal', 'Difficile', 'Épique'];
+  static const _labels = ['Trivial', 'Facile', 'Normal', 'Difficile'];
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
         Row(
-          children: List.generate(5, (i) {
+          children: List.generate(4, (i) {
             final filled = i < value;
             return GestureDetector(
               onTap: () => onChanged(i + 1),
