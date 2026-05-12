@@ -29,7 +29,14 @@
       "Bash(git restore:*)",
       "Bash(grep -rn \"Suivant\\\\|onboarding\\\\|SafeArea\\\\|bottomNavigationBar\" \"C:\\\\Users\\\\SamyB\\\\Dev\\\\Sameva\\\\Sameva\\\\lib\\\\ui\\\\pages\"\" --include=\"*.dart \" -l)",
       "Bash(claude plugin:*)",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "Bash(powershell *)",
+      "Bash(node_modules\\\\supabase\\\\bin\\\\supabase.exe secrets *)",
+      "Bash(C:\\\\Users\\\\SamyB\\\\Documents\\\\ProjetsFlutter\\\\Sameva\\\\node_modules\\\\supabase\\\\bin\\\\supabase.exe secrets *)",
+      "Bash(node_modules\\\\supabase\\\\bin\\\\supabase.exe functions *)",
+      "Bash(\"./node_modules/supabase/bin/supabase.exe\" functions *)",
+      "Bash(node_modules/supabase/bin/supabase.exe functions *)",
+      "Bash(node_modules/supabase/bin/supabase secrets *)"
     ]
   }
 }
