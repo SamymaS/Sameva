@@ -8,12 +8,14 @@ class LeaderboardRepository {
   LeaderboardRepository(this._supabase);
 
   /// Retourne les [limit] meilleurs joueurs triés par niveau puis XP.
+  /// Utilise la vue SQL [leaderboard_view] qui expose uniquement les colonnes
+  /// non-sensibles (user_id, level, xp, streak, display_name).
   Future<List<LeaderboardEntry>> fetchLeaderboard({int limit = 50}) async {
     final response = await _supabase
-        .from('player_stats')
-        .select('user_id, level, experience, streak, users(display_name, username)')
+        .from('leaderboard_view')
+        .select()
         .order('level', ascending: false)
-        .order('experience', ascending: false)
+        .order('xp', ascending: false)
         .limit(limit);
 
     final entries = <LeaderboardEntry>[];
