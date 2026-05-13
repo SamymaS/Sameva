@@ -65,6 +65,10 @@ supabase/.env.local
 
 # Fichiers de sauvegarde temporaires
 *.bak
+*.bom_backup
+
+# Config locale Claude Code (non versionnée)
+.claude/settings.local.json
 
 # Supabase backups (exports JSON pre-migration, non versionnés)
 supabase/backups/
