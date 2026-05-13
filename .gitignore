@@ -63,6 +63,12 @@ env_reference.txt
 # Supabase local secrets (Edge Functions)
 supabase/.env.local
 
+# Fichiers de sauvegarde temporaires
+*.bak
+
+# Supabase backups (exports JSON pre-migration, non versionnés)
+supabase/backups/
+
 # Node modules
 node_modules/
 package-lock.json
