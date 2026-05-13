@@ -3,14 +3,15 @@ import 'package:provider/provider.dart';
 
 import '../../../config/supabase_config.dart';
 import '../../../data/models/quest_model.dart';
-import '../../../domain/services/claude_quest_generator_service.dart';
+import '../../../domain/services/api_quest_suggestion_service.dart';
+import '../../../domain/services/quest_suggestion_service.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/view_models/player_view_model.dart';
 import '../../../presentation/view_models/quest_view_model.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/app_notification.dart';
 
-/// Page de génération de quêtes personnalisées via Claude IA.
+/// Page de génération de quêtes personnalisées via MougiBot (Edge Function suggest-quests).
 class GenerateQuestsPage extends StatefulWidget {
   const GenerateQuestsPage({super.key});
 
@@ -24,13 +25,18 @@ class _GenerateQuestsPageState extends State<GenerateQuestsPage> {
   String? _error;
   final Set<int> _addingIndices = {};
 
-  Future<void> _generate() async {
-    final apiKey = SupabaseConfig.anthropicApiKey;
-    if (apiKey == null) {
-      setState(() => _error = 'Clé API Anthropic non configurée dans le fichier .env.');
-      return;
+  QuestSuggestionService _buildService() {
+    final url = SupabaseConfig.suggestQuestsUrl;
+    if (url != null && url.isNotEmpty) {
+      return ApiQuestSuggestionService(
+        baseUrl: url,
+        authToken: SupabaseConfig.supabaseAnonKey,
+      );
     }
+    return MockQuestSuggestionService();
+  }
 
+  Future<void> _generate() async {
     final player = context.read<PlayerViewModel>().stats;
     final userId = context.read<AuthViewModel>().userId;
     if (userId == null) {
@@ -45,16 +51,20 @@ class _GenerateQuestsPageState extends State<GenerateQuestsPage> {
     });
 
     try {
-      final service = ClaudeQuestGeneratorService(apiKey: apiKey);
-      final quests = await service.generateQuests(
+      final service = _buildService();
+      final quests = await service.suggestQuests(
         userId: userId,
-        playerLevel: player?.level ?? 1,
-        streak: player?.streak ?? 0,
-        totalQuestsCompleted: player?.totalQuestsCompleted ?? 0,
+        request: QuestSuggestionRequest(
+          playerLevel: player?.level ?? 1,
+          streak: player?.streak ?? 0,
+          totalQuestsCompleted: player?.totalQuestsCompleted ?? 0,
+        ),
       );
       if (mounted) setState(() => _quests = quests);
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) {
+        setState(() => _error = 'Mougi n\'a pas pu générer de quêtes. Vérifie ta connexion et réessaie.');
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

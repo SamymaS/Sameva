@@ -6,7 +6,6 @@ import 'package:image_picker/image_picker.dart';
 import '../../../config/supabase_config.dart';
 import '../../../data/models/quest_model.dart';
 import '../../../domain/services/api_validation_ai_service.dart';
-import '../../../domain/services/claude_validation_ai_service.dart';
 import '../../../domain/services/quest_rewards_calculator.dart';
 import '../../../domain/services/validation_ai_service.dart';
 import '../../../presentation/use_cases/complete_quest_use_case.dart';
@@ -39,10 +38,6 @@ class QuestValidationPage extends StatefulWidget {
 
 class _QuestValidationPageState extends State<QuestValidationPage> {
   late final ValidationAIService _validationService = () {
-    final apiKey = SupabaseConfig.anthropicApiKey;
-    if (apiKey != null && apiKey.isNotEmpty) {
-      return ClaudeValidationAIService(apiKey: apiKey);
-    }
     final url = SupabaseConfig.validationAiUrl;
     if (url != null && url.isNotEmpty) {
       return ApiValidationAIService(
