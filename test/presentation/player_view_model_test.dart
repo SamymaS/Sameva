@@ -34,6 +34,9 @@ void main() {
   setUp(() {
     repo = _MockPlayerRepository();
     vm = PlayerViewModel(repo);
+    // Stub par défaut pour syncToSupabase (chemin cas 2 : nouveau user sans remote stats).
+    // Les tests qui veulent un comportement d'échec peuvent surcharger ce stub.
+    when(() => repo.syncToSupabase(any(), any())).thenAnswer((_) async {});
   });
 
   tearDown(() async {
@@ -76,6 +79,8 @@ void main() {
       expect(vm.stats?.level, 2);
       expect(vm.stats?.gold, 50);
       expect(vm.isInitialized, isTrue);
+      // Formalise que le chemin "remote == null" pousse bien le snapshot vers Supabase.
+      verify(() => repo.syncToSupabase(any(), any())).called(1);
     });
 
     test('addGold augmente l\'or et persiste', () async {

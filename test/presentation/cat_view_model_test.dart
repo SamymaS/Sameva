@@ -7,6 +7,10 @@ import 'package:sameva/presentation/view_models/cat_view_model.dart';
 
 class _MockBox extends Mock implements Box<dynamic> {}
 
+// userId injecté en test pour éviter l'accès à Supabase.instance.
+const _testUserId = 'test-user-1';
+const _testKey = 'cats_list_$_testUserId';
+
 CatStats _cat({
   required String id,
   String name = 'Michi',
@@ -26,13 +30,13 @@ void main() {
 
   setUp(() {
     box = _MockBox();
-    vm = CatViewModel(box);
+    vm = CatViewModel(box, testUserId: _testUserId);
     when(() => box.put(any(), any())).thenAnswer((_) async {});
   });
 
   group('CatViewModel', () {
     test('loadCats avec box vide', () {
-      when(() => box.get('cats_list')).thenReturn(null);
+      when(() => box.get(_testKey)).thenReturn(null);
 
       vm.loadCats();
 
@@ -44,7 +48,7 @@ void main() {
       final json = [
         _cat(id: 'c1', isMain: true).toJson(),
       ];
-      when(() => box.get('cats_list')).thenReturn(json);
+      when(() => box.get(_testKey)).thenReturn(json);
 
       vm.loadCats();
 
@@ -53,7 +57,7 @@ void main() {
     });
 
     test('createMainCat persiste et marque un seul main', () async {
-      when(() => box.get('cats_list')).thenReturn(null);
+      when(() => box.get(_testKey)).thenReturn(null);
       vm.loadCats();
 
       await vm.createMainCat('michi', 'Ronron');
@@ -61,11 +65,11 @@ void main() {
       expect(vm.cats, hasLength(1));
       expect(vm.cats.first.isMain, isTrue);
       expect(vm.cats.first.name, 'Ronron');
-      verify(() => box.put('cats_list', any())).called(1);
+      verify(() => box.put(_testKey, any())).called(1);
     });
 
     test('createMainCat avec nom vide utilise le défaut de race', () async {
-      when(() => box.get('cats_list')).thenReturn(null);
+      when(() => box.get(_testKey)).thenReturn(null);
       vm.loadCats();
 
       await vm.createMainCat('lune', '   ');
@@ -73,8 +77,35 @@ void main() {
       expect(vm.cats.first.name, 'Luna');
     });
 
+    test('createMainCat no-op si un mainCat existe déjà en mémoire', () async {
+      // Garde idempotente : _cats déjà chargés avec un isMain
+      when(() => box.get(_testKey))
+          .thenReturn([_cat(id: 'existing', isMain: true).toJson()]);
+      vm.loadCats();
+
+      await vm.createMainCat('lune', 'Doublon');
+
+      expect(vm.cats, hasLength(1));
+      expect(vm.cats.first.id, 'existing');
+      verifyNever(() => box.put(_testKey, any()));
+    });
+
+    test('createMainCat no-op si Hive contient un mainCat mais _cats est vide',
+        () async {
+      // Simule le cas où createMainCat est appelé sans loadCats() préalable
+      // mais Hive contient déjà un compagnon principal.
+      when(() => box.get(_testKey))
+          .thenReturn([_cat(id: 'hive-cat', isMain: true).toJson()]);
+      // _cats est vide en mémoire (loadCats pas appelé)
+
+      await vm.createMainCat('michi', 'Doublon');
+
+      // La garde a relu Hive et trouvé un isMain → no-op
+      verifyNever(() => box.put(_testKey, any()));
+    });
+
     test('renameCat met à jour le nom', () async {
-      when(() => box.get('cats_list')).thenReturn([_cat(id: 'x').toJson()]);
+      when(() => box.get(_testKey)).thenReturn([_cat(id: 'x').toJson()]);
       vm.loadCats();
 
       await vm.renameCat('x', '  Nouveau  ');
@@ -83,7 +114,7 @@ void main() {
     });
 
     test('equipCosmetic sur slot hat', () async {
-      when(() => box.get('cats_list')).thenReturn([_cat(id: 'x').toJson()]);
+      when(() => box.get(_testKey)).thenReturn([_cat(id: 'x').toJson()]);
       vm.loadCats();
 
       await vm.equipCosmetic('x', 'hat', 'cosm-1');
@@ -92,7 +123,7 @@ void main() {
     });
 
     test('addRolledCat ajoute un chat avec la rareté demandée', () async {
-      when(() => box.get('cats_list')).thenReturn(null);
+      when(() => box.get(_testKey)).thenReturn(null);
       vm.loadCats();
 
       final added = await vm.addRolledCat(QuestRarity.rare);
@@ -102,7 +133,7 @@ void main() {
     });
 
     test('setMainCat bascule le flag isMain', () async {
-      when(() => box.get('cats_list')).thenReturn([
+      when(() => box.get(_testKey)).thenReturn([
         _cat(id: 'a', isMain: true).toJson(),
         _cat(id: 'b').toJson(),
       ]);
@@ -120,6 +151,28 @@ void main() {
       expect(vm.getCatMoodExpression(0.5, 0), 'neutral');
       expect(vm.getCatMoodExpression(0.25, 0), 'sad');
       expect(vm.getCatMoodExpression(0.1, 0), 'sleepy');
+    });
+
+    test('loadCats no-op si userId null (utilisateur non connecté)', () {
+      // Pas de testUserId → _hiveKey null → aucun accès Hive
+      final vmNoUser = CatViewModel(box);
+      vmNoUser.loadCats();
+
+      expect(vmNoUser.cats, isEmpty);
+      verifyNever(() => box.get(any()));
+    });
+
+    test('reset vide le state in-memory sans toucher Hive', () async {
+      when(() => box.get(_testKey))
+          .thenReturn([_cat(id: 'x', isMain: true).toJson()]);
+      vm.loadCats();
+      expect(vm.cats, hasLength(1));
+
+      vm.reset();
+
+      expect(vm.cats, isEmpty);
+      // Hive non touché par reset()
+      verifyNever(() => box.delete(any()));
     });
   });
 }

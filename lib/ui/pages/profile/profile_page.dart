@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../data/models/item_model.dart';
-import '../../../data/models/player_stats_model.dart';
 import '../../../domain/services/activity_log_service.dart';
 import 'achievements_page.dart';
 import '../social/leaderboard_page.dart';
@@ -14,6 +13,7 @@ import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/view_models/cat_view_model.dart';
 import '../../../presentation/view_models/equipment_view_model.dart';
 import '../../../presentation/view_models/inventory_view_model.dart';
+import '../../../presentation/view_models/player_view_model.dart';
 import '../../../presentation/view_models/profile_view_model.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/app_notification.dart';
@@ -1052,6 +1052,12 @@ class _LogoutButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 14),
       ),
       onPressed: () async {
+        // Capture des ViewModels avant tout await (règle use_build_context_synchronously)
+        final playerVm    = context.read<PlayerViewModel>();
+        final inventoryVm = context.read<InventoryViewModel>();
+        final equipmentVm = context.read<EquipmentViewModel>();
+        final catVm       = context.read<CatViewModel>();
+
         final confirmed = await showDialog<bool>(
           context: context,
           builder: (_) => AlertDialog(
@@ -1074,7 +1080,15 @@ class _LogoutButton extends StatelessWidget {
             ],
           ),
         );
-        if (confirmed == true) await vm.signOut();
+        if (confirmed == true) {
+          // Déconnexion Supabase + purge Hive (dans AuthViewModel.signOut)
+          await vm.signOut();
+          // Remise à zéro des ViewModels en mémoire pour le prochain utilisateur
+          playerVm.reset();
+          await inventoryVm.reset();
+          await equipmentVm.reset();
+          catVm.reset();
+        }
       },
       icon: const Icon(Icons.logout),
       label: const Text('Se déconnecter'),

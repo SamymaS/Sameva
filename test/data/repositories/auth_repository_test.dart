@@ -62,30 +62,6 @@ void main() {
       });
     });
 
-    group('signInAnonymously', () {
-      test('retourne l\'utilisateur de la réponse', () async {
-        final user = _MockUser();
-        when(() => user.id).thenReturn('anon-1');
-        final response = AuthResponse(user: user);
-        when(() => goTrue.signInAnonymously())
-            .thenAnswer((_) async => response);
-
-        final result = await repo.signInAnonymously();
-
-        expect(result, user);
-      });
-
-      test('retourne null si la réponse n\'a pas d\'utilisateur', () async {
-        final response = AuthResponse();
-        when(() => goTrue.signInAnonymously())
-            .thenAnswer((_) async => response);
-
-        final result = await repo.signInAnonymously();
-
-        expect(result, isNull);
-      });
-    });
-
     group('signInWithEmailAndPassword', () {
       test('délègue à GoTrue avec l\'email trimmé', () async {
         final user = _MockUser();

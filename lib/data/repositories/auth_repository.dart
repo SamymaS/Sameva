@@ -14,11 +14,6 @@ class AuthRepository {
   /// Flux des changements d'état d'authentification.
   Stream<AuthState> get authStateChanges => _supabase.auth.onAuthStateChange;
 
-  Future<User?> signInAnonymously() async {
-    final response = await _supabase.auth.signInAnonymously();
-    return response.user;
-  }
-
   Future<User?> signInWithEmailAndPassword(String email, String password) async {
     final response = await _supabase.auth.signInWithPassword(
       email: email.trim(),

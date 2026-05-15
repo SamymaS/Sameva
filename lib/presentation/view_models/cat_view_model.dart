@@ -1,21 +1,74 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../../data/models/cat_model.dart';
 import '../../data/models/quest_model.dart';
 
 /// ViewModel gérant les chats compagnons du joueur.
-/// Stockage JSON dans la boîte Hive 'cats'.
+/// Stockage JSON dans la boîte Hive 'cats', avec clés isolées par user_id.
 class CatViewModel extends ChangeNotifier {
-  static const _catsKey = 'cats_list';
+  // Clé de migration conservée pour référence uniquement (non utilisée en écriture).
+  // @deprecated Remplacée par _catsListKeyFor(userId) depuis le 15/05/26.
+  // ignore: unused_field
+  static const _catsKeyLegacy = 'cats_list';
 
   final Box _box;
+
+  /// Injecté en test pour contourner l'accès à Supabase.instance.
+  /// En production, laissé null → accès via Supabase.instance.client.
+  final String? _overrideUserId;
+
+  StreamSubscription<void>? _signedOutSub;
+  StreamSubscription<void>? _signedInSub;
 
   List<CatStats> _cats = [];
   String? _error;
   bool _loading = false;
 
-  CatViewModel(this._box);
+  CatViewModel(
+    this._box, {
+    Stream<void>? onSignedOut,
+    Stream<void>? onSignedIn,
+    String? testUserId,
+  }) : _overrideUserId = testUserId {
+    if (onSignedOut != null) {
+      _signedOutSub = onSignedOut.listen((_) => reset());
+    }
+    if (onSignedIn != null) {
+      // Recharge les chats après connexion (retour login ou changement de compte).
+      _signedInSub = onSignedIn.listen((_) => loadCats());
+    }
+  }
+
+  /// Retourne l'identifiant de l'utilisateur courant.
+  /// En production : Supabase.instance.client.auth.currentUser?.id.
+  /// En test : valeur injectée via testUserId (évite l'accès à Supabase.instance).
+  String? get _currentUserId {
+    if (_overrideUserId != null) return _overrideUserId;
+    try {
+      return Supabase.instance.client.auth.currentUser?.id;
+    } catch (_) {
+      // Supabase non initialisé (environnement de test sans testUserId).
+      return null;
+    }
+  }
+
+  /// Clé Hive isolée par user_id.
+  /// Si userId est inconnu (utilisateur non connecté), retourne null → no-op.
+  String? get _hiveKey {
+    final uid = _currentUserId;
+    if (uid == null) return null;
+    return 'cats_list_$uid';
+  }
+
+  @override
+  void dispose() {
+    _signedOutSub?.cancel();
+    _signedInSub?.cancel();
+    super.dispose();
+  }
 
   List<CatStats> get cats => List.unmodifiable(_cats);
   String? get error => _error;
@@ -30,8 +83,19 @@ class CatViewModel extends ChangeNotifier {
   }
 
   void loadCats() {
+    // Idempotent : si les chats sont déjà en mémoire, ne pas écraser.
+    // Évite un double-load au boot initial quand onSignedIn se déclenche
+    // juste après le loadCats() appelé dans main.dart.
+    if (_cats.isNotEmpty) return;
+
+    final key = _hiveKey;
+    if (key == null) {
+      // Utilisateur non connecté → no-op propre, aucun accès Hive.
+      return;
+    }
+
     try {
-      final raw = _box.get(_catsKey);
+      final raw = _box.get(key);
       if (raw == null) {
         _cats = [];
       } else {
@@ -47,6 +111,25 @@ class CatViewModel extends ChangeNotifier {
   }
 
   Future<void> createMainCat(String race, String name) async {
+    final key = _hiveKey;
+    if (key == null) return; // Utilisateur non connecté → no-op propre.
+
+    // Garde idempotente : relit Hive en synchrone pour couvrir le cas où
+    // _cats est vide en mémoire mais Hive contient déjà un compagnon principal
+    // (ex. : appel avant loadCats(), ou rechargement suite à reset() partiel).
+    if (_cats.isEmpty) {
+      final raw = _box.get(key);
+      if (raw != null) {
+        final list = raw as List<dynamic>;
+        _cats = list
+            .map((e) => CatStats.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList();
+      }
+    }
+    if (_cats.any((c) => c.isMain)) {
+      return;
+    }
+
     _loading = true;
     _error = null;
     notifyListeners();
@@ -215,8 +298,20 @@ class CatViewModel extends ChangeNotifier {
     return choices.first;
   }
 
+  /// Vide uniquement le state in-memory au logout.
+  // Pas de purge Hive : les clés cats_list_$userId isolent les données par user.
+  // Le reset() ici ne vide que le state in-memory pour forcer un reload propre
+  // au prochain login (15/05/26)
+  void reset() {
+    _cats = [];
+    _error = null;
+    notifyListeners();
+  }
+
   Future<void> _persist() async {
-    await _box.put(_catsKey, _cats.map((c) => c.toJson()).toList());
+    final key = _hiveKey;
+    if (key == null) return; // Utilisateur non connecté → no-op propre.
+    await _box.put(key, _cats.map((c) => c.toJson()).toList());
   }
 
   String _defaultNameForRace(String race) => switch (race) {

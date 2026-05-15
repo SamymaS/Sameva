@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/repositories/auth_repository.dart';
 
@@ -8,6 +9,22 @@ import '../../data/repositories/auth_repository.dart';
 class AuthViewModel with ChangeNotifier {
   final AuthRepository _repo;
   late final StreamSubscription<AuthState> _authSub;
+
+  // Stream broadcast émis lors de tout signedOut (manuel, token expiré, etc.).
+  // Les VMs métier (Player, Inventory, Equipment, Cat) s'y abonnent pour se reset.
+  final StreamController<void> _signedOutController =
+      StreamController<void>.broadcast();
+
+  // Stream broadcast émis lors d'un signedIn (connexion ou création de compte).
+  // CatViewModel s'y abonne pour recharger les chats après login.
+  final StreamController<void> _signedInController =
+      StreamController<void>.broadcast();
+
+  /// A écouter dans les VMs pour déclencher reset() automatiquement.
+  Stream<void> get onSignedOut => _signedOutController.stream;
+
+  /// A écouter dans les VMs pour recharger les données après connexion.
+  Stream<void> get onSignedIn => _signedInController.stream;
 
   User? _user;
   String? _errorMessage;
@@ -23,12 +40,17 @@ class AuthViewModel with ChangeNotifier {
       if (event == AuthChangeEvent.signedIn && session != null) {
         _user = session.user;
         _errorMessage = null;
+        // Notifie les VMs métier qu'un user vient de se connecter.
+        _signedInController.add(null);
       } else if (event == AuthChangeEvent.tokenRefreshed && session != null) {
         _user = session.user;
         return; // refresh silencieux, pas de notify
       } else if (event == AuthChangeEvent.signedOut) {
         _user = null;
         _errorMessage = null;
+        // Émet sur le stream pour que les VMs métier se reset automatiquement.
+        // Couvre logout manuel, token expiré, signOut programmatique.
+        _signedOutController.add(null);
       } else {
         return; // autres events ignorés
       }
@@ -42,6 +64,8 @@ class AuthViewModel with ChangeNotifier {
   @override
   void dispose() {
     _authSub.cancel();
+    _signedOutController.close();
+    _signedInController.close();
     super.dispose();
   }
 
@@ -50,23 +74,6 @@ class AuthViewModel with ChangeNotifier {
   String? get userId => _user?.id;
   String? get errorMessage => _errorMessage;
   bool get isLoading => _isLoading;
-
-  Future<void> signInAnonymously() async {
-    _setLoading(true);
-    try {
-      _user = await _repo.signInAnonymously();
-      _user ??= _repo.currentUser;
-      _errorMessage = null;
-    } on AuthException catch (e) {
-      _errorMessage = _traduireErreur(e);
-      rethrow;
-    } catch (e) {
-      _errorMessage = e.toString();
-      rethrow;
-    } finally {
-      _setLoading(false);
-    }
-  }
 
   Future<void> signInWithEmailAndPassword(String email, String password) async {
     if (email.trim().isEmpty) throw Exception('Veuillez entrer votre email');
@@ -117,11 +124,44 @@ class AuthViewModel with ChangeNotifier {
       await _repo.signOut();
       _user = null;
       _errorMessage = null;
+      // Purge des données personnelles Hive pour éviter la fuite vers le prochain user.
+      // Les clés correspondent aux conventions utilisées par chaque ViewModel.
+      await _purgeHiveData();
     } catch (e) {
       _errorMessage = e.toString();
       rethrow;
     } finally {
       _setLoading(false);
+    }
+  }
+
+  /// Note : _purgeHiveData() est défensif. Les VMs métier seront aussi
+  /// reset via le stream onSignedOut. La purge Hive est donc redondante
+  /// mais idempotente, et garantit qu'aucune donnée locale persiste
+  /// même si un VM oublie de s'abonner ou de reset proprement.
+  Future<void> _purgeHiveData() async {
+    try {
+      // Stats joueur (PlayerRepository utilise la clé 'stats' dans la box 'playerStats')
+      if (Hive.isBoxOpen('playerStats')) {
+        await Hive.box('playerStats').delete('stats');
+      }
+      // Inventaire (InventoryViewModel utilise la clé 'items' dans la box 'inventory')
+      if (Hive.isBoxOpen('inventory')) {
+        await Hive.box('inventory').delete('items');
+      }
+      // Équipement + cosmétiques (EquipmentViewModel dans la box 'equipment')
+      if (Hive.isBoxOpen('equipment')) {
+        await Hive.box('equipment').delete('equipment');
+        await Hive.box('equipment').delete('cosmetics');
+      }
+      // Cats reset géré par CatViewModel via stream onSignedOut, pas ici,
+      // pour éviter double effacement (régression 14/05/26).
+      // Achievements (AchievementService utilise la clé 'achievements' dans la box 'settings')
+      if (Hive.isBoxOpen('settings')) {
+        await Hive.box('settings').delete('achievements');
+      }
+    } catch (e) {
+      debugPrint('AuthViewModel: erreur purge Hive au logout: $e');
     }
   }
 

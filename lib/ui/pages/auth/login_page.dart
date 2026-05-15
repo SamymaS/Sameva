@@ -108,14 +108,6 @@ class _LoginPageState extends State<LoginPage> {
                   onPressed: () => Navigator.of(context).pushNamed('/register'),
                   child: const Text('Créer un compte'),
                 ),
-                const SizedBox(height: 24),
-                TextButton(
-                  onPressed: () => _signInAnonymously(context),
-                  child: Text(
-                    'Continuer sans compte',
-                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                  ),
-                ),
               ],
             ),
           ),
@@ -140,16 +132,4 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  Future<void> _signInAnonymously(BuildContext context) async {
-    final auth = context.read<AuthViewModel>();
-    try {
-      await auth.signInAnonymously();
-      if (!context.mounted) return;
-      if (auth.isAuthenticated) {
-        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-      }
-    } catch (_) {
-      // Message déjà dans AuthViewModel.errorMessage
-    }
-  }
 }

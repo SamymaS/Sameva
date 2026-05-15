@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../data/models/item_model.dart';
@@ -8,9 +9,20 @@ class InventoryViewModel with ChangeNotifier {
   static const int _maxSlots = 50;
 
   final Box _box;
+  StreamSubscription<void>? _signedOutSub;
   List<Item> _items = [];
 
-  InventoryViewModel(this._box);
+  InventoryViewModel(this._box, {Stream<void>? onSignedOut}) {
+    if (onSignedOut != null) {
+      _signedOutSub = onSignedOut.listen((_) => reset());
+    }
+  }
+
+  @override
+  void dispose() {
+    _signedOutSub?.cancel();
+    super.dispose();
+  }
 
   List<Item> get items => List.unmodifiable(_items);
   int get count => _items.fold(0, (sum, item) => sum + item.quantity);
@@ -84,6 +96,17 @@ class InventoryViewModel with ChangeNotifier {
       _items[idx] = current.copyWith(quantity: current.quantity - quantity);
     }
     _save();
+    notifyListeners();
+  }
+
+  /// Vide l'inventaire en mémoire et dans Hive (changement de compte).
+  Future<void> reset() async {
+    _items = [];
+    try {
+      await _box.delete('items');
+    } catch (e) {
+      debugPrint('InventoryViewModel: erreur reset: $e');
+    }
     notifyListeners();
   }
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../data/models/quest_model.dart';
 import '../../data/models/player_stats_model.dart';
@@ -15,11 +16,22 @@ export '../../data/models/player_stats_model.dart';
 /// Délègue la persistance à PlayerRepository — logique métier ici.
 class PlayerViewModel with ChangeNotifier {
   final PlayerRepository _repo;
+  StreamSubscription<void>? _signedOutSub;
 
   PlayerStats? _stats;
   String? _currentUserId;
 
-  PlayerViewModel(this._repo);
+  PlayerViewModel(this._repo, {Stream<void>? onSignedOut}) {
+    if (onSignedOut != null) {
+      _signedOutSub = onSignedOut.listen((_) => reset());
+    }
+  }
+
+  @override
+  void dispose() {
+    _signedOutSub?.cancel();
+    super.dispose();
+  }
 
   PlayerStats? get stats => _stats;
   bool get isInitialized => _stats != null;
@@ -36,17 +48,33 @@ class PlayerViewModel with ChangeNotifier {
     _stats = _repo.loadLocalStats();
     notifyListeners();
 
-    // Sync distante (best-effort)
+    // Sync distante — 3 cas traités explicitement.
     try {
       final remote = await _repo.fetchRemoteStats(userId);
       if (remote != null) {
+        // Cas 1 : données existantes → on les utilise, Hive mis à jour.
         _stats = remote;
         await _repo.saveLocalStats(remote);
         notifyListeners();
+      } else {
+        // Cas 2 : requête réussie, aucune ligne → vrai nouveau user (pas de profil remote).
+        // loadLocalStats() retourne toujours un PlayerStats, _stats est donc déjà défini.
+        // On pousse ce snapshot vers Supabase pour créer le profil distant.
+        await _repo.syncToSupabase(userId, _stats!);
+        notifyListeners();
       }
     } catch (e) {
-      debugPrint('PlayerViewModel: erreur sync Supabase: $e');
+      // Cas 3 : erreur réseau / exception Supabase.
+      // Principe : EN CAS DE DOUTE, NE JAMAIS ÉCRASER LA DB.
+      // On conserve le snapshot Hive déjà chargé en mémoire et on ne touche pas à Supabase.
+      debugPrint('PlayerViewModel: erreur réseau fetchRemoteStats — fallback Hive: $e');
+      // _stats reste celui chargé depuis Hive ci-dessus (offline-first garanti).
     }
+
+    /// ATTENTION : sur chemin erreur réseau (cas 3), les stats viennent de Hive
+    /// (potentiellement datées). Les calculs streak/regen ci-dessous seront donc
+    /// effectués sur le snapshot local, ce qui est acceptable : un resync
+    /// ultérieur corrigera l'état canonique côté Supabase.
 
     // Vérification streak expiré (si absence >= 2 jours depuis dernière activité)
     if (_stats != null && _stats!.lastActiveDate != null) {
@@ -339,6 +367,14 @@ class PlayerViewModel with ChangeNotifier {
         totalQuestsCompleted: _stats!.totalQuestsCompleted + 1);
     notifyListeners();
     await savePlayerStats(userId);
+  }
+
+  /// Remet le ViewModel à son état initial (changement de compte).
+  /// Vider _stats empêche toute syncToSupabase résiduelle sur le nouveau user.
+  void reset() {
+    _stats = null;
+    _currentUserId = null;
+    notifyListeners();
   }
 
   Future<List<String>> checkAndUnlockAchievements(String userId,

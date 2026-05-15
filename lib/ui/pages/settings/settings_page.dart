@@ -57,9 +57,7 @@ class _SettingsPageState extends State<SettingsPage> {
         body: ListView(
           padding: const EdgeInsets.symmetric(vertical: 8),
           children: [
-            const _SectionHeader('Apparence'),
-            _ThemeTile(),
-            const Divider(height: 1, indent: 16, endIndent: 16),
+            // Section Apparence retirée pour MVP — dark mode uniquement.
             const _SectionHeader('Notifications'),
             _NotificationTimeTile(),
             _StreakNotifTile(),
@@ -98,31 +96,6 @@ class _SectionHeader extends StatelessWidget {
           fontWeight: FontWeight.w600,
           letterSpacing: 1.2,
         ),
-      ),
-    );
-  }
-}
-
-class _ThemeTile extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final isDark = context.watch<SettingsViewModel>().isDark;
-    return ListTile(
-      tileColor: AppColors.backgroundDarkPanel,
-      leading: Icon(
-        isDark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
-        color: AppColors.primaryTurquoise,
-      ),
-      title: const Text('Thème sombre',
-          style: TextStyle(color: AppColors.textPrimary)),
-      subtitle: Text(
-        isDark ? 'Activé' : 'Désactivé',
-        style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-      ),
-      trailing: Switch(
-        value: isDark,
-        activeThumbColor: AppColors.primaryTurquoise,
-        onChanged: (v) => context.read<SettingsViewModel>().setDarkMode(v),
       ),
     );
   }

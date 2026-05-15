@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../data/models/item_model.dart';
@@ -7,6 +8,7 @@ import './inventory_view_model.dart';
 /// Persisté localement via la Hive box 'equipment'.
 class EquipmentViewModel with ChangeNotifier {
   final Box _box;
+  StreamSubscription<void>? _signedOutSub;
 
   final Map<EquipmentSlot, Item?> _equipped = {
     for (final slot in EquipmentSlot.values) slot: null,
@@ -22,7 +24,17 @@ class EquipmentViewModel with ChangeNotifier {
 
   static const List<String> cosmeticSlots = ['hat', 'outfit', 'pants', 'shoes', 'aura'];
 
-  EquipmentViewModel(this._box);
+  EquipmentViewModel(this._box, {Stream<void>? onSignedOut}) {
+    if (onSignedOut != null) {
+      _signedOutSub = onSignedOut.listen((_) => reset());
+    }
+  }
+
+  @override
+  void dispose() {
+    _signedOutSub?.cancel();
+    super.dispose();
+  }
 
   Map<EquipmentSlot, Item?> get equipped => Map.unmodifiable(_equipped);
 
@@ -117,6 +129,23 @@ class EquipmentViewModel with ChangeNotifier {
     inventory.addItem(item);
     _cosmetics[slot] = null;
     _save();
+    notifyListeners();
+  }
+
+  /// Vide tous les slots équipement + cosmétiques en mémoire et dans Hive (changement de compte).
+  Future<void> reset() async {
+    for (final slot in EquipmentSlot.values) {
+      _equipped[slot] = null;
+    }
+    for (final slot in cosmeticSlots) {
+      _cosmetics[slot] = null;
+    }
+    try {
+      await _box.delete('equipment');
+      await _box.delete('cosmetics');
+    } catch (e) {
+      debugPrint('EquipmentViewModel: erreur reset: $e');
+    }
     notifyListeners();
   }
 

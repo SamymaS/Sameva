@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import '../../../data/models/cat_model.dart';
+import '../../../data/models/item_model.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/view_models/cat_view_model.dart';
 import '../../../presentation/view_models/inventory_view_model.dart';
@@ -583,7 +584,7 @@ class _SlotButton extends StatelessWidget {
 class _CosmeticSheet extends StatelessWidget {
   final String label;
   final String slot;
-  final List cosmetics;
+  final List<Item> cosmetics;
   final CatStats cat;
   final CatViewModel catProvider;
 

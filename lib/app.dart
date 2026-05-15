@@ -172,8 +172,38 @@ class _AuthGate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthViewModel>();
-    final hasOnboarded =
-        Hive.box('settings').get('has_onboarded', defaultValue: false) as bool;
+
+    // Migration silencieuse : les comptes existants ont la clé globale 'has_onboarded'.
+    // Le nouveau code utilise 'has_onboarded_$userId'. On migre post-frame pour
+    // éviter tout I/O Hive pendant le build. Idempotent : no-op si déjà migré.
+    final userId = authProvider.userId;
+    if (authProvider.isAuthenticated && userId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        final settings = Hive.box('settings');
+        const globalKey = 'has_onboarded';
+        final perUserKey = 'has_onboarded_$userId';
+        if (settings.get(globalKey) == true && !settings.containsKey(perUserKey)) {
+          await settings.put(perUserKey, true);
+          await settings.delete(globalKey);
+        }
+      });
+    }
+
+    // Onboarding vérifié avant l'auth : un utilisateur non connecté doit quand
+    // même passer l'onboarding une première fois (clé globale sans userId).
+    // Une fois connecté, la clé est isolée par user_id pour éviter qu'un User B
+    // hérite du flag posé par User A.
+    //
+    // Lecture conjointe pendant la période de transition : si la clé globale
+    // 'has_onboarded' est toujours présente (migration postFrame pas encore
+    // exécutée), on la considère aussi comme valide pour éviter un faux
+    // re-déclenchement de l'onboarding au premier login post-fix.
+    final settings = Hive.box('settings');
+    const globalKey = 'has_onboarded';
+    final perUserKey = userId != null ? 'has_onboarded_$userId' : globalKey;
+    final hasOnboarded = settings.get(perUserKey) == true ||
+        (userId != null && settings.get(globalKey) == true);
+
     if (!hasOnboarded) {
       return const OnboardingPage();
     }

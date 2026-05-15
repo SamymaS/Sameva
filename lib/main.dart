@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -23,6 +24,7 @@ import 'app.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('fr_FR', null);
 
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
@@ -60,21 +62,30 @@ void main() async {
   final playerRepo      = PlayerRepository(statsBox, supabase);
   final leaderboardRepo = LeaderboardRepository(supabase);
 
+  // AuthViewModel instancié en premier pour exposer onSignedOut aux VMs métier.
+  final authViewModel = AuthViewModel(authRepo);
+  final signedOutStream = authViewModel.onSignedOut;
+  final signedInStream  = authViewModel.onSignedIn;
+
   final inventoryBox       = Hive.box('inventory');
   final equipmentBox       = Hive.box('equipment');
   final catsBox            = Hive.box('cats');
   final questViewModel      = QuestViewModel(questRepo);
-  final playerViewModel     = PlayerViewModel(playerRepo);
-  final inventoryViewModel  = InventoryViewModel(inventoryBox)..loadInventory();
-  final equipmentViewModel  = EquipmentViewModel(equipmentBox)..loadEquipment();
-  final catViewModel        = CatViewModel(catsBox)..loadCats();
+  final playerViewModel     = PlayerViewModel(playerRepo, onSignedOut: signedOutStream);
+  final inventoryViewModel  = InventoryViewModel(inventoryBox, onSignedOut: signedOutStream)..loadInventory();
+  final equipmentViewModel  = EquipmentViewModel(equipmentBox, onSignedOut: signedOutStream)..loadEquipment();
+  final catViewModel        = CatViewModel(
+    catsBox,
+    onSignedOut: signedOutStream,
+    onSignedIn: signedInStream,
+  )..loadCats();
 
   runApp(
     MultiProvider(
       providers: [
         // ViewModels globaux
         ChangeNotifierProvider(create: (_) => ThemeViewModel(settingsBox)),
-        ChangeNotifierProvider(create: (_) => AuthViewModel(authRepo)),
+        ChangeNotifierProvider.value(value: authViewModel),
 
         // Repositories exposés pour injection dans les ViewModels de pages
         Provider<QuestRepository>.value(value: questRepo),
