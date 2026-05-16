@@ -42,6 +42,9 @@ void main() {
       final dir = await Directory.systemTemp.createTemp('hive_quest_detail_test');
       Hive.init(dir.path);
       await Hive.openBox('quests');
+      // 'settings' est utilisée par QuestDetailSheet._saveSubTasks() lors du
+      // cochage d'une sous-tâche → doit être ouverte avant tout tap dans les tests.
+      await Hive.openBox('settings');
 });
 
   group('QuestDetailSheet', () {
