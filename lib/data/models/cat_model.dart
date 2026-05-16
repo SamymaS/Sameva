@@ -31,6 +31,68 @@ class CatStats {
     required this.obtainedAt,
   });
 
+  /// Sérialisation vers Supabase (snake_case, colonnes de la table companions).
+  /// [userId] est passé explicitement car CatStats ne stocke pas de userId.
+  /// Les champs dormants (mood, metadata, updated_at) sont intentionnellement
+  /// absents : les DEFAULT et triggers SQL font le travail.
+  Map<String, dynamic> toSupabaseMap(String userId) {
+    final map = <String, dynamic>{
+      'user_id': userId,
+      'name': name,
+      'race': race,
+      'rarity': rarity,
+      'is_main': isMain,
+      'equipped_hat': equippedHat,
+      'equipped_outfit_cosmetic': equippedOutfit,
+      'equipped_pants': equippedPants,
+      'equipped_shoes': equippedShoes,
+      'equipped_aura': equippedAura,
+      'equipped_accessory': equippedAccessory,
+      'equipped_title': equippedTitle,
+      'created_at': obtainedAt.toIso8601String(),
+    };
+    // N'inclut id que s'il est non-vide (Postgres génère un UUID via DEFAULT).
+    if (id.isNotEmpty) map['id'] = id;
+    return map;
+  }
+
+  /// Désérialisation depuis une ligne Supabase (snake_case).
+  static CatStats fromSupabaseMap(Map<String, dynamic> map) => CatStats(
+        id: map['id'] as String? ?? '',
+        name: map['name'] as String? ?? '',
+        race: _safeRace(map['race'] as String?),
+        rarity: _safeRarity(map['rarity'] as String?),
+        isMain: map['is_main'] as bool? ?? false,
+        equippedHat: map['equipped_hat'] as String?,
+        equippedOutfit: map['equipped_outfit_cosmetic'] as String?,
+        equippedPants: map['equipped_pants'] as String?,
+        equippedShoes: map['equipped_shoes'] as String?,
+        equippedAura: map['equipped_aura'] as String?,
+        equippedAccessory: map['equipped_accessory'] as String?,
+        equippedTitle: map['equipped_title'] as String?,
+        obtainedAt: map['created_at'] != null
+            ? DateTime.parse(map['created_at'] as String)
+            : DateTime.now(),
+      );
+
+  static const _validRaces = {
+    'michi', 'lune', 'braise', 'neige', 'cosmos', 'sakura'
+  };
+  // TODO(rarity-mismatch) : _validRarities contient 'special'
+  // absent du CHECK SQL companions_rarity_check. Aligner avant
+  // implémentation feature gacha (sinon upsert silencieusement
+  // rejeté). Valeurs SQL valides : common, uncommon, rare,
+  // veryRare, epic, legendary, mythic.
+  static const _validRarities = {
+    'common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic', 'special'
+  };
+
+  static String _safeRace(String? value) =>
+      (_validRaces.contains(value)) ? value! : 'michi';
+
+  static String _safeRarity(String? value) =>
+      (_validRarities.contains(value)) ? value! : 'common';
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
