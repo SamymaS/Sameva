@@ -3,9 +3,14 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sameva/data/models/cat_model.dart';
 import 'package:sameva/data/models/quest_model.dart';
+import 'package:sameva/data/repositories/cat_repository.dart';
 import 'package:sameva/presentation/view_models/cat_view_model.dart';
 
 class _MockBox extends Mock implements Box<dynamic> {}
+
+class _MockCatRepository extends Mock implements CatRepository {}
+
+class _FakeCatStats extends Fake implements CatStats {}
 
 // userId injecté en test pour éviter l'accès à Supabase.instance.
 const _testUserId = 'test-user-1';
@@ -25,6 +30,10 @@ CatStats _cat({
     );
 
 void main() {
+  setUpAll(() {
+    registerFallbackValue(_FakeCatStats());
+  });
+
   late _MockBox box;
   late CatViewModel vm;
 
@@ -173,6 +182,100 @@ void main() {
       expect(vm.cats, isEmpty);
       // Hive non touché par reset()
       verifyNever(() => box.delete(any()));
+    });
+  });
+
+  group('CatViewModel avec CatRepository', () {
+    late _MockBox box;
+    late _MockCatRepository repo;
+
+    final remoteCat = CatStats(
+      id: 'remote-1',
+      name: 'Luna',
+      race: 'lune',
+      rarity: 'rare',
+      isMain: true,
+      obtainedAt: DateTime.utc(2025, 1, 1),
+    );
+
+    setUp(() {
+      box = _MockBox();
+      repo = _MockCatRepository();
+      when(() => box.put(any(), any())).thenAnswer((_) async {});
+    });
+
+    test('loadCats avec Hive vide + repo → hydrate depuis remote', () async {
+      when(() => box.get(_testKey)).thenReturn(null);
+      when(() => repo.fetchRemoteCompanions(_testUserId))
+          .thenAnswer((_) async => [remoteCat]);
+
+      final vm = CatViewModel(
+        box,
+        catRepository: repo,
+        testUserId: _testUserId,
+      );
+      await vm.loadCats();
+
+      expect(vm.cats, hasLength(1));
+      expect(vm.cats.first.id, 'remote-1');
+      // Hive persisté avec les cats remote
+      verify(() => box.put(_testKey, any())).called(1);
+    });
+
+    test('loadCats avec Hive non-vide + repo → ne fetch PAS remote', () async {
+      when(() => box.get(_testKey))
+          .thenReturn([_cat(id: 'local-1', isMain: true).toJson()]);
+
+      final vm = CatViewModel(
+        box,
+        catRepository: repo,
+        testUserId: _testUserId,
+      );
+      await vm.loadCats();
+
+      expect(vm.cats.first.id, 'local-1');
+      verifyNever(() => repo.fetchRemoteCompanions(any()));
+    });
+
+    test('createMainCat avec repo → upsert appelé après persist Hive', () async {
+      when(() => box.get(_testKey)).thenReturn(null);
+      when(() => repo.fetchRemoteCompanions(any()))
+          .thenAnswer((_) async => []);
+      when(() => repo.upsertCompanion(any(), any()))
+          .thenAnswer((_) async {});
+
+      final vm = CatViewModel(
+        box,
+        catRepository: repo,
+        testUserId: _testUserId,
+      );
+      await vm.loadCats();
+      await vm.createMainCat('michi', 'Ronron');
+
+      verify(() => repo.upsertCompanion(_testUserId, any())).called(1);
+    });
+
+    test('createMainCat : upsert échoue → cat reste créé localement', () async {
+      when(() => box.get(_testKey)).thenReturn(null);
+      when(() => repo.fetchRemoteCompanions(any()))
+          .thenAnswer((_) async => []);
+      when(() => repo.upsertCompanion(any(), any()))
+          .thenThrow(Exception('réseau coupé'));
+
+      final vm = CatViewModel(
+        box,
+        catRepository: repo,
+        testUserId: _testUserId,
+      );
+      await vm.loadCats();
+
+      // Ne doit pas propager l'exception de upsert
+      await expectLater(
+        () async => vm.createMainCat('sakura', 'Sakura'),
+        returnsNormally,
+      );
+      expect(vm.cats, hasLength(1));
+      expect(vm.error, isNull);
     });
   });
 }
