@@ -7,6 +7,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'config/supabase_config.dart';
 import 'data/repositories/auth_repository.dart';
+import 'data/repositories/cat_repository.dart';
 import 'data/repositories/quest_repository.dart';
 import 'data/repositories/player_repository.dart';
 import 'data/repositories/user_repository.dart';
@@ -61,6 +62,7 @@ void main() async {
   final questRepo       = QuestRepository(supabase, userRepo);
   final playerRepo      = PlayerRepository(statsBox, supabase);
   final leaderboardRepo = LeaderboardRepository(supabase);
+  final catRepo         = CatRepository(supabase);
 
   // AuthViewModel instancié en premier pour exposer onSignedOut aux VMs métier.
   final authViewModel = AuthViewModel(authRepo);
@@ -82,6 +84,7 @@ void main() async {
   // tant que main() reste sync.
   final catViewModel        = CatViewModel(
     catsBox,
+    catRepository: catRepo,
     onSignedOut: signedOutStream,
     onSignedIn: signedInStream,
   )..loadCats();

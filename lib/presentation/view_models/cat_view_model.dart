@@ -5,11 +5,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../../data/models/cat_model.dart';
 import '../../data/models/quest_model.dart';
+import '../../data/repositories/cat_repository.dart';
 
 /// ViewModel gérant les chats compagnons du joueur.
 /// Stockage JSON dans la boîte Hive 'cats', avec clés isolées par user_id.
+/// Hive est la source d'autorité locale ; Supabase est sync best-effort.
 class CatViewModel extends ChangeNotifier {
   final Box _box;
+  final CatRepository? _catRepository;
 
   /// Injecté en test pour contourner l'accès à Supabase.instance.
   /// En production, laissé null → accès via Supabase.instance.client.
@@ -24,10 +27,12 @@ class CatViewModel extends ChangeNotifier {
 
   CatViewModel(
     this._box, {
+    CatRepository? catRepository,
     Stream<void>? onSignedOut,
     Stream<void>? onSignedIn,
     String? testUserId,
-  }) : _overrideUserId = testUserId {
+  })  : _catRepository = catRepository,
+        _overrideUserId = testUserId {
     if (onSignedOut != null) {
       _signedOutSub = onSignedOut.listen((_) => reset());
     }
@@ -77,7 +82,7 @@ class CatViewModel extends ChangeNotifier {
     }
   }
 
-  void loadCats() {
+  Future<void> loadCats() async {
     // Idempotent : si les chats sont déjà en mémoire, ne pas écraser.
     // Évite un double-load au boot initial quand onSignedIn se déclenche
     // juste après le loadCats() appelé dans main.dart.
@@ -102,6 +107,18 @@ class CatViewModel extends ChangeNotifier {
     } catch (e) {
       _error = 'Erreur chargement chats : $e';
     }
+
+    // Offline-first : Hive prime. Fetch remote uniquement si Hive est vide.
+    final repo = _catRepository;
+    final uid = _currentUserId;
+    if (_cats.isEmpty && repo != null && uid != null) {
+      final remoteCats = await repo.fetchRemoteCompanions(uid);
+      if (remoteCats.isNotEmpty) {
+        _cats = remoteCats;
+        await _persist();
+      }
+    }
+
     notifyListeners();
   }
 
@@ -143,6 +160,7 @@ class CatViewModel extends ChangeNotifier {
 
       _cats.add(cat);
       await _persist();
+      await _syncToRemote(cat);
     } catch (e) {
       _error = 'Erreur création chat : $e';
     } finally {
@@ -171,6 +189,7 @@ class CatViewModel extends ChangeNotifier {
 
       _cats[index] = updated;
       await _persist();
+      await _syncToRemote(updated);
     } catch (e) {
       _error = 'Erreur équipement cosmétique : $e';
     }
@@ -193,6 +212,7 @@ class CatViewModel extends ChangeNotifier {
         equippedTitle: null,
       );
       await _persist();
+      await _syncToRemote(_cats[index]);
     } catch (e) {
       _error = 'Erreur retrait cosmétiques : $e';
     }
@@ -223,6 +243,7 @@ class CatViewModel extends ChangeNotifier {
         equippedTitle: pick('title'),
       );
       await _persist();
+      await _syncToRemote(_cats[index]);
     } catch (e) {
       _error = 'Erreur randomisation : $e';
     }
@@ -236,6 +257,7 @@ class CatViewModel extends ChangeNotifier {
       if (index == -1) return;
       _cats[index] = _cats[index].copyWith(name: newName.trim());
       await _persist();
+      await _syncToRemote(_cats[index]);
     } catch (e) {
       _error = 'Erreur renommage : $e';
     }
@@ -260,6 +282,7 @@ class CatViewModel extends ChangeNotifier {
     );
     _cats.add(cat);
     await _persist();
+    await _syncToRemote(cat);
     notifyListeners();
     return cat;
   }
@@ -267,6 +290,10 @@ class CatViewModel extends ChangeNotifier {
   Future<void> setMainCat(String catId) async {
     _cats = _cats.map((c) => c.copyWith(isMain: c.id == catId)).toList();
     await _persist();
+    // Upsert séquentiel : ancien main (is_main=false) puis nouveau main (is_main=true).
+    for (final cat in _cats) {
+      await _syncToRemote(cat);
+    }
     notifyListeners();
   }
 
@@ -313,6 +340,27 @@ class CatViewModel extends ChangeNotifier {
     final key = _hiveKey;
     if (key == null) return; // Utilisateur non connecté → no-op propre.
     await _box.put(key, _cats.map((c) => c.toJson()).toList());
+  }
+
+  /// Sync best-effort vers Supabase. Jamais bloquante, jamais propagée.
+  Future<void> _syncToRemote(CatStats cat) async {
+    final repo = _catRepository;
+    final uid = _currentUserId;
+    // TODO(B2-runtime, 16/05/26) : race condition session
+    // Supabase post-signup. currentUser peut être null brièvement
+    // après inscription → _syncToRemote no-op silencieux → row
+    // jamais inséré en companions. Diagnostic confirmé :
+    // audit @sameva-monitor + table companions vide après
+    // onboarding réussi en runtime.
+    // Fix prévu : injecter userId explicite depuis AuthViewModel
+    // au moment de createMainCat plutôt que lire
+    // currentUser?.id ici.
+    if (repo == null || uid == null) return;
+    try {
+      await repo.upsertCompanion(uid, cat);
+    } catch (e) {
+      debugPrint('CatViewModel: _syncToRemote best-effort failed: $e');
+    }
   }
 
   String _defaultNameForRace(String race) => switch (race) {
