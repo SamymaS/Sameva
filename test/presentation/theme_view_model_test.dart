@@ -16,9 +16,9 @@ void main() {
   });
 
   group('ThemeViewModel', () {
-    test('devrait démarrer en ThemeMode.system si rien en base', () {
+    test('devrait démarrer en ThemeMode.dark (mode sombre forcé en MVP)', () {
       final vm = ThemeViewModel(box);
-      expect(vm.themeMode, ThemeMode.system);
+      expect(vm.themeMode, ThemeMode.dark);
     });
 
     test('setThemeMode devrait persister et notifier', () async {

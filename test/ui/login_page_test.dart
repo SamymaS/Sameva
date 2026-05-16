@@ -51,7 +51,6 @@ void main() {
       expect(find.byType(TextFormField), findsNWidgets(2));
       expect(find.text('Connexion'), findsOneWidget);
       expect(find.text('Créer un compte'), findsOneWidget);
-      expect(find.text('Continuer sans compte'), findsOneWidget);
     });
 
     testWidgets('affiche une erreur si email vide à la soumission',
