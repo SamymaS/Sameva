@@ -9,11 +9,6 @@ import '../../data/models/quest_model.dart';
 /// ViewModel gérant les chats compagnons du joueur.
 /// Stockage JSON dans la boîte Hive 'cats', avec clés isolées par user_id.
 class CatViewModel extends ChangeNotifier {
-  // Clé de migration conservée pour référence uniquement (non utilisée en écriture).
-  // @deprecated Remplacée par _catsListKeyFor(userId) depuis le 15/05/26.
-  // ignore: unused_field
-  static const _catsKeyLegacy = 'cats_list';
-
   final Box _box;
 
   /// Injecté en test pour contourner l'accès à Supabase.instance.
@@ -248,6 +243,12 @@ class CatViewModel extends ChangeNotifier {
   }
 
   Future<CatStats> addRolledCat(QuestRarity rarity) async {
+    if (_hiveKey == null) {
+      throw StateError(
+        'addRolledCat appelée sans user loggé — '
+        'cas non supporté (roll gacha hors session)',
+      );
+    }
     final race = _raceForRarity(rarity);
     final cat = CatStats(
       id: const Uuid().v4(),

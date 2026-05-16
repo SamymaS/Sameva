@@ -74,6 +74,12 @@ void main() async {
   final playerViewModel     = PlayerViewModel(playerRepo, onSignedOut: signedOutStream);
   final inventoryViewModel  = InventoryViewModel(inventoryBox, onSignedOut: signedOutStream)..loadInventory();
   final equipmentViewModel  = EquipmentViewModel(equipmentBox, onSignedOut: signedOutStream)..loadEquipment();
+  // loadCats() au boot lit la box Hive avec la clé per-user
+  // si un user est déjà connecté (session persistée). Le
+  // stream onSignedIn déclenchera un second loadCats() au
+  // prochain signIn — la garde idempotente de loadCats()
+  // protège du double-load. Race condition non observable
+  // tant que main() reste sync.
   final catViewModel        = CatViewModel(
     catsBox,
     onSignedOut: signedOutStream,

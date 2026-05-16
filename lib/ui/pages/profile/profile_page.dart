@@ -997,8 +997,8 @@ class _XpBarChartPainter extends CustomPainter {
 
       final isToday = i == values.length - 1;
       paint.color = isToday
-          ? const Color(0xFF4FD1C5) // primaryTurquoise
-          : const Color(0xFF4FD1C5).withValues(alpha: 0.35 + fraction * 0.5);
+          ? AppColors.primaryTurquoise
+          : AppColors.primaryTurquoise.withValues(alpha: 0.35 + fraction * 0.5);
 
       final rr = RRect.fromRectAndRadius(
         Rect.fromLTWH(x, y, barWidth, barHeight.clamp(2, size.height)),
