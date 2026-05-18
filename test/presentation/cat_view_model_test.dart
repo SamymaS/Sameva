@@ -69,7 +69,7 @@ void main() {
       when(() => box.get(_testKey)).thenReturn(null);
       vm.loadCats();
 
-      await vm.createMainCat('michi', 'Ronron');
+      await vm.createMainCat('michi', 'Ronron', userId: _testUserId);
 
       expect(vm.cats, hasLength(1));
       expect(vm.cats.first.isMain, isTrue);
@@ -81,7 +81,7 @@ void main() {
       when(() => box.get(_testKey)).thenReturn(null);
       vm.loadCats();
 
-      await vm.createMainCat('lune', '   ');
+      await vm.createMainCat('lune', '   ', userId: _testUserId);
 
       expect(vm.cats.first.name, 'Luna');
     });
@@ -92,7 +92,7 @@ void main() {
           .thenReturn([_cat(id: 'existing', isMain: true).toJson()]);
       vm.loadCats();
 
-      await vm.createMainCat('lune', 'Doublon');
+      await vm.createMainCat('lune', 'Doublon', userId: _testUserId);
 
       expect(vm.cats, hasLength(1));
       expect(vm.cats.first.id, 'existing');
@@ -107,10 +107,17 @@ void main() {
           .thenReturn([_cat(id: 'hive-cat', isMain: true).toJson()]);
       // _cats est vide en mémoire (loadCats pas appelé)
 
-      await vm.createMainCat('michi', 'Doublon');
+      await vm.createMainCat('michi', 'Doublon', userId: _testUserId);
 
       // La garde a relu Hive et trouvé un isMain → no-op
       verifyNever(() => box.put(_testKey, any()));
+    });
+
+    test('createMainCat throws ArgumentError when userId is empty', () async {
+      expect(
+        () => vm.createMainCat('michi', 'X', userId: ''),
+        throwsA(isA<ArgumentError>()),
+      );
     });
 
     test('renameCat met à jour le nom', () async {
@@ -250,7 +257,7 @@ void main() {
         testUserId: _testUserId,
       );
       await vm.loadCats();
-      await vm.createMainCat('michi', 'Ronron');
+      await vm.createMainCat('michi', 'Ronron', userId: _testUserId);
 
       verify(() => repo.upsertCompanion(_testUserId, any())).called(1);
     });
@@ -271,7 +278,7 @@ void main() {
 
       // Ne doit pas propager l'exception de upsert
       await expectLater(
-        () async => vm.createMainCat('sakura', 'Sakura'),
+        () async => vm.createMainCat('sakura', 'Sakura', userId: _testUserId),
         returnsNormally,
       );
       expect(vm.cats, hasLength(1));

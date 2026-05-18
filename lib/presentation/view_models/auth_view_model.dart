@@ -165,6 +165,39 @@ class AuthViewModel with ChangeNotifier {
     }
   }
 
+  /// Retourne le userId courant si déjà disponible, sinon attend
+  /// l'event signedIn sur le stream Supabase authStateChanges,
+  /// avec timeout.
+  ///
+  /// Utilisé par OnboardingPage pour gérer la latence possible
+  /// entre signup et hydratation de _user.
+  Future<String> waitForSignedInUserId({
+    Duration timeout = const Duration(seconds: 5),
+  }) async {
+    if (_user?.id != null && _user!.id.isNotEmpty) {
+      return _user!.id;
+    }
+
+    final completer = Completer<String>();
+    late final StreamSubscription<AuthState> sub;
+
+    sub = Supabase.instance.client.auth.onAuthStateChange.listen((state) {
+      if (state.event == AuthChangeEvent.signedIn &&
+          state.session?.user.id != null &&
+          state.session!.user.id.isNotEmpty) {
+        if (!completer.isCompleted) {
+          completer.complete(state.session!.user.id);
+        }
+      }
+    });
+
+    try {
+      return await completer.future.timeout(timeout);
+    } finally {
+      await sub.cancel();
+    }
+  }
+
   void clearError() {
     _errorMessage = null;
     notifyListeners();

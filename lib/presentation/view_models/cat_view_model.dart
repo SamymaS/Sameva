@@ -122,15 +122,24 @@ class CatViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> createMainCat(String race, String name) async {
-    final key = _hiveKey;
-    if (key == null) return; // Utilisateur non connecté → no-op propre.
+  Future<void> createMainCat(
+    String race,
+    String name, {
+    required String userId,
+  }) async {
+    if (userId.isEmpty) {
+      throw ArgumentError(
+        'createMainCat: userId requis et non-vide (race condition post-signup déjà observée)',
+      );
+    }
+
+    final hiveKey = 'cats_list_$userId';
 
     // Garde idempotente : relit Hive en synchrone pour couvrir le cas où
     // _cats est vide en mémoire mais Hive contient déjà un compagnon principal
     // (ex. : appel avant loadCats(), ou rechargement suite à reset() partiel).
     if (_cats.isEmpty) {
-      final raw = _box.get(key);
+      final raw = _box.get(hiveKey);
       if (raw != null) {
         final list = raw as List<dynamic>;
         _cats = list
@@ -159,8 +168,8 @@ class CatViewModel extends ChangeNotifier {
       );
 
       _cats.add(cat);
-      await _persist();
-      await _syncToRemote(cat);
+      await _box.put(hiveKey, _cats.map((c) => c.toJson()).toList());
+      await _syncToRemote(cat, userId: userId);
     } catch (e) {
       _error = 'Erreur création chat : $e';
     } finally {
@@ -343,18 +352,12 @@ class CatViewModel extends ChangeNotifier {
   }
 
   /// Sync best-effort vers Supabase. Jamais bloquante, jamais propagée.
-  Future<void> _syncToRemote(CatStats cat) async {
+  /// [userId] : si fourni, utilise cette valeur directement (évite la race
+  /// condition post-signup où currentUser?.id peut être null). Sinon, fallback
+  /// sur _currentUserId (session Supabase live).
+  Future<void> _syncToRemote(CatStats cat, {String? userId}) async {
     final repo = _catRepository;
-    final uid = _currentUserId;
-    // TODO(B2-runtime, 16/05/26) : race condition session
-    // Supabase post-signup. currentUser peut être null brièvement
-    // après inscription → _syncToRemote no-op silencieux → row
-    // jamais inséré en companions. Diagnostic confirmé :
-    // audit @sameva-monitor + table companions vide après
-    // onboarding réussi en runtime.
-    // Fix prévu : injecter userId explicite depuis AuthViewModel
-    // au moment de createMainCat plutôt que lire
-    // currentUser?.id ici.
+    final uid = userId ?? _currentUserId;
     if (repo == null || uid == null) return;
     try {
       await repo.upsertCompanion(uid, cat);

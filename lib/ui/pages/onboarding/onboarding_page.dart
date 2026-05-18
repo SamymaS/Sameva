@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -56,16 +58,49 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   Future<void> _finish() async {
+    if (!mounted) return;
+
+    final authVm = context.read<AuthViewModel>();
+    var userId = authVm.userId;
+
+    // Si userId null à ce moment, attendre l'event signedIn
+    // (peut arriver avec un léger délai post-signup).
+    if (userId == null || userId.isEmpty) {
+      try {
+        userId = await authVm.waitForSignedInUserId(
+          timeout: const Duration(seconds: 5),
+        );
+      } on TimeoutException {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Session introuvable après attente. Reconnectez-vous puis réessayez.',
+            ),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        return;
+      }
+    }
+
+    // Failsafe — ne devrait pas arriver après waitForSignedInUserId
+    if (userId.isEmpty) return;
+
+    if (!mounted) return;
+
     final name = _catNameCtrl.text.trim().isEmpty
         ? _defaultName(_selectedRace)
         : _catNameCtrl.text.trim();
-    if (mounted) {
-      await context.read<CatViewModel>().createMainCat(_selectedRace, name);
-    }
+
+    await context.read<CatViewModel>().createMainCat(
+          _selectedRace,
+          name,
+          userId: userId,
+        );
+
     // Clé isolée par user_id : évite qu'un User B hérite du flag de User A.
-    // Si l'userId est absent (cas non connecté inattendu), on utilise la clé globale.
-    final userId = mounted ? context.read<AuthViewModel>().userId : null;
-    final onboardingKey = userId != null ? 'has_onboarded_$userId' : 'has_onboarded';
+    final onboardingKey = 'has_onboarded_$userId';
     await Hive.box('settings').put(onboardingKey, true);
     if (!mounted) return;
     Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
