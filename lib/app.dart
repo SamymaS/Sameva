@@ -189,26 +189,25 @@ class _AuthGate extends StatelessWidget {
       });
     }
 
-    // Onboarding vérifié avant l'auth : un utilisateur non connecté doit quand
-    // même passer l'onboarding une première fois (clé globale sans userId).
-    // Une fois connecté, la clé est isolée par user_id pour éviter qu'un User B
-    // hérite du flag posé par User A.
+    // Routing : LoginPage si pas authentifié, OnboardingPage si authentifié mais
+    // pas encore onboardé, HomePage sinon.
     //
-    // Lecture conjointe pendant la période de transition : si la clé globale
-    // 'has_onboarded' est toujours présente (migration postFrame pas encore
-    // exécutée), on la considère aussi comme valide pour éviter un faux
-    // re-déclenchement de l'onboarding au premier login post-fix.
+    // La clé Hive est isolée par user_id ('has_onboarded_$userId') pour éviter
+    // qu'un User B hérite du flag posé par User A. Lecture conjointe pendant la
+    // période de transition : si la clé globale 'has_onboarded' est encore
+    // présente (migration postFrame pas encore exécutée), elle est aussi
+    // considérée valide pour éviter un faux re-déclenchement de l'onboarding.
     final settings = Hive.box('settings');
     const globalKey = 'has_onboarded';
     final perUserKey = userId != null ? 'has_onboarded_$userId' : globalKey;
     final hasOnboarded = settings.get(perUserKey) == true ||
         (userId != null && settings.get(globalKey) == true);
 
-    if (!hasOnboarded) {
-      return const OnboardingPage();
-    }
     if (!authProvider.isAuthenticated) {
       return const LoginPage();
+    }
+    if (!hasOnboarded) {
+      return const OnboardingPage();
     }
     return homeBuilder(context);
   }
