@@ -98,12 +98,11 @@ class _QuestDetailSheetState extends State<QuestDetailSheet> {
       initialChildSize: 0.55,
       minChildSize: 0.35,
       maxChildSize: 0.92,
-      builder: (_, controller) => Container(
-        decoration: const BoxDecoration(
+      builder: (_, controller) => ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        child: Material(
           color: AppColors.backgroundDarkPanel,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
+          child: Column(
           children: [
             // Poignée
             Center(
@@ -331,6 +330,7 @@ class _QuestDetailSheetState extends State<QuestDetailSheet> {
               ),
             ),
           ],
+        ),
         ),
       ),
     );

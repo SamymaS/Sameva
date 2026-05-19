@@ -61,7 +61,14 @@ Le widget `quest_detail_sheet` persiste des sous-tâches dans `Hive.box('setting
 
 Skip lors de session B2 car `Supabase.instance` singleton non-injectable. À couvrir avec un wrapper `SupabaseAuthClient` injectable.
 
+### 11. Pin version Flutter (FVM ou équivalent)
+
+Bug pipeline du 19/05/2026 : assertion Flutter ListTile durcie en erreur sur le runner CI mais pas en local après `flutter upgrade` récent. Divergence de versions Flutter entre machines = source de bugs CI imprévisibles.
+
+Solution : utiliser FVM (Flutter Version Manager) avec un `.fvmrc` versionné dans le repo, ou pinner via le workflow GitHub Actions une version exacte. Argument certif Bloc 4 (reproductibilité environnement).
+
 ## Historique de résolution
 
 - 16/05/2026 : Session B2 — sync companions cross-device (commits 7898e14 → baf52ce)
 - 19/05/2026 : Fix quest-validation court terme + patch défensif cat-vm
+- 19/05/2026 : Fix pipeline CI quest_detail_sheet (DecoratedBox → Material)
