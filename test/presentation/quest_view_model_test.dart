@@ -171,20 +171,29 @@ void main() {
       );
       when(() => repo.completeQuest(q)).thenAnswer((_) async => done);
 
-      await vm.completeQuest('c');
+      await vm.completeQuest(q);
 
       expect(vm.quests.first.status, QuestStatus.completed);
     });
 
-    test('completeQuest avec id inconnu propage une erreur', () async {
+    test('completeQuest avec id inconnu ajoute défensivement la quête', () async {
+      // Nouveau comportement : snapshot désynchronisé → ajout défensif au lieu de throw.
+      // Backlog : refonte source de vérité ViewModels (BACKLOG.md).
       final q = makeQuest(id: 'only');
       when(() => repo.loadQuests('u')).thenAnswer((_) async => [q]);
       await vm.loadQuests('u');
 
-      await expectLater(
-        vm.completeQuest('inexistant'),
-        throwsStateError,
+      final inconnue = makeQuest(id: 'inexistant');
+      final done = inconnue.copyWith(
+        status: QuestStatus.completed,
+        completedAt: DateTime(2024, 6, 1),
       );
+      when(() => repo.completeQuest(inconnue)).thenAnswer((_) async => done);
+
+      await vm.completeQuest(inconnue);
+
+      // La quête inconnue a été ajoutée puis mise à jour au statut completed.
+      expect(vm.quests.any((q) => q.id == 'inexistant' && q.status == QuestStatus.completed), isTrue);
     });
 
     test('deleteQuest propage si le repository échoue', () async {

@@ -105,16 +105,24 @@ class QuestViewModel with ChangeNotifier {
     }
   }
 
-  Future<void> completeQuest(String questId) async {
+  Future<void> completeQuest(Quest quest) async {
     try {
-      final quest = _quests.firstWhere((q) => q.id == questId);
-      final updated = await _repo.completeQuest(quest);
-      final index = _quests.indexWhere((q) => q.id == questId);
-      if (index != -1) {
-        _quests[index] = updated;
-        notifyListeners();
+      final index = _quests.indexWhere((q) => q.id == quest.id);
+      if (index == -1) {
+        // Snapshot désynchronisé : la quête a été créée via un autre VM
+        // (CreateQuestViewModel) sans notifier ce singleton. On l'ajoute
+        // défensivement. Backlog : refonte sources de vérité (BACKLOG.md).
+        _quests.add(quest);
       }
-      await NotificationService.cancelQuestDeadlineReminder(questId);
+      final updated = await _repo.completeQuest(quest);
+      final updatedIndex = _quests.indexWhere((q) => q.id == quest.id);
+      if (updatedIndex != -1) {
+        _quests[updatedIndex] = updated;
+      }
+      notifyListeners();
+      if (quest.id != null) {
+        await NotificationService.cancelQuestDeadlineReminder(quest.id!);
+      }
     } catch (e) {
       debugPrint('QuestViewModel: erreur complétion: $e');
       rethrow;

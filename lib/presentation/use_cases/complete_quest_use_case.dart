@@ -49,18 +49,14 @@ class CompleteQuestUseCase {
         _equipmentProvider = equipmentProvider,
         _inventoryProvider = inventoryProvider;
 
-  Future<CompleteQuestResult> execute(String questId) async {
-    final quest = _questProvider.quests.firstWhere(
-      (q) => q.id == questId,
-      orElse: () => throw StateError('Quête introuvable : $questId'),
-    );
+  Future<CompleteQuestResult> execute(Quest quest) async {
     final now = DateTime.now();
 
     // Niveau avant récompenses
     final levelBefore = _playerProvider.stats?.level ?? 1;
 
     // 1. Marquer la quête comme complète
-    await _questProvider.completeQuest(questId);
+    await _questProvider.completeQuest(quest);
 
     // 2. Calculer les récompenses
     final rewards = QuestRewardsCalculator.calculateRewardsWithTiming(

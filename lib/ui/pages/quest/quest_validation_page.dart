@@ -173,7 +173,7 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
         equipmentProvider: context.read<EquipmentViewModel>(),
         inventoryProvider: context.read<InventoryViewModel>(),
       );
-      final result = await useCase.execute(questId);
+      final result = await useCase.execute(widget.quest);
       final rewards = result.rewards;
 
       if (!mounted) return;
