@@ -75,10 +75,14 @@ class CatViewModel extends ChangeNotifier {
   bool get loading => _loading;
 
   CatStats? get mainCat {
+    if (_cats.isEmpty) return null;
     try {
       return _cats.firstWhere((c) => c.isMain);
-    } catch (_) {
-      return _cats.isNotEmpty ? _cats.first : null;
+    } on StateError {
+      // Aucun chat marqué isMain. Fallback : le premier de la liste.
+      // À investiguer en backlog si ce cas se produit en runtime
+      // (même pattern que le bug quest-vm snapshot désynchronisé).
+      return _cats.first;
     }
   }
 
