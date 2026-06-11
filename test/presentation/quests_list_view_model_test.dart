@@ -3,6 +3,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:sameva/data/models/quest_model.dart';
 import 'package:sameva/data/repositories/quest_repository.dart';
 import 'package:sameva/presentation/view_models/auth_view_model.dart';
+import 'package:sameva/presentation/view_models/quest_view_model.dart';
 import 'package:sameva/presentation/view_models/quests_list_view_model.dart';
 
 class _MockQuestRepository extends Mock implements QuestRepository {}
@@ -17,7 +18,10 @@ void main() {
   setUp(() {
     questRepo = _MockQuestRepository();
     auth = _MockAuthViewModel();
-    vm = QuestsListViewModel(questRepo, auth);
+    // QuestViewModel est désormais la source de vérité unique. Le VM de liste
+    // n'est qu'un état UI (filtres/tri) au-dessus. On l'alimente via un vrai
+    // QuestViewModel piloté par le repo mocké.
+    vm = QuestsListViewModel(QuestViewModel(questRepo), auth);
   });
 
   group('QuestsListViewModel', () {

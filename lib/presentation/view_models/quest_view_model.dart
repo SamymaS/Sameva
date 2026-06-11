@@ -107,17 +107,16 @@ class QuestViewModel with ChangeNotifier {
 
   Future<void> completeQuest(Quest quest) async {
     try {
-      final index = _quests.indexWhere((q) => q.id == quest.id);
-      if (index == -1) {
-        // Snapshot désynchronisé : la quête a été créée via un autre VM
-        // (CreateQuestViewModel) sans notifier ce singleton. On l'ajoute
-        // défensivement. Backlog : refonte sources de vérité (BACKLOG.md).
-        _quests.add(quest);
-      }
       final updated = await _repo.completeQuest(quest);
-      final updatedIndex = _quests.indexWhere((q) => q.id == quest.id);
-      if (updatedIndex != -1) {
-        _quests[updatedIndex] = updated;
+      final index = _quests.indexWhere((q) => q.id == quest.id);
+      if (index != -1) {
+        _quests[index] = updated;
+      } else {
+        // La quête n'est pas dans la liste : cas limite (complétion d'une quête
+        // non chargée). On l'insère pour rester cohérent. Depuis la refonte
+        // source de vérité unique, la création passe par ce VM : la désync
+        // inter-VM qui motivait l'ancien patch n'existe plus.
+        _quests.insert(0, updated);
       }
       notifyListeners();
       if (quest.id != null) {

@@ -96,8 +96,10 @@ void main() async {
         ChangeNotifierProvider(create: (_) => ThemeViewModel(settingsBox)),
         ChangeNotifierProvider.value(value: authViewModel),
 
-        // Repositories exposés pour injection dans les ViewModels de pages
-        Provider<QuestRepository>.value(value: questRepo),
+        // Repositories exposés pour injection dans les ViewModels de pages.
+        // QuestRepository n'est plus exposé : depuis la refonte source de vérité
+        // unique, les VMs Quest passent par le QuestViewModel global (qui détient
+        // le repo), plus aucune page ne lit QuestRepository directement.
         Provider<PlayerRepository>.value(value: playerRepo),
         Provider<LeaderboardRepository>.value(value: leaderboardRepo),
 

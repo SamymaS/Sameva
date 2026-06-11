@@ -176,9 +176,9 @@ void main() {
       expect(vm.quests.first.status, QuestStatus.completed);
     });
 
-    test('completeQuest avec id inconnu ajoute défensivement la quête', () async {
-      // Nouveau comportement : snapshot désynchronisé → ajout défensif au lieu de throw.
-      // Backlog : refonte source de vérité ViewModels (BACKLOG.md).
+    test('completeQuest avec id inconnu insère la quête complétée', () async {
+      // Cas limite : compléter une quête absente de la liste chargée. Le VM
+      // (source de vérité unique) insère le résultat renvoyé par le repo.
       final q = makeQuest(id: 'only');
       when(() => repo.loadQuests('u')).thenAnswer((_) async => [q]);
       await vm.loadQuests('u');

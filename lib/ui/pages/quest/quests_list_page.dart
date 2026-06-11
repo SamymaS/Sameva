@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../data/models/quest_model.dart';
-import '../../../data/repositories/quest_repository.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
+import '../../../presentation/view_models/quest_view_model.dart';
 import '../../../presentation/view_models/quests_list_view_model.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/app_notification.dart';
@@ -39,7 +39,7 @@ class _QuestsListPageState extends State<QuestsListPage> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _vm ??= QuestsListViewModel(
-      context.read<QuestRepository>(),
+      context.read<QuestViewModel>(),
       context.read<AuthViewModel>(),
     );
   }

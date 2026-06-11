@@ -7,6 +7,7 @@ import 'package:sameva/data/models/quest_model.dart';
 import 'package:sameva/data/repositories/auth_repository.dart';
 import 'package:sameva/data/repositories/quest_repository.dart';
 import 'package:sameva/presentation/view_models/auth_view_model.dart';
+import 'package:sameva/presentation/view_models/quest_view_model.dart';
 import 'package:sameva/ui/pages/quest/quests_list_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -25,7 +26,8 @@ Widget _buildQuestsList({
   return MultiProvider(
     providers: [
       ChangeNotifierProvider<AuthViewModel>.value(value: auth),
-      Provider<QuestRepository>.value(value: repo),
+      // QuestViewModel = source de vérité unique ; la page lit la liste via lui.
+      ChangeNotifierProvider<QuestViewModel>.value(value: QuestViewModel(repo)),
     ],
     child: const MaterialApp(
       home: QuestsListPage(),

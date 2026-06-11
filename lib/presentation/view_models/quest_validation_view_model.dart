@@ -2,17 +2,18 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import '../../data/models/quest_model.dart';
-import '../../data/repositories/quest_repository.dart';
 import '../../domain/services/validation_ai_service.dart';
 import './auth_view_model.dart';
+import './quest_view_model.dart';
 
 /// ViewModel pour la validation de quête.
-/// Gère la preuve photo + analyse IA, et délègue la complétion à QuestRepository.
+/// Gère la preuve photo + analyse IA, et délègue la complétion à QuestViewModel
+/// (source de vérité unique), qui persiste ET met à jour la liste partagée.
 /// Note : la logique de récompenses joueur (XP, streak) reste dans CompleteQuestUseCase
 /// jusqu'à l'extraction de PlayerProvider en service de domaine.
 class QuestValidationViewModel extends ChangeNotifier {
   final AuthViewModel _auth;
-  final QuestRepository _questRepo;
+  final QuestViewModel _questVM;
   final ValidationAIService _validationService;
 
   Uint8List? proofImage;
@@ -21,7 +22,7 @@ class QuestValidationViewModel extends ChangeNotifier {
 
   QuestValidationViewModel(
     this._auth,
-    this._questRepo, {
+    this._questVM, {
     ValidationAIService? validationService,
   }) : _validationService = validationService ?? MockValidationAIService();
 
@@ -43,13 +44,14 @@ class QuestValidationViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Marque la quête comme complétée dans Supabase.
+  /// Marque la quête comme complétée via la source de vérité (QuestViewModel),
+  /// qui persiste dans Supabase ET met à jour la liste partagée + notifie.
   /// Les récompenses joueur (XP, streak) doivent être gérées par la page
   /// via CompleteQuestUseCase jusqu'à migration complète de PlayerProvider.
   Future<bool> completeQuest(Quest quest) async {
     if (quest.id == null || _auth.userId == null) return false;
     try {
-      await _questRepo.completeQuest(quest);
+      await _questVM.completeQuest(quest);
       notifyListeners();
       return true;
     } catch (_) {

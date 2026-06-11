@@ -4,6 +4,7 @@ import 'package:sameva/data/models/quest_model.dart';
 import 'package:sameva/data/repositories/quest_repository.dart';
 import 'package:sameva/presentation/view_models/auth_view_model.dart';
 import 'package:sameva/presentation/view_models/create_quest_view_model.dart';
+import 'package:sameva/presentation/view_models/quest_view_model.dart';
 
 class _MockQuestRepository extends Mock implements QuestRepository {}
 
@@ -32,7 +33,8 @@ void main() {
   setUp(() {
     questRepo = _MockQuestRepository();
     auth = _MockAuthViewModel();
-    vm = CreateQuestViewModel(questRepo, auth);
+    // Création routée par la source de vérité (QuestViewModel) qui délègue au repo.
+    vm = CreateQuestViewModel(QuestViewModel(questRepo), auth);
   });
 
   group('CreateQuestViewModel', () {
