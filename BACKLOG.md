@@ -14,9 +14,15 @@ Maintenu manuellement à chaque fin de session.
 
 **Cause racine** : plusieurs ViewModels (singletons globaux + instances locales) maintiennent des snapshots in-memory parallèles. Les mutations dans un VM ne notifient pas les autres.
 
-**Patches actuels** : défensifs (passer l'objet complet, fallback insert).
+**[Résolu Quest — 11/06/2026]** Le `QuestViewModel` global est désormais l'**unique source de vérité**
+des quêtes (cohérent avec le pattern Cat). `QuestsListViewModel`, `CreateQuestViewModel`,
+`QuestValidationViewModel` et `ProfileViewModel` ne détiennent plus de snapshot : ils lisent
+`questVM.quests` / délèguent leurs mutations (la liste de filtres forwarde les notifications du VM source).
+`QuestRepository` reste stateless et n'est plus exposé via Provider. Patch défensif retiré.
 
-**Solution durable** : consolider chaque entité (Quest, Cat, etc.) derrière un Repository unique qui est l'unique source de vérité. Les VM observent le Repository. À planifier en session dédiée 2-3h.
+**Reliquat** :
+- **Player** : appliquer le même pattern (couplé à la dette Hive vs Remote, TECH_DEBT.md).
+- **Cat** : déjà conforme (VM global unique = autorité).
 
 ### 2. Migration initial_schema versionnée
 
@@ -72,3 +78,5 @@ Solution : utiliser FVM (Flutter Version Manager) avec un `.fvmrc` versionné da
 - 16/05/2026 : Session B2 — sync companions cross-device (commits 7898e14 → baf52ce)
 - 19/05/2026 : Fix quest-validation court terme + patch défensif cat-vm
 - 19/05/2026 : Fix pipeline CI quest_detail_sheet (DecoratedBox → Material)
+- 11/06/2026 : Refonte source de vérité Quest — QuestViewModel global = source unique, VMs page délèguent (dette #1 résolue pour Quest)
+- 11/06/2026 : Navbar épurée — DockBar réduite à 5 onglets MVP (Accueil/Quêtes/Portail/Chat/Profil) ; Marché+Invocation fusionnés en Portail (TabBar Invocation/Boutique/Vendre) ; Stock via Profil ; Jeux/Premium masqués via lib/config/feature_flags.dart

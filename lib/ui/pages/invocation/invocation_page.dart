@@ -16,14 +16,14 @@ import '../../widgets/cat/cat_widget.dart';
 import '../../widgets/common/rarity_badge.dart';
 
 /// Page invocation gacha : 50 cristaux ou 1 gratuit/24h.
-class InvocationPage extends StatefulWidget {
-  const InvocationPage({super.key});
+class InvocationTab extends StatefulWidget {
+  const InvocationTab({super.key});
 
   @override
-  State<InvocationPage> createState() => _InvocationPageState();
+  State<InvocationTab> createState() => _InvocationTabState();
 }
 
-class _InvocationPageState extends State<InvocationPage>
+class _InvocationTabState extends State<InvocationTab>
     with TickerProviderStateMixin {
   late AnimationController _pulseController;
   late AnimationController _revealController;
@@ -83,7 +83,7 @@ class _InvocationPageState extends State<InvocationPage>
         }
       }
     } catch (e) {
-      debugPrint('InvocationPage: erreur chargement historique: $e');
+      debugPrint('InvocationTab: erreur chargement historique: $e');
     }
   }
 
@@ -94,7 +94,7 @@ class _InvocationPageState extends State<InvocationPage>
         _history.take(_historyMax).map((i) => i.toJson()).toList(),
       );
     } catch (e) {
-      debugPrint('InvocationPage: erreur persist historique: $e');
+      debugPrint('InvocationTab: erreur persist historique: $e');
     }
   }
 
@@ -306,50 +306,29 @@ class _InvocationPageState extends State<InvocationPage>
 
   @override
   Widget build(BuildContext context) {
+    // Pas de Scaffold/AppBar : ce widget est embarqué comme onglet du Portail,
+    // qui fournit l'AppBar partagée (or + cristaux). On garde le TabBar interne
+    // Objets/Chats via un DefaultTabController dédié.
     return DefaultTabController(
       length: 2,
-      child: Scaffold(
-      backgroundColor: AppColors.backgroundNightCosmos,
-      appBar: AppBar(
-        backgroundColor: AppColors.backgroundNightCosmos,
-        title: const Text(
-          'Invocation',
-          style: TextStyle(
-              color: AppColors.primaryVioletLight, fontWeight: FontWeight.bold),
-        ),
-        actions: [
-          Consumer<PlayerViewModel>(
-            builder: (_, player, __) => Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: Row(
-                children: [
-                  const Icon(Icons.diamond,
-                      color: AppColors.primaryViolet, size: 18),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${player.stats?.crystals ?? 0}',
-                    style: const TextStyle(
-                        color: AppColors.primaryVioletLight,
-                        fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
+      child: Column(
+        children: [
+          Material(
+            color: AppColors.backgroundNightCosmos,
+            child: TabBar(
+              labelColor: AppColors.primaryVioletLight,
+              unselectedLabelColor: AppColors.textMuted,
+              indicatorColor: AppColors.primaryVioletLight,
+              labelStyle: GoogleFonts.nunito(fontWeight: FontWeight.w700),
+              tabs: const [
+                Tab(text: '⚔️  Objets'),
+                Tab(text: '🐱  Chats'),
+              ],
             ),
           ),
-        ],
-        bottom: TabBar(
-          labelColor: AppColors.primaryVioletLight,
-          unselectedLabelColor: AppColors.textMuted,
-          indicatorColor: AppColors.primaryVioletLight,
-          labelStyle: GoogleFonts.nunito(fontWeight: FontWeight.w700),
-          tabs: const [
-            Tab(text: '⚔️  Objets'),
-            Tab(text: '🐱  Chats'),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        children: [
+          Expanded(
+            child: TabBarView(
+              children: [
           // ── Onglet Objets (gacha classique) ──
           SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -755,9 +734,12 @@ class _InvocationPageState extends State<InvocationPage>
 
           // ── Onglet Chats (gacha de compagnons) ──
           const _CatInvocationTab(),
+              ],
+            ),
+          ),
         ],
       ),
-    ));
+    );
   }
 
   String _formatTimer(Duration d) {

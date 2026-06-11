@@ -14,18 +14,15 @@ import 'ui/pages/profile/profile_page.dart';
 import 'ui/pages/rewards/rewards_page.dart';
 import 'ui/pages/settings/settings_page.dart';
 import 'ui/pages/home/sanctuary_page.dart';
-import 'ui/pages/inventory/inventory_page.dart';
 import 'ui/pages/market/market_page.dart';
 import 'ui/pages/cat/cat_page.dart';
-import 'ui/pages/invocation/invocation_page.dart';
-import 'ui/pages/minigames/minigames_page.dart';
 import 'ui/pages/avatar/avatar_page.dart';
 import 'ui/pages/quest/create_quest_choice_page.dart';
 import 'ui/widgets/common/dock_bar.dart';
 import 'ui/theme/app_theme.dart';
 import 'data/models/quest_model.dart';
 
-/// Sameva — navigation 8 pages avec DockBar flottant + swipe horizontal.
+/// Sameva — navigation 5 pages avec DockBar flottant + swipe horizontal.
 class SamevaApp extends StatefulWidget {
   const SamevaApp({super.key});
 
@@ -43,18 +40,14 @@ class _SamevaAppState extends State<SamevaApp> {
   static const _rawPages = <Widget>[
     SanctuaryPage(),
     QuestsListPage(),
-    InventoryPage(),
+    PortailPage(),
     CatPage(),
-    MarketPage(),
-    InvocationPage(),
-    MinigamesPage(),
     ProfilePage(),
   ];
 
-  // Pages fréquemment consultées : KeepAlive activé.
-  // Pages occasionnelles (Marché, Invocation, Mini-jeux, Profil) : rebuild OK,
-  // évite consommation RAM constante.
-  static const _keepAliveIndices = {0, 1, 2, 3};
+  // Pages fréquemment consultées : KeepAlive activé (Accueil, Quêtes, Chat).
+  // Portail (gacha/boutique) et Profil : rebuild OK, évite la RAM constante.
+  static const _keepAliveIndices = {0, 1, 3};
 
   @override
   void initState() {

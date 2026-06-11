@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
+import '../../../config/feature_flags.dart';
 import '../../../data/models/item_model.dart';
 import '../../../domain/services/item_factory.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
@@ -25,9 +26,10 @@ String _compactNumber(int n) {
   return v >= 100 ? '${v.toStringAsFixed(0)}M' : '${v.toStringAsFixed(1)}M';
 }
 
-/// Page marché : boutique cosmétiques pour chats + vente d'items.
-class MarketPage extends StatelessWidget {
-  const MarketPage({super.key});
+/// Portail : hub Invocation (gacha) + Boutique + Vendre, sous une AppBar unique
+/// (or + cristaux). L'onglet Premium est gardé en code mais masqué par feature flag.
+class PortailPage extends StatelessWidget {
+  const PortailPage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +39,7 @@ class MarketPage extends StatelessWidget {
         backgroundColor: AppColors.backgroundNightCosmos,
         elevation: 0,
         title: Text(
-          'Marché',
+          'Portail',
           style: GoogleFonts.nunito(
             color: AppColors.primaryVioletLight,
             fontWeight: FontWeight.w800,
@@ -80,18 +82,10 @@ class MarketPage extends StatelessWidget {
               ),
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.auto_fix_high,
-                color: AppColors.textSecondary, size: 20),
-            tooltip: 'Invocation',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const InvocationPage()),
-            ),
-          ),
         ],
       ),
       body: DefaultTabController(
-        length: 3,
+        length: FeatureFlags.showMarketPremium ? 4 : 3,
         child: Column(
           children: [
             TabBar(
@@ -100,16 +94,18 @@ class MarketPage extends StatelessWidget {
               indicatorColor: AppColors.primaryVioletLight,
               labelStyle: GoogleFonts.nunito(fontWeight: FontWeight.w700),
               tabs: const [
+                Tab(text: 'Invocation'),
                 Tab(text: 'Boutique'),
-                Tab(text: 'Premium'),
+                if (FeatureFlags.showMarketPremium) Tab(text: 'Premium'),
                 Tab(text: 'Vendre'),
               ],
             ),
             const Expanded(
               child: TabBarView(
                 children: [
+                  InvocationTab(),
                   _ShopTab(),
-                  _CrystalShopTab(),
+                  if (FeatureFlags.showMarketPremium) _CrystalShopTab(),
                   _SellTab(),
                 ],
               ),
