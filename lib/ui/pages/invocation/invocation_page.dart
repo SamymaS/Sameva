@@ -59,7 +59,8 @@ class _InvocationTabState extends State<InvocationTab>
     _revealAnim = TweenSequence<double>([
       TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 50),
       TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 50),
-    ]).animate(CurvedAnimation(parent: _revealController, curve: Curves.easeInOut));
+    ]).animate(
+        CurvedAnimation(parent: _revealController, curve: Curves.easeInOut));
 
     _loadHistory();
   }
@@ -137,12 +138,12 @@ class _InvocationTabState extends State<InvocationTab>
         i.type == ItemType.cosmetic && i.name == item.name && i.id != item.id);
     if (!exists) return 0;
     final base = switch (item.rarity) {
-      QuestRarity.common    => 2,
-      QuestRarity.uncommon  => 5,
-      QuestRarity.rare      => 10,
-      QuestRarity.epic      => 25,
+      QuestRarity.common => 2,
+      QuestRarity.uncommon => 5,
+      QuestRarity.rare => 10,
+      QuestRarity.epic => 25,
       QuestRarity.legendary => 50,
-      QuestRarity.mythic    => 100,
+      QuestRarity.mythic => 100,
     };
     final usedToday = _todayRefundTotal();
     final remaining = (_refundDailyCap - usedToday).clamp(0, _refundDailyCap);
@@ -329,411 +330,452 @@ class _InvocationTabState extends State<InvocationTab>
           Expanded(
             child: TabBarView(
               children: [
-          // ── Onglet Objets (gacha classique) ──
-          SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            // Carte centrale
-            SizedBox(
-              height: 260,
-              child: Center(
-                child: AnimatedBuilder(
-                  animation: Listenable.merge([_pulseAnim, _revealAnim]),
-                  builder: (_, __) {
-                    final pulseScale = _isRevealing ? 1.0 : _pulseAnim.value;
-                    final item = _lastItem;
-
-                    return Transform.scale(
-                      scale: pulseScale * (_isRevealing ? _revealAnim.value : 1.0),
-                      child: Container(
-                        width: 160,
-                        height: 220,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: item != null
-                                ? [
-                                    _rarityColor(item.rarity).withValues(alpha: 0.3),
-                                    AppColors.backgroundDeepViolet,
-                                  ]
-                                : [
-                                    AppColors.backgroundDeepViolet,
-                                    AppColors.primaryViolet.withValues(alpha: 0.3),
-                                  ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: item != null
-                                ? _rarityColor(item.rarity)
-                                : AppColors.primaryViolet,
-                            width: 2,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: (item != null
-                                      ? _rarityColor(item.rarity)
-                                      : AppColors.primaryViolet)
-                                  .withValues(alpha: 0.5),
-                              blurRadius: 20,
-                              spreadRadius: 2,
-                            ),
-                          ],
-                        ),
-                        child: item != null
-                            ? Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(item.getIcon(),
-                                      color: _rarityColor(item.rarity),
-                                      size: 48),
-                                  const SizedBox(height: 12),
-                                  Padding(
-                                    padding:
-                                        const EdgeInsets.symmetric(horizontal: 12),
-                                    child: Text(
-                                      item.name,
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        color: _rarityColor(item.rarity),
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    item.rarity.name.toUpperCase(),
-                                    style: TextStyle(
-                                      color: _rarityColor(item.rarity)
-                                          .withValues(alpha: 0.8),
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  if (_lastDupeRefund > 0) ...[
-                                    const SizedBox(height: 6),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.crystalBlue
-                                            .withValues(alpha: 0.15),
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(
-                                            color: AppColors.crystalBlue
-                                                .withValues(alpha: 0.5)),
-                                      ),
-                                      child: Text(
-                                        'Doublon · +$_lastDupeRefund 💎',
-                                        style: const TextStyle(
-                                          color: AppColors.crystalBlue,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              )
-                            : const Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.auto_fix_high,
-                                      color: AppColors.primaryVioletLight,
-                                      size: 48),
-                                  SizedBox(height: 12),
-                                  Text(
-                                    'Invoquez un\nitem mystique',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                        color: AppColors.textSecondary,
-                                        fontSize: 13),
-                                  ),
-                                ],
-                              ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Boutons
-            Column(
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Consumer<PlayerViewModel>(
-                        builder: (ctx, player, _) {
-                          final crystals = player.stats?.crystals ?? 0;
-                          return FilledButton.icon(
-                            style: FilledButton.styleFrom(
-                              backgroundColor: AppColors.primaryViolet,
-                              disabledBackgroundColor:
-                                  AppColors.primaryViolet.withValues(alpha: 0.3),
-                            ),
-                            onPressed: (!_isRevealing && crystals >= 50)
-                                ? () => _pull(isFree: false)
-                                : null,
-                            icon: const Icon(Icons.diamond, size: 16),
-                            label: const Text('Invoquer (50 💎)'),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: StatefulBuilder(
-                        builder: (ctx, setLocalState) {
-                          return FilledButton.icon(
-                            style: FilledButton.styleFrom(
-                              backgroundColor: _canUseFree
-                                  ? AppColors.gold
-                                  : AppColors.gold.withValues(alpha: 0.3),
-                            ),
-                            onPressed: (!_isRevealing && _canUseFree)
-                                ? () {
-                                    _pull(isFree: true);
-                                    setLocalState(() {});
-                                  }
-                                : null,
-                            icon: const Icon(Icons.star, size: 16,
-                                color: AppColors.backgroundNightCosmos),
-                            label: _canUseFree
-                                ? const Text('Gratuit',
-                                    style: TextStyle(
-                                        color: AppColors.backgroundNightCosmos))
-                                : Text(
-                                    _formatTimer(_freeTimeRemaining),
-                                    style: const TextStyle(
-                                        color: AppColors.backgroundNightCosmos,
-                                        fontSize: 11),
-                                  ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Consumer<PlayerViewModel>(
-                  builder: (ctx, player, _) {
-                    final crystals = player.stats?.crystals ?? 0;
-                    return SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(
-                            color: (!_isRevealing && crystals >= 450)
-                                ? AppColors.rarityEpic
-                                : AppColors.rarityEpic.withValues(alpha: 0.3),
-                          ),
-                          foregroundColor: AppColors.rarityEpic,
-                        ),
-                        onPressed: (!_isRevealing && crystals >= 450)
-                            ? () {
-                                setState(() => _multiPullResults = null);
-                                _pullMulti();
-                              }
-                            : null,
-                        icon: const Icon(Icons.auto_awesome, size: 16),
-                        label: const Text('10× Invoquer (450 💎)'),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-            // Résultats 10× pull
-            if (_multiPullResults != null) ...[
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  const Text(
-                    'Résultats',
-                    style: TextStyle(
-                        color: AppColors.primaryVioletLight,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15),
-                  ),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: () => setState(() => _multiPullResults = null),
-                    child: const Icon(Icons.close,
-                        color: AppColors.textMuted, size: 18),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 5,
-                  crossAxisSpacing: 6,
-                  mainAxisSpacing: 6,
-                  childAspectRatio: 0.8,
-                ),
-                itemCount: _multiPullResults!.length,
-                itemBuilder: (_, i) {
-                  final item = _multiPullResults![i];
-                  final color = _rarityColor(item.rarity);
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: color.withValues(alpha: 0.5)),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(item.getIcon(), color: color, size: 24),
-                        const SizedBox(height: 4),
-                        Text(
-                          item.name,
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                              color: color, fontSize: 9, fontWeight: FontWeight.w600),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ],
-
-            const SizedBox(height: 32),
-
-            // Compteur pity
-            Consumer<PlayerViewModel>(
-              builder: (_, player, __) {
-                final pity = player.stats?.pityCount ?? 0;
-                final epicLeft = (20 - pity).clamp(0, 20);
-                final legLeft = (80 - pity).clamp(0, 80);
-                return Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: AppColors.backgroundDarkPanel,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                        color: AppColors.primaryViolet.withValues(alpha: 0.3)),
-                  ),
+                // ── Onglet Objets (gacha classique) ──
+                SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.shield_outlined,
-                              color: AppColors.primaryVioletLight, size: 14),
-                          const SizedBox(width: 6),
-                          const Text(
-                            'Garanties Pity',
-                            style: TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600),
+                      // Carte centrale
+                      SizedBox(
+                        height: 260,
+                        child: Center(
+                          child: AnimatedBuilder(
+                            animation:
+                                Listenable.merge([_pulseAnim, _revealAnim]),
+                            builder: (_, __) {
+                              final pulseScale =
+                                  _isRevealing ? 1.0 : _pulseAnim.value;
+                              final item = _lastItem;
+
+                              return Transform.scale(
+                                scale: pulseScale *
+                                    (_isRevealing ? _revealAnim.value : 1.0),
+                                child: Container(
+                                  width: 160,
+                                  height: 220,
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: item != null
+                                          ? [
+                                              _rarityColor(item.rarity)
+                                                  .withValues(alpha: 0.3),
+                                              AppColors.backgroundDeepViolet,
+                                            ]
+                                          : [
+                                              AppColors.backgroundDeepViolet,
+                                              AppColors.primaryViolet
+                                                  .withValues(alpha: 0.3),
+                                            ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: item != null
+                                          ? _rarityColor(item.rarity)
+                                          : AppColors.primaryViolet,
+                                      width: 2,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: (item != null
+                                                ? _rarityColor(item.rarity)
+                                                : AppColors.primaryViolet)
+                                            .withValues(alpha: 0.5),
+                                        blurRadius: 20,
+                                        spreadRadius: 2,
+                                      ),
+                                    ],
+                                  ),
+                                  child: item != null
+                                      ? Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Icon(item.getIcon(),
+                                                color:
+                                                    _rarityColor(item.rarity),
+                                                size: 48),
+                                            const SizedBox(height: 12),
+                                            Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 12),
+                                              child: Text(
+                                                item.name,
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(
+                                                  color:
+                                                      _rarityColor(item.rarity),
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              item.rarity.name.toUpperCase(),
+                                              style: TextStyle(
+                                                color: _rarityColor(item.rarity)
+                                                    .withValues(alpha: 0.8),
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            if (_lastDupeRefund > 0) ...[
+                                              const SizedBox(height: 6),
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 3),
+                                                decoration: BoxDecoration(
+                                                  color: AppColors.crystalBlue
+                                                      .withValues(alpha: 0.15),
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                  border: Border.all(
+                                                      color: AppColors
+                                                          .crystalBlue
+                                                          .withValues(
+                                                              alpha: 0.5)),
+                                                ),
+                                                child: Text(
+                                                  'Doublon · +$_lastDupeRefund 💎',
+                                                  style: const TextStyle(
+                                                    color:
+                                                        AppColors.crystalBlue,
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        )
+                                      : const Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Icon(Icons.auto_fix_high,
+                                                color: AppColors
+                                                    .primaryVioletLight,
+                                                size: 48),
+                                            SizedBox(height: 12),
+                                            Text(
+                                              'Invoquez un\nitem mystique',
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                  color:
+                                                      AppColors.textSecondary,
+                                                  fontSize: 13),
+                                            ),
+                                          ],
+                                        ),
+                                ),
+                              );
+                            },
                           ),
-                          const Spacer(),
-                          Text(
-                            epicLeft == 0
-                                ? 'Épique garanti au prochain pull !'
-                                : '$epicLeft pulls avant épique',
-                            style: TextStyle(
-                              color: epicLeft == 0
-                                  ? AppColors.rarityEpic
-                                  : AppColors.textMuted,
-                              fontSize: 10,
-                              fontWeight: epicLeft == 0
-                                  ? FontWeight.w700
-                                  : FontWeight.normal,
-                            ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Boutons
+                      Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Consumer<PlayerViewModel>(
+                                  builder: (ctx, player, _) {
+                                    final crystals =
+                                        player.stats?.crystals ?? 0;
+                                    return FilledButton.icon(
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor:
+                                            AppColors.primaryViolet,
+                                        disabledBackgroundColor: AppColors
+                                            .primaryViolet
+                                            .withValues(alpha: 0.3),
+                                      ),
+                                      onPressed:
+                                          (!_isRevealing && crystals >= 50)
+                                              ? () => _pull(isFree: false)
+                                              : null,
+                                      icon: const Icon(Icons.diamond, size: 16),
+                                      label: const Text('Invoquer (50 💎)'),
+                                    );
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: StatefulBuilder(
+                                  builder: (ctx, setLocalState) {
+                                    return FilledButton.icon(
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: _canUseFree
+                                            ? AppColors.gold
+                                            : AppColors.gold
+                                                .withValues(alpha: 0.3),
+                                      ),
+                                      onPressed: (!_isRevealing && _canUseFree)
+                                          ? () {
+                                              _pull(isFree: true);
+                                              setLocalState(() {});
+                                            }
+                                          : null,
+                                      icon: const Icon(Icons.star,
+                                          size: 16,
+                                          color:
+                                              AppColors.backgroundNightCosmos),
+                                      label: _canUseFree
+                                          ? const Text('Gratuit',
+                                              style: TextStyle(
+                                                  color: AppColors
+                                                      .backgroundNightCosmos))
+                                          : Text(
+                                              _formatTimer(_freeTimeRemaining),
+                                              style: const TextStyle(
+                                                  color: AppColors
+                                                      .backgroundNightCosmos,
+                                                  fontSize: 11),
+                                            ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Consumer<PlayerViewModel>(
+                            builder: (ctx, player, _) {
+                              final crystals = player.stats?.crystals ?? 0;
+                              return SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    side: BorderSide(
+                                      color: (!_isRevealing && crystals >= 450)
+                                          ? AppColors.rarityEpic
+                                          : AppColors.rarityEpic
+                                              .withValues(alpha: 0.3),
+                                    ),
+                                    foregroundColor: AppColors.rarityEpic,
+                                  ),
+                                  onPressed: (!_isRevealing && crystals >= 450)
+                                      ? () {
+                                          setState(
+                                              () => _multiPullResults = null);
+                                          _pullMulti();
+                                        }
+                                      : null,
+                                  icon:
+                                      const Icon(Icons.auto_awesome, size: 16),
+                                  label: const Text('10× Invoquer (450 💎)'),
+                                ),
+                              );
+                            },
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
-                      _PityBar(
-                        label: 'Épique garanti',
-                        current: pity,
-                        max: 20,
-                        color: AppColors.rarityEpic,
-                      ),
-                      const SizedBox(height: 8),
-                      _PityBar(
-                        label: 'Légendaire garanti',
-                        current: pity,
-                        max: 80,
-                        color: AppColors.rarityLegendary,
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        legLeft == 0
-                            ? '★ Légendaire garanti au prochain pull !'
-                            : '$legLeft pulls avant légendaire garanti',
-                        style: TextStyle(
-                          color: legLeft == 0
-                              ? AppColors.rarityLegendary
-                              : AppColors.textMuted,
-                          fontSize: 10,
-                          fontWeight: legLeft == 0
-                              ? FontWeight.w700
-                              : FontWeight.normal,
+                      // Résultats 10× pull
+                      if (_multiPullResults != null) ...[
+                        const SizedBox(height: 24),
+                        Row(
+                          children: [
+                            const Text(
+                              'Résultats',
+                              style: TextStyle(
+                                  color: AppColors.primaryVioletLight,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15),
+                            ),
+                            const Spacer(),
+                            GestureDetector(
+                              onTap: () =>
+                                  setState(() => _multiPullResults = null),
+                              child: const Icon(Icons.close,
+                                  color: AppColors.textMuted, size: 18),
+                            ),
+                          ],
                         ),
+                        const SizedBox(height: 10),
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 5,
+                            crossAxisSpacing: 6,
+                            mainAxisSpacing: 6,
+                            childAspectRatio: 0.8,
+                          ),
+                          itemCount: _multiPullResults!.length,
+                          itemBuilder: (_, i) {
+                            final item = _multiPullResults![i];
+                            final color = _rarityColor(item.rarity);
+                            return Container(
+                              decoration: BoxDecoration(
+                                color: color.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                    color: color.withValues(alpha: 0.5)),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(item.getIcon(), color: color, size: 24),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    item.name,
+                                    textAlign: TextAlign.center,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                        color: color,
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w600),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+
+                      const SizedBox(height: 32),
+
+                      // Compteur pity
+                      Consumer<PlayerViewModel>(
+                        builder: (_, player, __) {
+                          final pity = player.stats?.pityCount ?? 0;
+                          final epicLeft = (20 - pity).clamp(0, 20);
+                          final legLeft = (80 - pity).clamp(0, 80);
+                          return Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: AppColors.backgroundDarkPanel,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                  color: AppColors.primaryViolet
+                                      .withValues(alpha: 0.3)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.shield_outlined,
+                                        color: AppColors.primaryVioletLight,
+                                        size: 14),
+                                    const SizedBox(width: 6),
+                                    const Text(
+                                      'Garanties Pity',
+                                      style: TextStyle(
+                                          color: AppColors.textSecondary,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600),
+                                    ),
+                                    const Spacer(),
+                                    Text(
+                                      epicLeft == 0
+                                          ? 'Épique garanti au prochain pull !'
+                                          : '$epicLeft pulls avant épique',
+                                      style: TextStyle(
+                                        color: epicLeft == 0
+                                            ? AppColors.rarityEpic
+                                            : AppColors.textMuted,
+                                        fontSize: 10,
+                                        fontWeight: epicLeft == 0
+                                            ? FontWeight.w700
+                                            : FontWeight.normal,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                _PityBar(
+                                  label: 'Épique garanti',
+                                  current: pity,
+                                  max: 20,
+                                  color: AppColors.rarityEpic,
+                                ),
+                                const SizedBox(height: 8),
+                                _PityBar(
+                                  label: 'Légendaire garanti',
+                                  current: pity,
+                                  max: 80,
+                                  color: AppColors.rarityLegendary,
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  legLeft == 0
+                                      ? '★ Légendaire garanti au prochain pull !'
+                                      : '$legLeft pulls avant légendaire garanti',
+                                  style: TextStyle(
+                                    color: legLeft == 0
+                                        ? AppColors.rarityLegendary
+                                        : AppColors.textMuted,
+                                    fontSize: 10,
+                                    fontWeight: legLeft == 0
+                                        ? FontWeight.w700
+                                        : FontWeight.normal,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
+                      const SizedBox(height: 16),
+
+                      // Taux de drop
+                      const _DropRatesSection(),
+                      // Historique
+                      if (_history.isNotEmpty) ...[
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Derniers pulls',
+                            style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: _history
+                              .map((item) => Chip(
+                                    avatar: Icon(item.getIcon(),
+                                        color: _rarityColor(item.rarity),
+                                        size: 14),
+                                    label: Text(
+                                      item.name,
+                                      style: TextStyle(
+                                          color: _rarityColor(item.rarity),
+                                          fontSize: 11),
+                                    ),
+                                    backgroundColor: _rarityColor(item.rarity)
+                                        .withValues(alpha: 0.15),
+                                    side: BorderSide(
+                                        color: _rarityColor(item.rarity)
+                                            .withValues(alpha: 0.5)),
+                                    padding: EdgeInsets.zero,
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ))
+                              .toList(),
+                        ),
+                      ],
                     ],
                   ),
-                );
-              },
-            ),
-            const SizedBox(height: 16),
-
-            // Taux de drop
-            const _DropRatesSection(),
-            // Historique
-            if (_history.isNotEmpty) ...[
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Derniers pulls',
-                  style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontWeight: FontWeight.w600),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: _history
-                    .map((item) => Chip(
-                          avatar: Icon(item.getIcon(),
-                              color: _rarityColor(item.rarity), size: 14),
-                          label: Text(
-                            item.name,
-                            style: TextStyle(
-                                color: _rarityColor(item.rarity), fontSize: 11),
-                          ),
-                          backgroundColor:
-                              _rarityColor(item.rarity).withValues(alpha: 0.15),
-                          side: BorderSide(
-                              color: _rarityColor(item.rarity).withValues(alpha: 0.5)),
-                          padding: EdgeInsets.zero,
-                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ))
-                    .toList(),
-              ),
-            ],
-          ],
-        ),
-      ),
 
-          // ── Onglet Chats (gacha de compagnons) ──
-          const _CatInvocationTab(),
+                // ── Onglet Chats (gacha de compagnons) ──
+                const _CatInvocationTab(),
               ],
             ),
           ),
@@ -749,7 +791,6 @@ class _InvocationTabState extends State<InvocationTab>
     return '${m}min';
   }
 }
-
 
 // ─────────────────────────────────────────────────────────────────
 // Barre pity
@@ -933,7 +974,8 @@ class _CatInvocationTabState extends State<_CatInvocationTab>
                           ? Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                CatWidget(race: cat.race, size: 100, mood: 'excited'),
+                                CatWidget(
+                                    race: cat.race, size: 100, mood: 'excited'),
                                 const SizedBox(height: 10),
                                 Text(
                                   cat.name,
@@ -950,7 +992,8 @@ class _CatInvocationTabState extends State<_CatInvocationTab>
                           : Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Text('🐱', style: TextStyle(fontSize: 52)),
+                                const Text('🐱',
+                                    style: TextStyle(fontSize: 52)),
                                 const SizedBox(height: 12),
                                 Text(
                                   'Invoque un\nchat compagnon',
@@ -1015,7 +1058,8 @@ class _CatInvocationTabState extends State<_CatInvocationTab>
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.pets, color: AppColors.primaryVioletLight, size: 18),
+                    const Icon(Icons.pets,
+                        color: AppColors.primaryVioletLight, size: 18),
                     const SizedBox(width: 10),
                     Text(
                       'Tu possèdes $total chat${total > 1 ? "s" : ""} compagnon${total > 1 ? "s" : ""}',
@@ -1064,21 +1108,27 @@ class _CatInvocationTabState extends State<_CatInvocationTab>
                   ('Michi · Neige', 'Commun', AppColors.rarityCommon),
                   ('Braise · Lune', 'Rare', AppColors.rarityRare),
                   ('Cosmos · Sakura', 'Épique', AppColors.rarityEpic),
-                  ('Cosmos (spécial)', 'Légendaire+', AppColors.rarityLegendary),
+                  (
+                    'Cosmos (spécial)',
+                    'Légendaire+',
+                    AppColors.rarityLegendary
+                  ),
                 ].map((r) => Padding(
                       padding: const EdgeInsets.only(bottom: 6),
                       child: Row(
                         children: [
                           Container(
-                            width: 8, height: 8,
+                            width: 8,
+                            height: 8,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: r.$3,
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Expanded(child: Text(r.$1,
-                              style: TextStyle(color: r.$3, fontSize: 12))),
+                          Expanded(
+                              child: Text(r.$1,
+                                  style: TextStyle(color: r.$3, fontSize: 12))),
                           Text(r.$2,
                               style: TextStyle(
                                   color: r.$3,
@@ -1119,8 +1169,8 @@ class _DropRatesSection extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.backgroundDarkPanel,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color: AppColors.primaryViolet.withValues(alpha: 0.3)),
+        border:
+            Border.all(color: AppColors.primaryViolet.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1157,8 +1207,7 @@ class _DropRatesSection extends StatelessWidget {
                       width: 90,
                       child: Text(
                         r.rarity,
-                        style: TextStyle(
-                            color: r.color, fontSize: 12),
+                        style: TextStyle(color: r.color, fontSize: 12),
                       ),
                     ),
                     Expanded(
@@ -1166,10 +1215,8 @@ class _DropRatesSection extends StatelessWidget {
                         borderRadius: BorderRadius.circular(3),
                         child: LinearProgressIndicator(
                           value: r.rate / 100,
-                          backgroundColor:
-                              AppColors.backgroundNightCosmos,
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(r.color),
+                          backgroundColor: AppColors.backgroundNightCosmos,
+                          valueColor: AlwaysStoppedAnimation<Color>(r.color),
                           minHeight: 6,
                         ),
                       ),

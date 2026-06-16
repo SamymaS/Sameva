@@ -24,8 +24,7 @@ class ProfileViewModel extends ChangeNotifier {
   List<Quest> get quests => _questVM.quests;
   String? get userEmail => _auth.user?.email;
 
-  List<Quest> get completedQuests =>
-      quests.where((q) => q.status == QuestStatus.completed).toList();
+  List<Quest> get completedQuests => _questVM.completedQuests;
 
   int get streak => _stats?.streak ?? 0;
   int get completedCount => completedQuests.length;

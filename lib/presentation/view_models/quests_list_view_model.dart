@@ -38,27 +38,22 @@ class QuestsListViewModel extends ChangeNotifier {
 
   /// Catégories distinctes parmi les quêtes actives.
   List<String> get availableCategories {
-    final cats = quests
-        .where((q) => q.status == QuestStatus.active)
-        .map((q) => q.category)
-        .toSet()
-        .toList()
-      ..sort();
+    final cats = activeQuests.map((q) => q.category).toSet().toList()..sort();
     return cats;
   }
 
-  List<Quest> get activeQuests =>
-      quests.where((q) => q.status == QuestStatus.active).toList();
-
-  List<Quest> get completedQuests =>
-      quests.where((q) => q.status == QuestStatus.completed).toList();
+  // Active/completed dérivent de la source de vérité (pas de re-filtrage local).
+  List<Quest> get activeQuests => _questVM.activeQuests;
+  List<Quest> get completedQuests => _questVM.completedQuests;
 
   /// Quêtes actives après application des filtres, de la recherche et du tri.
   List<Quest> get filteredActiveQuests {
     var list = activeQuests;
 
     if (_searchQuery.isNotEmpty) {
-      list = list.where((q) => q.title.toLowerCase().contains(_searchQuery)).toList();
+      list = list
+          .where((q) => q.title.toLowerCase().contains(_searchQuery))
+          .toList();
     }
     if (_categoryFilter != null) {
       list = list.where((q) => q.category == _categoryFilter).toList();
@@ -70,7 +65,8 @@ class QuestsListViewModel extends ChangeNotifier {
     list = List.of(list)
       ..sort((a, b) => switch (_sortOrder) {
             QuestSortOrder.dateDesc => b.createdAt.compareTo(a.createdAt),
-            QuestSortOrder.difficultyAsc => a.difficulty.compareTo(b.difficulty),
+            QuestSortOrder.difficultyAsc =>
+              a.difficulty.compareTo(b.difficulty),
             QuestSortOrder.durationAsc =>
               a.estimatedDurationMinutes.compareTo(b.estimatedDurationMinutes),
           });
