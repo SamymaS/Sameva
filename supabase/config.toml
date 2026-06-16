@@ -37,3 +37,11 @@ verify_jwt = true
 
 [functions.suggest-quests]
 verify_jwt = true
+
+# Stripe : création de session de paiement — nécessite un utilisateur connecté
+[functions.create-checkout-session]
+verify_jwt = true
+
+# Stripe : webhook — Stripe appelle sans JWT Supabase, authentification par signature HMAC
+[functions.stripe-webhook]
+verify_jwt = false
