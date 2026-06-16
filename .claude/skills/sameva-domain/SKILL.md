@@ -24,9 +24,7 @@ Entités dans `domain/entities/` : `Item`, `Equipment`. Modèles dans `data/mode
 ## Persistance
 
 - **Supabase** : auth, quêtes, profils utilisateur, équipement cloud. Config dans `config/supabase_config.dart`. Clés dans `.env` : `SUPABASE_URL`, `SUPABASE_ANON_KEY`.
-- **Hive** : données locales. Boxes ouvertes dans `main.dart` : `quests`, `playerStats`, `inventory`, `equipment`.
-
-Après modification d'un modèle avec `@HiveType` / `@HiveField`, exécuter : `dart run build_runner build`.
+- **Hive** : données locales. Boxes ouvertes dans `main.dart` : `quests`, `playerStats`, `settings`, `inventory`, `equipment`, `cats`, `aiValidation`. Boxes non typées + sérialisation JSON (`toJson`/`fromJson`), aucun TypeAdapter ni `build_runner`. **Pour le pattern complet (clés par utilisateur, lecture/écriture, offline-first, source de vérité), voir la skill `sameva-hive`.**
 
 ## Inventaire et équipement
 
