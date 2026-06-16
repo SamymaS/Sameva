@@ -11,6 +11,10 @@ import './quest_view_model.dart';
 /// (source de vérité unique), qui persiste ET met à jour la liste partagée.
 /// Note : la logique de récompenses joueur (XP, streak) reste dans CompleteQuestUseCase
 /// jusqu'à l'extraction de PlayerProvider en service de domaine.
+///
+/// Le gating de crédits IA n'est PAS ici : il vit dans
+/// [AiValidationCreditsService.runGatedValidation], appelé par la page de
+/// validation (le vrai point d'entrée de la soumission de preuve).
 class QuestValidationViewModel extends ChangeNotifier {
   final AuthViewModel _auth;
   final QuestViewModel _questVM;
@@ -26,6 +30,8 @@ class QuestValidationViewModel extends ChangeNotifier {
     ValidationAIService? validationService,
   }) : _validationService = validationService ?? MockValidationAIService();
 
+  /// Analyse une preuve image (sans gating — le gating vit côté page via
+  /// [AiValidationCreditsService.runGatedValidation]).
   Future<void> analyzeProof(Quest quest, Uint8List imageBytes) async {
     isAnalyzing = true;
     notifyListeners();

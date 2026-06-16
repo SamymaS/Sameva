@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'config/supabase_config.dart';
+import 'data/repositories/ai_credits_repository.dart';
 import 'data/repositories/auth_repository.dart';
 import 'data/repositories/cat_repository.dart';
 import 'data/repositories/quest_repository.dart';
@@ -17,6 +18,7 @@ import 'presentation/view_models/quest_view_model.dart';
 import 'presentation/view_models/player_view_model.dart';
 import 'presentation/view_models/inventory_view_model.dart';
 import 'presentation/view_models/equipment_view_model.dart';
+import 'presentation/view_models/ai_validation_credits_service.dart';
 import 'presentation/view_models/cat_view_model.dart';
 import 'presentation/view_models/notification_view_model.dart';
 import 'presentation/view_models/theme_view_model.dart';
@@ -62,8 +64,9 @@ void main() async {
   final userRepo        = UserRepository(supabase);
   final questRepo       = QuestRepository(supabase, userRepo);
   final playerRepo      = PlayerRepository(statsBox, supabase);
-  final leaderboardRepo = LeaderboardRepository(supabase);
-  final catRepo         = CatRepository(supabase);
+  final leaderboardRepo  = LeaderboardRepository(supabase);
+  final catRepo          = CatRepository(supabase);
+  final aiCreditsRepo    = AiCreditsRepository(supabase);
 
   // AuthViewModel instancié en premier pour exposer onSignedOut aux VMs métier.
   final authViewModel = AuthViewModel(authRepo);
@@ -73,6 +76,7 @@ void main() async {
   final inventoryBox       = Hive.box('inventory');
   final equipmentBox       = Hive.box('equipment');
   final catsBox            = Hive.box('cats');
+  final aiValidationBox    = Hive.box('aiValidation');
   final questViewModel      = QuestViewModel(questRepo);
   final playerViewModel     = PlayerViewModel(playerRepo, onSignedOut: signedOutStream);
   final inventoryViewModel  = InventoryViewModel(inventoryBox, onSignedOut: signedOutStream)..loadInventory();
@@ -89,6 +93,16 @@ void main() async {
     onSignedOut: signedOutStream,
     onSignedIn: signedInStream,
   )..loadCats();
+
+  // AiValidationCreditsService : source de vérité crédits IA, offline-first + sync Supabase.
+  // Le stream onSignedIn déclenche load() → grantOnboarding() → grantDailyIfDue() dans l'ordre.
+  // Le stream onSignedOut déclenche reset() (vide mémoire, préserve Hive).
+  final aiCreditsService = AiValidationCreditsService(
+    aiValidationBox,
+    repository: aiCreditsRepo,
+    onSignedOut: signedOutStream,
+    onSignedIn: signedInStream,
+  );
 
   runApp(
     MultiProvider(
@@ -110,6 +124,7 @@ void main() async {
         ChangeNotifierProvider.value(value: inventoryViewModel),
         ChangeNotifierProvider.value(value: equipmentViewModel),
         ChangeNotifierProvider.value(value: catViewModel),
+        ChangeNotifierProvider.value(value: aiCreditsService),
       ],
       child: const SamevaApp(),
     ),

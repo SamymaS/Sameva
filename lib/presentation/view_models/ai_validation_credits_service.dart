@@ -1,14 +1,24 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:hive/hive.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/models/ai_validation_state_model.dart';
+import '../../data/repositories/ai_credits_repository.dart';
 
 /// Service gérant le portefeuille de crédits IA (validation freemium).
 ///
 /// Ce service est la SOURCE DE VÉRITÉ UNIQUE pour l'état du portefeuille.
 /// Toute lecture et mutation passe par lui ; jamais directement depuis l'UI.
 ///
-/// Stockage : boîte Hive 'aiValidation', clé 'ai_validation_<userId>'.
+/// Stockage local : boîte Hive 'aiValidation', clé 'ai_validation_<userId>'.
+/// Sync serveur : [AiCreditsRepository] (Supabase), best-effort, jamais bloquant.
 /// Pattern identique à la boîte 'cats' de [CatViewModel].
+///
+/// Réconciliation last-write-wins (LWW) au [load] :
+///   Si remote.updatedAt > local.updatedAt → adopte remote + écrit Hive.
+///   Sinon → garde local + upsert Supabase best-effort.
+///   Si pas de remote → upsert local (crée la ligne côté serveur).
+///   Si fetch échoue (hors-ligne) → garde local, aucun crash.
 ///
 /// Les libellés d'affichage (nom du jeton, etc.) sont définis par la couche UI,
 /// PAS ici. Ce service ne contient aucun texte destiné à l'utilisateur.
@@ -35,14 +45,47 @@ class AiValidationCreditsService extends ChangeNotifier {
 
   final Box _box;
 
+  /// Repository Supabase (optionnel pour les tests sans réseau).
+  final AiCreditsRepository? _repo;
+
+  /// Injecté en test pour contourner l'accès à Supabase.instance.
+  /// En production, laissé null → userId résolu via Supabase.instance.client.
+  final String? _overrideUserId;
+
+  StreamSubscription<void>? _signedOutSub;
+  StreamSubscription<void>? _signedInSub;
+
   /// Identifiant de l'utilisateur courant.
-  /// Injecté au chargement via [load] ou en test via le constructeur.
+  /// Positionné par [load]. Au signIn, le uid est résolu via [_currentUserId]
+  /// (le stream onSignedIn ne transporte pas d'identifiant).
   String? _userId;
 
   /// État courant du portefeuille.
   AiValidationState _state = AiValidationState.empty();
 
-  AiValidationCreditsService(this._box);
+  AiValidationCreditsService(
+    this._box, {
+    AiCreditsRepository? repository,
+    Stream<void>? onSignedOut,
+    Stream<void>? onSignedIn,
+    String? testUserId,
+  })  : _repo = repository,
+        _overrideUserId = testUserId {
+    if (onSignedOut != null) {
+      _signedOutSub = onSignedOut.listen((_) => reset());
+    }
+    if (onSignedIn != null) {
+      // Recharge les crédits après connexion, puis accorde les bonus de démarrage.
+      _signedInSub = onSignedIn.listen((_) => _onSignedIn());
+    }
+  }
+
+  @override
+  void dispose() {
+    _signedOutSub?.cancel();
+    _signedInSub?.cancel();
+    super.dispose();
+  }
 
   // ---- Getters publics ----
 
@@ -64,6 +107,22 @@ class AiValidationCreditsService extends ChangeNotifier {
   /// Snapshot immutable de l'état complet (lecture externe).
   AiValidationState get state => _state;
 
+  // ---- Identité ----
+
+  /// Identifiant de l'utilisateur courant.
+  /// En production : Supabase.instance.client.auth.currentUser?.id.
+  /// En test : valeur injectée via testUserId (évite l'accès à Supabase.instance).
+  /// Même pattern que [CatViewModel].
+  String? get _currentUserId {
+    if (_overrideUserId != null) return _overrideUserId;
+    try {
+      return Supabase.instance.client.auth.currentUser?.id;
+    } catch (_) {
+      // Supabase non initialisé (environnement de test sans testUserId).
+      return null;
+    }
+  }
+
   // ---- Clé Hive ----
 
   /// Clé Hive isolée par userId. Retourne null si userId inconnu → no-op.
@@ -73,29 +132,87 @@ class AiValidationCreditsService extends ChangeNotifier {
     return 'ai_validation_$uid';
   }
 
-  // ---- Chargement ----
+  // ---- Chargement et réconciliation ----
 
-  /// Charge l'état depuis Hive pour l'utilisateur [userId].
-  /// Doit être appelé au démarrage de la session (login ou boot si session persistée).
+  /// Charge et réconcilie l'état pour l'utilisateur [userId].
+  ///
+  /// Ordre d'exécution :
+  /// a. Hydrater depuis Hive (instantané) → notifyListeners.
+  /// b. Fetch Supabase best-effort (peut échouer hors-ligne).
+  /// c. Réconciliation LWW par [updatedAt] :
+  ///    - remote.updatedAt > local.updatedAt → adopte remote + écrit Hive.
+  ///    - sinon → garde local + upsert Supabase best-effort.
+  ///    - pas de remote → upsert local (crée la ligne).
+  ///    - fetch échoue → garde local, aucun crash.
   Future<void> load(String userId) async {
     _userId = userId;
     final key = _hiveKey;
     if (key == null) return;
 
+    // Étape a : hydratation Hive immédiate.
+    // hadLocal distingue « une vraie entrée Hive existe » d'un placeholder vide.
+    // C'est crucial : AiValidationState.empty() porte updatedAt = now(), donc un
+    // état vide (réinstallation) gagnerait à tort le LWW face à une ligne serveur
+    // plus ancienne et écraserait les données distantes. Un local absent ne doit
+    // jamais l'emporter.
+    AiValidationState localState;
+    bool hadLocal = false;
     try {
       final raw = _box.get(key);
       if (raw != null) {
-        _state = AiValidationState.fromJson(
+        localState = AiValidationState.fromJson(
           Map<String, dynamic>.from(raw as Map),
         );
+        hadLocal = true;
       } else {
-        _state = AiValidationState.empty();
+        localState = AiValidationState.empty();
       }
     } catch (e) {
-      debugPrint('AiValidationCreditsService: erreur chargement: $e');
-      _state = AiValidationState.empty();
+      debugPrint('AiValidationCreditsService: erreur lecture Hive: $e');
+      localState = AiValidationState.empty();
     }
+    _state = localState;
     notifyListeners();
+
+    // Étape b : fetch Supabase best-effort.
+    final repo = _repo;
+    if (repo == null) return; // pas de repo → offline uniquement.
+
+    AiValidationState? remoteState;
+    bool fetchEchoue = false;
+
+    try {
+      remoteState = await repo.fetchForUser(userId);
+    } catch (e) {
+      // Erreur réseau : garde local, aucun crash.
+      debugPrint('AiValidationCreditsService: fetch hors-ligne, fallback Hive: $e');
+      fetchEchoue = true;
+    }
+
+    if (fetchEchoue) return;
+
+    // Étape c : réconciliation LWW.
+    if (remoteState != null) {
+      // Adopter remote si aucun local réel (réinstallation) OU si remote est
+      // plus récent. Sans le garde hadLocal, un état vide (updatedAt = now())
+      // l'emporterait et écraserait la ligne serveur.
+      if (!hadLocal || remoteState.updatedAt.isAfter(localState.updatedAt)) {
+        // Remote fait autorité → adopter remote.
+        _state = remoteState;
+        try {
+          await _box.put(key, remoteState.toJson());
+        } catch (e) {
+          debugPrint('AiValidationCreditsService: erreur écriture Hive après réconciliation: $e');
+        }
+        notifyListeners();
+      } else {
+        // Local plus récent (ou même timestamp) → upsert local vers Supabase.
+        _upsertFireAndForget(userId, localState);
+      }
+    } else {
+      // Aucune ligne en base → upsert local pour créer la ligne.
+      _upsertFireAndForget(userId, localState);
+    }
   }
 
   /// Vide le state en mémoire au logout (sans purger Hive).
@@ -123,6 +240,7 @@ class AiValidationCreditsService extends ChangeNotifier {
     );
     await _persist();
     notifyListeners();
+    _upsertFireAndForgetCurrentState();
   }
 
   /// Accorde le crédit quotidien si dû à la date [now].
@@ -150,6 +268,7 @@ class AiValidationCreditsService extends ChangeNotifier {
     );
     await _persist();
     notifyListeners();
+    _upsertFireAndForgetCurrentState();
   }
 
   /// Récompense un palier de série si [streakDays] est un multiple de
@@ -170,6 +289,7 @@ class AiValidationCreditsService extends ChangeNotifier {
     );
     await _persist();
     notifyListeners();
+    _upsertFireAndForgetCurrentState();
   }
 
   /// Indique si l'utilisateur peut lancer une validation IA.
@@ -193,7 +313,70 @@ class AiValidationCreditsService extends ChangeNotifier {
     );
     await _persist();
     notifyListeners();
+    _upsertFireAndForgetCurrentState();
     return true;
+  }
+
+  /// Rembourse un crédit consommé suite à une erreur TECHNIQUE de l'IA.
+  ///
+  /// À appeler UNIQUEMENT quand l'appel IA a échoué pour une raison technique
+  /// (réseau, timeout, code HTTP 5xx, 529 Anthropic) — PAS quand le score est
+  /// simplement inférieur au seuil (dans ce cas, le crédit est consommé car
+  /// l'IA a bien travaillé).
+  ///
+  /// - Si premium : no-op (le premium ne consomme jamais de crédit).
+  /// - Plafond [kFreeWalletCap] respecté (ne dépasse jamais le cap).
+  Future<void> refundValidation() async {
+    // Le premium ne consomme pas → pas de remboursement à effectuer.
+    if (_state.isPremium) return;
+
+    final ajout = _creditsDisponibles(1);
+    if (ajout == 0) return; // déjà au cap ou au-delà.
+
+    _state = _state.copyWith(
+      balance: _state.balance + ajout,
+      updatedAt: DateTime.now().toUtc(),
+    );
+    await _persist();
+    notifyListeners();
+    _upsertFireAndForgetCurrentState();
+  }
+
+  /// Exécute un appel de validation IA [aiCall] sous gating de crédits.
+  ///
+  /// C'est le point d'entrée unique du gating, appelé par la page de
+  /// validation pour TOUT type de preuve (photo, vidéo, texte).
+  ///
+  /// Décision AVANT l'appel :
+  /// - 0 jeton et non premium → retourne null SANS appeler l'IA (route manuelle).
+  /// - Premium → appelle l'IA sans rien consommer.
+  /// - Non premium avec solde → consomme 1 crédit AVANT l'appel.
+  ///
+  /// Après l'appel :
+  /// - Succès (même si le score est sous le seuil) → retourne le résultat ;
+  ///   le crédit reste consommé (l'IA a travaillé, le jeton paie l'analyse).
+  /// - Erreur TECHNIQUE (l'appel lève : réseau, timeout, 5xx, 529) → rembourse
+  ///   le crédit (si non premium) et retourne null.
+  ///
+  /// Retour null = « IA non effectuée → basculer en validation manuelle ».
+  /// L'utilisateur n'est jamais bloqué : la validation directe reste possible.
+  Future<T?> runGatedValidation<T>(Future<T> Function() aiCall) async {
+    if (!canValidateWithAI()) return null;
+
+    final premium = isPremium;
+    if (!premium) {
+      await consumeForValidation();
+    }
+    try {
+      return await aiCall();
+    } catch (e) {
+      debugPrint(
+          'AiValidationCreditsService: erreur technique IA, remboursement: $e');
+      if (!premium) {
+        await refundValidation();
+      }
+      return null;
+    }
   }
 
   /// Met à jour le statut premium.
@@ -207,6 +390,10 @@ class AiValidationCreditsService extends ChangeNotifier {
     );
     await _persist();
     notifyListeners();
+    // Note : isPremium / premiumUntil ne sont PAS envoyés vers Supabase (Phase 2).
+    // L'upsert ci-dessous synchronise uniquement les champs serveur (balance, etc.)
+    // depuis l'état courant, via toSupabaseMap qui exclut ces champs.
+    _upsertFireAndForgetCurrentState();
   }
 
   // ---- Helpers privés ----
@@ -226,5 +413,38 @@ class AiValidationCreditsService extends ChangeNotifier {
     final key = _hiveKey;
     if (key == null) return;
     await _box.put(key, _state.toJson());
+  }
+
+  /// Upsert fire-and-forget de l'état courant vers Supabase.
+  /// N'attend pas le résultat, ne bloque pas l'UI.
+  void _upsertFireAndForgetCurrentState() {
+    final uid = _userId;
+    if (uid == null || uid.isEmpty) return;
+    _upsertFireAndForget(uid, _state);
+  }
+
+  /// Upsert fire-and-forget d'un état [state] vers Supabase.
+  /// Encadré dans un try/catch : une erreur ne crashe jamais l'UI.
+  void _upsertFireAndForget(String userId, AiValidationState state) {
+    final repo = _repo;
+    if (repo == null) return;
+    // upsertForUser est déjà best-effort avec try/catch interne.
+    unawaited(repo.upsertForUser(userId, state));
+  }
+
+  /// Appelé lors d'un signIn détecté via le stream [onSignedIn].
+  /// L'ordre CRITIQUE est : load → grantOnboarding → grantDailyIfDue.
+  /// Ce tri garantit qu'un [onboardingGranted=true] récupéré du serveur
+  /// empêche le re-don des 5 jetons après réinstallation.
+  ///
+  /// Le uid est résolu via [_currentUserId] : le stream onSignedIn est un
+  /// `Stream<void>` (pas de payload), et [_userId] n'est pas encore positionné
+  /// au premier signIn (il l'est par [load], appelé juste après).
+  Future<void> _onSignedIn() async {
+    final uid = _currentUserId;
+    if (uid == null || uid.isEmpty) return;
+    await load(uid);
+    await grantOnboarding();
+    await grantDailyIfDue(DateTime.now());
   }
 }

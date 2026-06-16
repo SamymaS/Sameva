@@ -9,6 +9,7 @@ import '../view_models/quest_view_model.dart';
 import '../view_models/player_view_model.dart';
 import '../view_models/equipment_view_model.dart';
 import '../view_models/inventory_view_model.dart';
+import '../view_models/ai_validation_credits_service.dart';
 
 /// Résultat complet de la complétion d'une quête.
 class CompleteQuestResult {
@@ -39,15 +40,22 @@ class CompleteQuestUseCase {
   final EquipmentViewModel? _equipmentProvider;
   final InventoryViewModel? _inventoryProvider;
 
+  /// Service de crédits IA (optionnel).
+  /// Si fourni, [PlayerViewModel.updateStreak] appellera [earnFromStreak]
+  /// après chaque incrément de streak.
+  final AiValidationCreditsService? _creditsService;
+
   CompleteQuestUseCase({
     required QuestViewModel questProvider,
     required PlayerViewModel playerProvider,
     EquipmentViewModel? equipmentProvider,
     InventoryViewModel? inventoryProvider,
+    AiValidationCreditsService? creditsService,
   })  : _questProvider = questProvider,
         _playerProvider = playerProvider,
         _equipmentProvider = equipmentProvider,
-        _inventoryProvider = inventoryProvider;
+        _inventoryProvider = inventoryProvider,
+        _creditsService = creditsService;
 
   Future<CompleteQuestResult> execute(Quest quest) async {
     final now = DateTime.now();
@@ -74,7 +82,11 @@ class CompleteQuestUseCase {
     if (rewards.crystals > 0) {
       await _playerProvider.addCrystals(userId, rewards.crystals);
     }
-    await _playerProvider.updateStreak(userId, inventory: _inventoryProvider);
+    await _playerProvider.updateStreak(
+      userId,
+      inventory: _inventoryProvider,
+      creditsService: _creditsService,
+    );
     await _playerProvider.incrementQuestsCompleted(userId);
     final newAchievements = await _playerProvider.checkAndUnlockAchievements(
       userId,

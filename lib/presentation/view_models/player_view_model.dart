@@ -8,6 +8,7 @@ import '../../domain/services/health_regeneration_service.dart';
 import '../../domain/services/item_factory.dart';
 import '../../domain/services/notification_service.dart';
 import './inventory_view_model.dart';
+import './ai_validation_credits_service.dart';
 
 // Re-export pour la compatibilité des imports existants
 export '../../data/models/player_stats_model.dart';
@@ -191,7 +192,18 @@ class PlayerViewModel with ChangeNotifier {
     await savePlayerStats(userId);
   }
 
-  Future<void> updateStreak(String userId, {InventoryViewModel? inventory}) async {
+  /// Met à jour le streak après une quête complétée.
+  ///
+  /// [inventory] : permet de distribuer les récompenses d'objets aux paliers.
+  /// [creditsService] : si fourni, [AiValidationCreditsService.earnFromStreak]
+  ///   est appelé avec le nouveau streak après mise à jour. Idempotent par
+  ///   palier (7, 14, 21…) grâce à [lastRewardedStreakMilestone].
+  ///   L'injection est optionnelle pour ne pas casser les consumers existants.
+  Future<void> updateStreak(
+    String userId, {
+    InventoryViewModel? inventory,
+    AiValidationCreditsService? creditsService,
+  }) async {
     if (_stats == null) return;
 
     final now = DateTime.now();
@@ -235,6 +247,18 @@ class PlayerViewModel with ChangeNotifier {
 
     if (inventory != null) {
       await _checkStreakMilestones(userId, previousStreak, _stats!.streak, inventory);
+    }
+
+    // Hook gain de jetons IA par palier de streak.
+    // Appelé APRÈS la persistance du streak pour que le nouveau streak soit
+    // définitif avant de déclencher earnFromStreak (idempotent par palier).
+    if (creditsService != null) {
+      try {
+        await creditsService.earnFromStreak(_stats!.streak);
+      } catch (e) {
+        // Ne jamais bloquer le flux de complétion de quête sur une erreur de crédits.
+        debugPrint('PlayerViewModel: erreur earnFromStreak: $e');
+      }
     }
   }
 
