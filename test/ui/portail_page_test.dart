@@ -8,6 +8,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 import 'package:sameva/data/repositories/auth_repository.dart';
 import 'package:sameva/data/repositories/player_repository.dart';
+import 'package:sameva/presentation/view_models/ai_validation_credits_service.dart';
 import 'package:sameva/presentation/view_models/auth_view_model.dart';
 import 'package:sameva/presentation/view_models/cat_view_model.dart';
 import 'package:sameva/presentation/view_models/inventory_view_model.dart';
@@ -52,6 +53,13 @@ Widget _buildPortail() {
           value: InventoryViewModel(Hive.box('inventory'))..loadInventory()),
       ChangeNotifierProvider<CatViewModel>.value(
           value: CatViewModel(Hive.box('cats'))),
+      // Requis par le compteur AiCreditCounter affiché dans l'AppBar du Portail.
+      ChangeNotifierProvider<AiValidationCreditsService>.value(
+        value: AiValidationCreditsService(
+          Hive.box('aiValidation'),
+          testUserId: 'test-portail',
+        ),
+      ),
     ],
     child: const MaterialApp(home: PortailPage()),
   );
@@ -66,6 +74,7 @@ void main() {
     await Hive.openBox('settings');
     await Hive.openBox('inventory');
     await Hive.openBox('cats');
+    await Hive.openBox('aiValidation');
   });
 
   // Pas de tearDownAll : Hive.close() bloque le runner (cf. sanctuary_page_test).

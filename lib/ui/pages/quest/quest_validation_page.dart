@@ -19,6 +19,8 @@ import '../../../presentation/view_models/ai_validation_credits_service.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/app_notification.dart';
 import '../../widgets/cat/cat_reaction_overlay.dart';
+import '../../widgets/common/ai_credit_counter.dart';
+import '../../widgets/common/no_ai_credits_sheet.dart';
 import '../rewards/rewards_page.dart';
 
 const int _kValidScoreThreshold = 70;
@@ -120,15 +122,13 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
     }
   }
 
-  /// Notifie que l'analyse IA est indisponible faute de solde.
-  /// La validation directe reste toujours possible (chemin « jamais bloqué »).
-  void _notifyNoCredits() {
-    AppNotification.show(
-      context,
-      message: 'Analyse IA indisponible (solde épuisé). '
-          'Vous pouvez valider la quête manuellement ci-dessous.',
-      backgroundColor: AppColors.error,
-    );
+  /// Affiche le sheet « plus de jetons » quand le solde est épuisé.
+  ///
+  /// Retourne un [Future] qui se complète lorsque l'utilisateur ferme le sheet
+  /// (via « Continuer en manuel »). La validation directe reste toujours
+  /// possible après fermeture (chemin « jamais bloqué »).
+  Future<void> _showNoCreditsSheet() {
+    return showNoAiCreditsSheet(context);
   }
 
   /// Notifie un échec TECHNIQUE de l'IA (le crédit a été remboursé).
@@ -148,7 +148,8 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
     // Gating crédits : décision AVANT d'appeler l'IA (source de vérité = wallet).
     final credits = context.read<AiValidationCreditsService>();
     if (!credits.canValidateWithAI()) {
-      _notifyNoCredits();
+      // Affiche le sheet d'explication ; l'utilisateur peut ensuite valider manuellement.
+      await _showNoCreditsSheet();
       return;
     }
 
@@ -177,7 +178,8 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
     // Gating crédits : même décision pour la preuve photo et vidéo.
     final credits = context.read<AiValidationCreditsService>();
     if (!credits.canValidateWithAI()) {
-      _notifyNoCredits();
+      // Affiche le sheet d'explication ; l'utilisateur peut ensuite valider manuellement.
+      await _showNoCreditsSheet();
       return;
     }
 
@@ -308,6 +310,15 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
               fontWeight: FontWeight.w500),
         ),
         centerTitle: true,
+        // Compteur de jetons MougiBot visible uniquement pour les quêtes IA.
+        actions: _supportsAI
+            ? const [
+                Padding(
+                  padding: EdgeInsets.only(right: 12),
+                  child: Center(child: AiCreditCounter()),
+                ),
+              ]
+            : null,
       ),
       body: Column(
         children: [
@@ -1067,7 +1078,7 @@ class _TextProofSection extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           const Text(
-            'Décris ce que tu as accompli — Claude évaluera si la quête est validée.',
+            'Décris ce que tu as accompli — MougiBot évaluera si la quête est validée.',
             style: TextStyle(color: AppColors.textMuted, fontSize: 12, height: 1.4),
           ),
           const SizedBox(height: 12),

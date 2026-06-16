@@ -12,6 +12,7 @@ import '../../../presentation/view_models/player_view_model.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/app_notification.dart';
 import '../../widgets/cat/cat_widget.dart';
+import '../../widgets/common/ai_credit_counter.dart';
 import '../../widgets/common/rarity_badge.dart';
 import '../invocation/invocation_page.dart';
 
@@ -47,6 +48,11 @@ class PortailPage extends StatelessWidget {
           ),
         ),
         actions: [
+          // Compteur de jetons MougiBot (wallet IA freemium).
+          const Padding(
+            padding: EdgeInsets.only(right: 6),
+            child: Center(child: AiCreditCounter()),
+          ),
           Consumer<PlayerViewModel>(
             builder: (_, player, __) => Padding(
               padding: const EdgeInsets.only(right: 4),
