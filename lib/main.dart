@@ -52,6 +52,7 @@ void main() async {
   await Hive.openBox('inventory');
   await Hive.openBox('equipment');
   await Hive.openBox('cats');
+  await Hive.openBox('aiValidation');
 
   await NotificationService.init();
 
