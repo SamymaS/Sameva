@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
+import 'presentation/view_models/ai_validation_credits_service.dart';
 import 'presentation/view_models/auth_view_model.dart';
 import 'presentation/view_models/quest_view_model.dart';
 import 'presentation/view_models/theme_view_model.dart';
@@ -30,7 +31,7 @@ class SamevaApp extends StatefulWidget {
   State<SamevaApp> createState() => _SamevaAppState();
 }
 
-class _SamevaAppState extends State<SamevaApp> {
+class _SamevaAppState extends State<SamevaApp> with WidgetsBindingObserver {
   int _currentIndex = 0;
   late final PageController _pageController;
 
@@ -58,12 +59,27 @@ class _SamevaAppState extends State<SamevaApp> {
           ? _KeepAlivePage(child: _rawPages[i])
           : _rawPages[i];
     });
+    // Écoute du lifecycle pour détecter le retour dans l'app après un checkout.
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _pageController.dispose();
     super.dispose();
+  }
+
+  /// Détecte le retour dans l'app (AppLifecycleState.resumed) après un checkout
+  /// Stripe initié. Déclenche un poll court sur l'entitlement premium car le
+  /// webhook Stripe est asynchrone.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // context est valide ici : _SamevaAppState est dans l'arbre quand resumed.
+      final creditsService = context.read<AiValidationCreditsService>();
+      creditsService.onAppResumedAfterCheckout();
+    }
   }
 
   void _goToPage(int index) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../config/ai_credits_labels.dart';
 import '../../../presentation/view_models/ai_validation_credits_service.dart';
 import '../../theme/app_colors.dart';
@@ -134,36 +135,16 @@ class _NoAiCreditsSheetContent extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          // Mention premium (Phase 2 — aucun CTA actif)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: AppColors.primaryViolet.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: AppColors.primaryViolet.withValues(alpha: 0.2),
-              ),
-            ),
-            child: const Row(
-              children: [
-                Icon(
-                  Icons.diamond_outlined,
-                  color: AppColors.primaryVioletLight,
-                  size: 16,
-                ),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Jetons illimités avec l\'abonnement Premium — bientôt disponible.',
-                    style: TextStyle(
-                      color: AppColors.textMuted,
-                      fontSize: 12,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          // CTA Premium — actif depuis la brique 8
+          _PremiumCtaButton(
+            key: const Key('cta_premium'),
+            onPressed: () {
+              // Ferme le sheet avant d'ouvrir le navigateur (UX propre).
+              Navigator.of(context).pop();
+              context
+                  .read<AiValidationCreditsService>()
+                  .startPremiumCheckout();
+            },
           ),
           const SizedBox(height: 20),
 
@@ -189,6 +170,46 @@ class _NoAiCreditsSheetContent extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Bouton CTA vers l'abonnement Premium.
+///
+/// Affiché dans le sheet « plus de jetons » pour rediriger vers le checkout Stripe.
+class _PremiumCtaButton extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const _PremiumCtaButton({super.key, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: onPressed,
+        icon: const Icon(
+          Icons.diamond_outlined,
+          color: AppColors.primaryVioletLight,
+          size: 18,
+        ),
+        label: const Text('Passer à Premium — jetons illimités'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.primaryVioletLight,
+          side: const BorderSide(
+            color: AppColors.primaryViolet,
+            width: 1.5,
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          textStyle: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+          ),
+        ),
       ),
     );
   }

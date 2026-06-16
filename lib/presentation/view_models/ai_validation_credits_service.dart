@@ -2,8 +2,10 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:hive/hive.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../data/models/ai_validation_state_model.dart';
 import '../../data/repositories/ai_credits_repository.dart';
+import '../../data/repositories/premium_subscription_repository.dart';
 
 /// Service gérant le portefeuille de crédits IA (validation freemium).
 ///
@@ -45,12 +47,20 @@ class AiValidationCreditsService extends ChangeNotifier {
 
   final Box _box;
 
-  /// Repository Supabase (optionnel pour les tests sans réseau).
+  /// Repository Supabase des crédits IA (optionnel pour les tests sans réseau).
   final AiCreditsRepository? _repo;
+
+  /// Repository Supabase de l'entitlement premium (optionnel pour les tests).
+  ///
+  /// Quand null, le fetch d'entitlement est ignoré (mode local-only).
+  final PremiumSubscriptionRepository? _premiumRepo;
 
   /// Injecté en test pour contourner l'accès à Supabase.instance.
   /// En production, laissé null → userId résolu via Supabase.instance.client.
   final String? _overrideUserId;
+
+  /// Vrai si un checkout Stripe a été initié (pour déclencher le refresh au resume).
+  bool _checkoutInitiated = false;
 
   StreamSubscription<void>? _signedOutSub;
   StreamSubscription<void>? _signedInSub;
@@ -66,10 +76,12 @@ class AiValidationCreditsService extends ChangeNotifier {
   AiValidationCreditsService(
     this._box, {
     AiCreditsRepository? repository,
+    PremiumSubscriptionRepository? premiumRepository,
     Stream<void>? onSignedOut,
     Stream<void>? onSignedIn,
     String? testUserId,
   })  : _repo = repository,
+        _premiumRepo = premiumRepository,
         _overrideUserId = testUserId {
     if (onSignedOut != null) {
       _signedOutSub = onSignedOut.listen((_) => reset());
@@ -174,45 +186,54 @@ class AiValidationCreditsService extends ChangeNotifier {
     _state = localState;
     notifyListeners();
 
-    // Étape b : fetch Supabase best-effort.
+    // Étapes b + c : crédits (best-effort). Encapsulées dans un bloc pour que
+    // leurs sorties anticipées (repo absent, fetch hors-ligne) ne sautent PAS
+    // l'étape d : l'entitlement premium vit dans une table séparée et doit être
+    // lu indépendamment du résultat du fetch crédits.
     final repo = _repo;
-    if (repo == null) return; // pas de repo → offline uniquement.
+    if (repo != null) {
+      AiValidationState? remoteState;
+      bool fetchEchoue = false;
 
-    AiValidationState? remoteState;
-    bool fetchEchoue = false;
-
-    try {
-      remoteState = await repo.fetchForUser(userId);
-    } catch (e) {
-      // Erreur réseau : garde local, aucun crash.
-      debugPrint('AiValidationCreditsService: fetch hors-ligne, fallback Hive: $e');
-      fetchEchoue = true;
-    }
-
-    if (fetchEchoue) return;
-
-    // Étape c : réconciliation LWW.
-    if (remoteState != null) {
-      // Adopter remote si aucun local réel (réinstallation) OU si remote est
-      // plus récent. Sans le garde hadLocal, un état vide (updatedAt = now())
-      // l'emporterait et écraserait la ligne serveur.
-      if (!hadLocal || remoteState.updatedAt.isAfter(localState.updatedAt)) {
-        // Remote fait autorité → adopter remote.
-        _state = remoteState;
-        try {
-          await _box.put(key, remoteState.toJson());
-        } catch (e) {
-          debugPrint('AiValidationCreditsService: erreur écriture Hive après réconciliation: $e');
-        }
-        notifyListeners();
-      } else {
-        // Local plus récent (ou même timestamp) → upsert local vers Supabase.
-        _upsertFireAndForget(userId, localState);
+      try {
+        remoteState = await repo.fetchForUser(userId);
+      } catch (e) {
+        // Erreur réseau : garde local, aucun crash.
+        debugPrint('AiValidationCreditsService: fetch hors-ligne, fallback Hive: $e');
+        fetchEchoue = true;
       }
-    } else {
-      // Aucune ligne en base → upsert local pour créer la ligne.
-      _upsertFireAndForget(userId, localState);
+
+      if (!fetchEchoue) {
+        // Étape c : réconciliation LWW.
+        if (remoteState != null) {
+          // Adopter remote si aucun local réel (réinstallation) OU si remote est
+          // plus récent. Sans le garde hadLocal, un état vide (updatedAt = now())
+          // l'emporterait et écraserait la ligne serveur.
+          if (!hadLocal || remoteState.updatedAt.isAfter(localState.updatedAt)) {
+            // Remote fait autorité → adopter remote.
+            _state = remoteState;
+            try {
+              await _box.put(key, remoteState.toJson());
+            } catch (e) {
+              debugPrint('AiValidationCreditsService: erreur écriture Hive après réconciliation: $e');
+            }
+            notifyListeners();
+          } else {
+            // Local plus récent (ou même timestamp) → upsert local vers Supabase.
+            _upsertFireAndForget(userId, localState);
+          }
+        } else {
+          // Aucune ligne en base → upsert local pour créer la ligne.
+          _upsertFireAndForget(userId, localState);
+        }
+      }
     }
+
+    // Étape d : fetch entitlement premium serveur-autoritaire (best-effort),
+    // INDÉPENDANT du résultat du fetch crédits ci-dessus. L'entitlement premium
+    // vit dans une table séparée (premium_subscriptions) pilotée par le webhook
+    // Stripe — un échec du fetch crédits ne doit pas empêcher sa lecture.
+    await _fetchAndApplyPremiumEntitlement(userId);
   }
 
   /// Vide le state en mémoire au logout (sans purger Hive).
@@ -379,6 +400,81 @@ class AiValidationCreditsService extends ChangeNotifier {
     }
   }
 
+  /// Re-lit l'entitlement premium depuis le serveur à la demande.
+  ///
+  /// Utilise [_userId] courant — no-op si pas de user ou pas de repo premium.
+  /// À appeler au retour dans l'app après un checkout Stripe initié.
+  Future<void> refreshEntitlement() async {
+    final uid = _userId;
+    if (uid == null || uid.isEmpty) return;
+    await _fetchAndApplyPremiumEntitlement(uid);
+  }
+
+  /// Initie le checkout Stripe en invoquant l'Edge Function `create-checkout-session`.
+  ///
+  /// - Le JWT est passé automatiquement par le client Supabase authentifié.
+  /// - L'URL de la session Stripe est ouverte dans le navigateur externe.
+  /// - [checkoutUrl] peut être injecté en test pour court-circuiter l'invoke.
+  Future<void> startPremiumCheckout({
+    SupabaseClient? supabaseClient,
+    Future<String?> Function()? checkoutUrlProvider,
+  }) async {
+    try {
+      String? url;
+
+      if (checkoutUrlProvider != null) {
+        // Mode test : le provider externe fournit l'URL directement.
+        url = await checkoutUrlProvider();
+      } else {
+        // Mode production : invoke l'Edge Function via Supabase (JWT auto-injecté).
+        final client = supabaseClient ?? Supabase.instance.client;
+        final response = await client.functions.invoke(
+          'create-checkout-session',
+          body: <String, dynamic>{},
+        );
+        final data = response.data;
+        if (data is Map) {
+          url = data['url'] as String?;
+        }
+      }
+
+      if (url == null || url.isEmpty) {
+        debugPrint(
+          'AiValidationCreditsService.startPremiumCheckout: URL manquante dans la réponse.',
+        );
+        return;
+      }
+
+      final uri = Uri.parse(url);
+      _checkoutInitiated = true;
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      debugPrint('AiValidationCreditsService.startPremiumCheckout: erreur: $e');
+    }
+  }
+
+  /// Appelé au resume de l'app si un checkout a été initié.
+  ///
+  /// Effectue un poll court (3 tentatives espacées de 2 s) car le webhook Stripe
+  /// est asynchrone — l'entitlement peut ne pas être encore à jour immédiatement.
+  Future<void> onAppResumedAfterCheckout() async {
+    if (!_checkoutInitiated) return;
+    _checkoutInitiated = false;
+
+    // Poll : jusqu'à 3 tentatives espacées de 2 secondes.
+    const maxTentatives = 3;
+    const delai = Duration(seconds: 2);
+
+    for (var i = 0; i < maxTentatives; i++) {
+      await refreshEntitlement();
+      if (_state.isPremium) return; // succès : premium confirmé
+      if (i < maxTentatives - 1) {
+        await Future<void>.delayed(delai);
+      }
+    }
+    // Dernier refresh même si toujours non premium (peut arriver si le webhook est lent).
+  }
+
   /// Met à jour le statut premium.
   ///
   /// Sera piloté par le webhook Stripe/App Store plus tard.
@@ -397,6 +493,59 @@ class AiValidationCreditsService extends ChangeNotifier {
   }
 
   // ---- Helpers privés ----
+
+  /// Fetche l'entitlement premium depuis Supabase et l'applique à l'état local.
+  ///
+  /// Best-effort : en cas d'erreur réseau, on garde l'état courant sans crash.
+  /// Le fetch est séparé de la réconciliation LWW des crédits pour ne pas
+  /// perturber la logique last-write-wins (tables distinctes, workflows distincts).
+  ///
+  /// IMPORTANT : cet appel met à jour [isPremium] et [premiumUntil] via [_setPremiumFromEntitlement]
+  /// qui appelle [_persist] + [notifyListeners] mais PAS [_upsertFireAndForget] pour éviter
+  /// de ré-envoyer les crédits vers Supabase à chaque refresh d'entitlement.
+  Future<void> _fetchAndApplyPremiumEntitlement(String userId) async {
+    final premiumRepo = _premiumRepo;
+    if (premiumRepo == null) return; // pas de repo → mode local-only
+
+    try {
+      final entitlement = await premiumRepo.fetchForUser(userId);
+      await _setPremiumFromEntitlement(
+        entitlement.isPremium,
+        until: entitlement.premiumUntil,
+      );
+    } catch (e) {
+      // Erreur réseau : garde l'état courant, aucun crash (offline-first).
+      debugPrint(
+        'AiValidationCreditsService: fetch entitlement hors-ligne, état conservé: $e',
+      );
+    }
+  }
+
+  /// Met à jour [isPremium] et [premiumUntil] dans l'état local et Hive,
+  /// SANS déclencher d'upsert vers la table `ai_validation_credits`.
+  ///
+  /// Contrairement à [setPremium] (qui appelle [_upsertFireAndForgetCurrentState]),
+  /// cette méthode ne provoque PAS d'écriture réseau vers la table des crédits.
+  /// L'entitlement est lecture-seule côté client (piloté par le webhook Stripe).
+  Future<void> _setPremiumFromEntitlement(
+    bool active, {
+    DateTime? until,
+  }) async {
+    // Évite une mutation inutile si rien ne change.
+    if (_state.isPremium == active && _state.premiumUntil == until) return;
+
+    _state = _state.copyWith(
+      isPremium: active,
+      premiumUntil: until,
+      // Ne met PAS à jour updatedAt : cet état vient du serveur, pas d'une
+      // mutation locale. Mettre updatedAt à now() perturberait le LWW des crédits
+      // lors d'un prochain load (l'état local deviendrait artificiellement plus récent).
+    );
+    // Persiste en Hive pour que le premium survive aux redémarrages sans réseau.
+    await _persist();
+    notifyListeners();
+    // Pas d'upsert vers ai_validation_credits : isPremium n'y est pas stocké.
+  }
 
   /// Calcule combien de crédits peuvent être ajoutés sans dépasser le cap.
   int _creditsDisponibles(int demande) {

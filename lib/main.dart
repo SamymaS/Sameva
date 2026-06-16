@@ -9,6 +9,7 @@ import 'config/supabase_config.dart';
 import 'data/repositories/ai_credits_repository.dart';
 import 'data/repositories/auth_repository.dart';
 import 'data/repositories/cat_repository.dart';
+import 'data/repositories/premium_subscription_repository.dart';
 import 'data/repositories/quest_repository.dart';
 import 'data/repositories/player_repository.dart';
 import 'data/repositories/user_repository.dart';
@@ -65,8 +66,9 @@ void main() async {
   final questRepo       = QuestRepository(supabase, userRepo);
   final playerRepo      = PlayerRepository(statsBox, supabase);
   final leaderboardRepo  = LeaderboardRepository(supabase);
-  final catRepo          = CatRepository(supabase);
-  final aiCreditsRepo    = AiCreditsRepository(supabase);
+  final catRepo              = CatRepository(supabase);
+  final aiCreditsRepo        = AiCreditsRepository(supabase);
+  final premiumSubsRepo      = PremiumSubscriptionRepository(supabase);
 
   // AuthViewModel instancié en premier pour exposer onSignedOut aux VMs métier.
   final authViewModel = AuthViewModel(authRepo);
@@ -100,6 +102,7 @@ void main() async {
   final aiCreditsService = AiValidationCreditsService(
     aiValidationBox,
     repository: aiCreditsRepo,
+    premiumRepository: premiumSubsRepo,
     onSignedOut: signedOutStream,
     onSignedIn: signedInStream,
   );
