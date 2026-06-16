@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
+import 'presentation/view_models/ai_validation_credits_service.dart';
 import 'presentation/view_models/auth_view_model.dart';
 import 'presentation/view_models/quest_view_model.dart';
 import 'presentation/view_models/theme_view_model.dart';
@@ -14,18 +15,15 @@ import 'ui/pages/profile/profile_page.dart';
 import 'ui/pages/rewards/rewards_page.dart';
 import 'ui/pages/settings/settings_page.dart';
 import 'ui/pages/home/sanctuary_page.dart';
-import 'ui/pages/inventory/inventory_page.dart';
 import 'ui/pages/market/market_page.dart';
 import 'ui/pages/cat/cat_page.dart';
-import 'ui/pages/invocation/invocation_page.dart';
-import 'ui/pages/minigames/minigames_page.dart';
 import 'ui/pages/avatar/avatar_page.dart';
 import 'ui/pages/quest/create_quest_choice_page.dart';
 import 'ui/widgets/common/dock_bar.dart';
 import 'ui/theme/app_theme.dart';
 import 'data/models/quest_model.dart';
 
-/// Sameva — navigation 8 pages avec DockBar flottant + swipe horizontal.
+/// Sameva — navigation 5 pages avec DockBar flottant + swipe horizontal.
 class SamevaApp extends StatefulWidget {
   const SamevaApp({super.key});
 
@@ -33,7 +31,7 @@ class SamevaApp extends StatefulWidget {
   State<SamevaApp> createState() => _SamevaAppState();
 }
 
-class _SamevaAppState extends State<SamevaApp> {
+class _SamevaAppState extends State<SamevaApp> with WidgetsBindingObserver {
   int _currentIndex = 0;
   late final PageController _pageController;
 
@@ -43,18 +41,14 @@ class _SamevaAppState extends State<SamevaApp> {
   static const _rawPages = <Widget>[
     SanctuaryPage(),
     QuestsListPage(),
-    InventoryPage(),
+    PortailPage(),
     CatPage(),
-    MarketPage(),
-    InvocationPage(),
-    MinigamesPage(),
     ProfilePage(),
   ];
 
-  // Pages fréquemment consultées : KeepAlive activé.
-  // Pages occasionnelles (Marché, Invocation, Mini-jeux, Profil) : rebuild OK,
-  // évite consommation RAM constante.
-  static const _keepAliveIndices = {0, 1, 2, 3};
+  // Pages fréquemment consultées : KeepAlive activé (Accueil, Quêtes, Chat).
+  // Portail (gacha/boutique) et Profil : rebuild OK, évite la RAM constante.
+  static const _keepAliveIndices = {0, 1, 3};
 
   @override
   void initState() {
@@ -65,12 +59,27 @@ class _SamevaAppState extends State<SamevaApp> {
           ? _KeepAlivePage(child: _rawPages[i])
           : _rawPages[i];
     });
+    // Écoute du lifecycle pour détecter le retour dans l'app après un checkout.
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _pageController.dispose();
     super.dispose();
+  }
+
+  /// Détecte le retour dans l'app (AppLifecycleState.resumed) après un checkout
+  /// Stripe initié. Déclenche un poll court sur l'entitlement premium car le
+  /// webhook Stripe est asynchrone.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // context est valide ici : _SamevaAppState est dans l'arbre quand resumed.
+      final creditsService = context.read<AiValidationCreditsService>();
+      creditsService.onAppResumedAfterCheckout();
+    }
   }
 
   void _goToPage(int index) {

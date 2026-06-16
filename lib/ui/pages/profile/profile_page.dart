@@ -6,15 +6,16 @@ import '../../../data/models/item_model.dart';
 import '../../../domain/services/activity_log_service.dart';
 import 'achievements_page.dart';
 import '../social/leaderboard_page.dart';
+import '../inventory/inventory_page.dart';
 import 'activity_log_page.dart';
 import '../../../data/repositories/player_repository.dart';
-import '../../../data/repositories/quest_repository.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/view_models/cat_view_model.dart';
 import '../../../presentation/view_models/equipment_view_model.dart';
 import '../../../presentation/view_models/inventory_view_model.dart';
 import '../../../presentation/view_models/player_view_model.dart';
 import '../../../presentation/view_models/profile_view_model.dart';
+import '../../../presentation/view_models/quest_view_model.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/app_notification.dart';
 import '../../widgets/cat/cat_widget.dart';
@@ -39,7 +40,7 @@ class _ProfilePageState extends State<ProfilePage> {
       _vm = ProfileViewModel(
         context.read<AuthViewModel>(),
         context.read<PlayerRepository>(),
-        context.read<QuestRepository>(),
+        context.read<QuestViewModel>(),
       );
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _vm != null) _vm!.load(userId);
@@ -606,12 +607,24 @@ class _InventorySummary extends StatelessWidget {
         .length;
     final potions = items.where((i) => i.type == ItemType.potion).length;
 
-    return _SectionCard(
+    return GestureDetector(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const InventoryPage()),
+      ),
+      child: _SectionCard(
       title: 'Inventaire',
       icon: Icons.inventory_2_outlined,
-      trailing: Text(
-        '${items.length}/50',
-        style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '${items.length}/50',
+            style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+          ),
+          const SizedBox(width: 4),
+          const Icon(Icons.chevron_right,
+              color: AppColors.textMuted, size: 16),
+        ],
       ),
       child: items.isEmpty
           ? const Text(
@@ -630,6 +643,7 @@ class _InventorySummary extends StatelessWidget {
                     AppColors.success),
               ],
             ),
+      ),
     );
   }
 }

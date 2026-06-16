@@ -2,7 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../theme/app_colors.dart';
 
-/// Barre de navigation flottante — 8 onglets principaux.
+/// Barre de navigation flottante — 5 onglets principaux (périmètre MVP).
 /// [badges] : map index → count pour afficher un badge rouge sur un onglet.
 class DockBar extends StatelessWidget {
   final int currentIndex;
@@ -12,11 +12,8 @@ class DockBar extends StatelessWidget {
   static const _items = [
     (icon: Icons.cottage_outlined,        label: 'Accueil'),
     (icon: Icons.assignment_outlined,     label: 'Quêtes'),
-    (icon: Icons.inventory_2_outlined,    label: 'Stock'),
-    (icon: Icons.pets_outlined,           label: 'Chat'),
-    (icon: Icons.store_outlined,          label: 'Marché'),
     (icon: Icons.auto_awesome,            label: 'Portail'),
-    (icon: Icons.extension_outlined,      label: 'Jeux'),
+    (icon: Icons.pets_outlined,           label: 'Chat'),
     (icon: Icons.account_circle_outlined, label: 'Profil'),
   ];
 

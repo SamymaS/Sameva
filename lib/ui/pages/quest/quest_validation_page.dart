@@ -15,9 +15,12 @@ import '../../../presentation/view_models/equipment_view_model.dart';
 import '../../../presentation/view_models/inventory_view_model.dart';
 import '../../../presentation/view_models/player_view_model.dart';
 import '../../../presentation/view_models/quest_view_model.dart';
+import '../../../presentation/view_models/ai_validation_credits_service.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/app_notification.dart';
 import '../../widgets/cat/cat_reaction_overlay.dart';
+import '../../widgets/common/ai_credit_counter.dart';
+import '../../widgets/common/no_ai_credits_sheet.dart';
 import '../rewards/rewards_page.dart';
 
 const int _kValidScoreThreshold = 70;
@@ -30,23 +33,33 @@ const int _kTextProofMaxLength = 2000;
 class QuestValidationPage extends StatefulWidget {
   final Quest quest;
 
-  const QuestValidationPage({super.key, required this.quest});
+  /// Service d'analyse IA injectable (tests). En production, laissé null →
+  /// résolu depuis [SupabaseConfig] (API réelle ou mock si non configurée).
+  final ValidationAIService? validationService;
+
+  const QuestValidationPage({
+    super.key,
+    required this.quest,
+    this.validationService,
+  });
 
   @override
   State<QuestValidationPage> createState() => _QuestValidationPageState();
 }
 
 class _QuestValidationPageState extends State<QuestValidationPage> {
-  late final ValidationAIService _validationService = () {
-    final url = SupabaseConfig.validationAiUrl;
-    if (url != null && url.isNotEmpty) {
-      return ApiValidationAIService(
-        baseUrl: url,
-        authToken: SupabaseConfig.supabaseAnonKey,
-      );
-    }
-    return MockValidationAIService();
-  }();
+  late final ValidationAIService _validationService =
+      widget.validationService ??
+          () {
+            final url = SupabaseConfig.validationAiUrl;
+            if (url != null && url.isNotEmpty) {
+              return ApiValidationAIService(
+                baseUrl: url,
+                authToken: SupabaseConfig.supabaseAnonKey,
+              );
+            }
+            return MockValidationAIService();
+          }();
 
   bool _proofExpanded = false;
   bool _proofIsVideo = false;
@@ -109,23 +122,52 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
     }
   }
 
+  /// Affiche le sheet « plus de jetons » quand le solde est épuisé.
+  ///
+  /// Retourne un [Future] qui se complète lorsque l'utilisateur ferme le sheet
+  /// (via « Continuer en manuel »). La validation directe reste toujours
+  /// possible après fermeture (chemin « jamais bloqué »).
+  Future<void> _showNoCreditsSheet() {
+    return showNoAiCreditsSheet(context);
+  }
+
+  /// Notifie un échec TECHNIQUE de l'IA (le crédit a été remboursé).
+  void _notifyTechnicalError() {
+    AppNotification.show(
+      context,
+      message: 'L\'analyse IA a échoué (erreur technique). '
+          'Réessayez ou validez la quête manuellement.',
+      backgroundColor: AppColors.error,
+    );
+  }
+
   Future<void> _analyzeText() async {
     final text = _textProofCtrl.text.trim();
     if (text.isEmpty) return;
+
+    // Gating crédits : décision AVANT d'appeler l'IA (source de vérité = wallet).
+    final credits = context.read<AiValidationCreditsService>();
+    if (!credits.canValidateWithAI()) {
+      // Affiche le sheet d'explication ; l'utilisateur peut ensuite valider manuellement.
+      await _showNoCreditsSheet();
+      return;
+    }
+
     setState(() => _isAnalyzing = true);
     try {
-      final r = await _validationService.analyzeTextProof(
-        quest: widget.quest,
-        text: text,
+      // runGatedValidation consomme (si non premium), appelle l'IA, et rembourse
+      // en cas d'erreur technique. null = IA non effectuée → validation manuelle.
+      final r = await credits.runGatedValidation(
+        () => _validationService.analyzeTextProof(
+          quest: widget.quest,
+          text: text,
+        ),
       );
-      if (mounted) setState(() => _analysisResult = r);
-    } catch (e) {
-      if (mounted) {
-        AppNotification.show(
-          context,
-          message: 'Erreur analyse : $e',
-          backgroundColor: AppColors.error,
-        );
+      if (!mounted) return;
+      if (r == null) {
+        _notifyTechnicalError();
+      } else {
+        setState(() => _analysisResult = r);
       }
     } finally {
       if (mounted) setState(() => _isAnalyzing = false);
@@ -133,28 +175,33 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
   }
 
   Future<void> _analyze() async {
+    // Gating crédits : même décision pour la preuve photo et vidéo.
+    final credits = context.read<AiValidationCreditsService>();
+    if (!credits.canValidateWithAI()) {
+      // Affiche le sheet d'explication ; l'utilisateur peut ensuite valider manuellement.
+      await _showNoCreditsSheet();
+      return;
+    }
+
     setState(() => _isAnalyzing = true);
     try {
-      ValidationResult r;
-      if (_proofImage != null) {
-        r = await _validationService.analyzeProof(
-          quest: widget.quest,
-          imageBytes: _proofImage!,
-        );
-      } else {
-        r = await _validationService.analyzeVideoProof(
+      final r = await credits.runGatedValidation<ValidationResult>(() {
+        if (_proofImage != null) {
+          return _validationService.analyzeProof(
+            quest: widget.quest,
+            imageBytes: _proofImage!,
+          );
+        }
+        return _validationService.analyzeVideoProof(
           quest: widget.quest,
           videoPath: _proofVideoPath!,
         );
-      }
-      if (mounted) setState(() => _analysisResult = r);
-    } catch (e) {
-      if (mounted) {
-        AppNotification.show(
-          context,
-          message: 'Erreur analyse : $e',
-          backgroundColor: AppColors.error,
-        );
+      });
+      if (!mounted) return;
+      if (r == null) {
+        _notifyTechnicalError();
+      } else {
+        setState(() => _analysisResult = r);
       }
     } finally {
       if (mounted) setState(() => _isAnalyzing = false);
@@ -172,6 +219,9 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
         playerProvider: context.read<PlayerViewModel>(),
         equipmentProvider: context.read<EquipmentViewModel>(),
         inventoryProvider: context.read<InventoryViewModel>(),
+        // Sans ce service, updateStreak n'appellerait jamais earnFromStreak :
+        // le gain de jetons par palier de streak resterait lettre morte.
+        creditsService: context.read<AiValidationCreditsService>(),
       );
       final result = await useCase.execute(widget.quest);
       final rewards = result.rewards;
@@ -260,6 +310,15 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
               fontWeight: FontWeight.w500),
         ),
         centerTitle: true,
+        // Compteur de jetons MougiBot visible uniquement pour les quêtes IA.
+        actions: _supportsAI
+            ? const [
+                Padding(
+                  padding: EdgeInsets.only(right: 12),
+                  child: Center(child: AiCreditCounter()),
+                ),
+              ]
+            : null,
       ),
       body: Column(
         children: [
@@ -1019,7 +1078,7 @@ class _TextProofSection extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           const Text(
-            'Décris ce que tu as accompli — Claude évaluera si la quête est validée.',
+            'Décris ce que tu as accompli — MougiBot évaluera si la quête est validée.',
             style: TextStyle(color: AppColors.textMuted, fontSize: 12, height: 1.4),
           ),
           const SizedBox(height: 12),

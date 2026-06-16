@@ -16,7 +16,7 @@ flutter run -d windows             # Run on Windows
 flutter analyze                    # Run static analysis (flutter_lints)
 flutter test                       # Run tests
 flutter test test/widget_test.dart # Run single test file
-dart run build_runner build        # Generate Hive adapters (after modifying @HiveType models)
+# Note: no build_runner step — Hive uses plain JSON (toJson/fromJson), not TypeAdapters
 flutter build apk                  # Build Android release
 flutter build web                  # Build web release
 ```
@@ -38,7 +38,7 @@ lib/
 └── utils/           # SVG/Figma asset helpers
 ```
 
-**Entry point**: `lib/main.dart` initializes dotenv, Supabase, and Hive boxes (`quests`, `playerStats`, `inventory`, `equipment`), then runs the app via `lib/app_new.dart`.
+**Entry point**: `lib/main.dart` initializes dotenv, Supabase, and Hive boxes (`quests`, `playerStats`, `settings`, `inventory`, `equipment`, `cats`, `aiValidation`), then runs the app via `lib/app_new.dart`. All Hive boxes are untyped (`Box`) and store models as JSON — no TypeAdapters, no `@HiveType`, no code generation.
 
 **Navigation**: `app_new.dart` uses a Stack with AnimatedSwitcher and a floating dock bar. 8 main pages: Sanctuary (home), Quests, Inventory, Avatar, Market, Invocation, Minigames, Profile. A floating FAB opens quest creation.
 
@@ -58,7 +58,7 @@ lib/
 ## Backend & Persistence
 
 - **Supabase**: Authentication + PostgreSQL for quests, user profiles, equipment. Config in `lib/config/supabase_config.dart`, credentials via `.env` (not committed).
-- **Hive**: Local persistence for player stats, inventory, settings. Boxes opened at startup in `main.dart`.
+- **Hive**: Local persistence for player stats, inventory, settings, cats, AI validation wallet. All boxes are untyped (`Box`), opened at startup in `main.dart`. Models are immutable Dart classes with `toJson()`/`fromJson()` — no TypeAdapters, no `@HiveType`, no `build_runner`. Per-user data uses keyed entries: a fixed key (e.g. `'stats'`, `'items'`) or a per-user key (e.g. `'cats_list_$userId'`, `'ai_validation_$userId'`).
 - `.env` must contain `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
 
 ## Design System

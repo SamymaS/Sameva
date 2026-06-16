@@ -6,6 +6,7 @@ import 'package:sameva/data/repositories/quest_repository.dart';
 import 'package:sameva/presentation/view_models/auth_view_model.dart';
 import 'package:sameva/presentation/view_models/profile_view_model.dart';
 import 'package:sameva/presentation/view_models/player_view_model.dart';
+import 'package:sameva/presentation/view_models/quest_view_model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class _MockAuth extends Mock implements AuthViewModel {}
@@ -30,7 +31,8 @@ void main() {
     auth = _MockAuth();
     playerRepo = _MockPlayerRepo();
     questRepo = _MockQuestRepo();
-    vm = ProfileViewModel(auth, playerRepo, questRepo);
+    // Les quêtes sont lues depuis la source de vérité (QuestViewModel), pilotée par le repo mocké.
+    vm = ProfileViewModel(auth, playerRepo, QuestViewModel(questRepo));
   });
 
   group('ProfileViewModel', () {

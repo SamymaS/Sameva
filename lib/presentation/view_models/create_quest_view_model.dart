@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
 import '../../data/models/quest_model.dart';
-import '../../data/repositories/quest_repository.dart';
 import './auth_view_model.dart';
+import './quest_view_model.dart';
 
-/// ViewModel pour la création de quête.
-/// Délègue la persistance à QuestRepository.
+/// ViewModel d'état UI pour la création de quête.
+/// Délègue création/mise à jour à QuestViewModel (source de vérité unique),
+/// qui persiste via le repo ET met à jour la liste partagée + notifie.
 class CreateQuestViewModel extends ChangeNotifier {
-  final QuestRepository _questRepo;
+  final QuestViewModel _questVM;
   final AuthViewModel _auth;
 
   bool _isLoading = false;
   String? _errorMessage;
 
-  CreateQuestViewModel(this._questRepo, this._auth);
+  CreateQuestViewModel(this._questVM, this._auth);
 
   final List<String> categories = [
     'Maison',
@@ -63,7 +64,7 @@ class CreateQuestViewModel extends ChangeNotifier {
         validationType: validationType,
         deadline: deadline,
       );
-      await _questRepo.addQuest(quest);
+      await _questVM.addQuest(quest);
       _isLoading = false;
       notifyListeners();
       return true;
@@ -80,7 +81,7 @@ class CreateQuestViewModel extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
     try {
-      await _questRepo.updateQuest(quest);
+      await _questVM.updateQuest(quest);
       _isLoading = false;
       notifyListeners();
       return true;

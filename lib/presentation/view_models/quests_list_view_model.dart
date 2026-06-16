@@ -1,31 +1,36 @@
 import 'package:flutter/foundation.dart';
 import '../../data/models/quest_model.dart';
-import '../../data/repositories/quest_repository.dart';
-import '../../domain/services/notification_service.dart';
 import './auth_view_model.dart';
+import './quest_view_model.dart';
 
 enum QuestSortOrder { dateDesc, difficultyAsc, durationAsc }
 
-/// ViewModel pour la liste des quêtes.
-/// Charge, filtre et expose les quêtes via QuestRepository.
+/// ViewModel d'état UI pour la liste des quêtes (filtres, recherche, tri).
+/// Ne détient PAS de snapshot : la liste canonique vit dans QuestViewModel
+/// (source de vérité unique). Ce VM forwarde les notifications du VM source
+/// pour que ses Consumers se reconstruisent quand la liste change ailleurs.
 class QuestsListViewModel extends ChangeNotifier {
-  final QuestRepository _questRepo;
+  final QuestViewModel _questVM;
   final AuthViewModel _auth;
-
-  List<Quest> _quests = [];
-  bool _isLoading = false;
-  String? _error;
 
   String? _categoryFilter;
   QuestFrequency? _frequencyFilter;
   QuestSortOrder _sortOrder = QuestSortOrder.dateDesc;
   String _searchQuery = '';
 
-  QuestsListViewModel(this._questRepo, this._auth);
+  QuestsListViewModel(this._questVM, this._auth) {
+    _questVM.addListener(notifyListeners);
+  }
 
-  List<Quest> get quests => _quests;
-  bool get isLoading => _isLoading;
-  String? get error => _error;
+  @override
+  void dispose() {
+    _questVM.removeListener(notifyListeners);
+    super.dispose();
+  }
+
+  List<Quest> get quests => _questVM.quests;
+  bool get isLoading => _questVM.isLoading;
+  String? get error => _questVM.error;
   String? get categoryFilter => _categoryFilter;
   QuestFrequency? get frequencyFilter => _frequencyFilter;
   QuestSortOrder get sortOrder => _sortOrder;
@@ -33,27 +38,22 @@ class QuestsListViewModel extends ChangeNotifier {
 
   /// Catégories distinctes parmi les quêtes actives.
   List<String> get availableCategories {
-    final cats = _quests
-        .where((q) => q.status == QuestStatus.active)
-        .map((q) => q.category)
-        .toSet()
-        .toList()
-      ..sort();
+    final cats = activeQuests.map((q) => q.category).toSet().toList()..sort();
     return cats;
   }
 
-  List<Quest> get activeQuests =>
-      _quests.where((q) => q.status == QuestStatus.active).toList();
-
-  List<Quest> get completedQuests =>
-      _quests.where((q) => q.status == QuestStatus.completed).toList();
+  // Active/completed dérivent de la source de vérité (pas de re-filtrage local).
+  List<Quest> get activeQuests => _questVM.activeQuests;
+  List<Quest> get completedQuests => _questVM.completedQuests;
 
   /// Quêtes actives après application des filtres, de la recherche et du tri.
   List<Quest> get filteredActiveQuests {
     var list = activeQuests;
 
     if (_searchQuery.isNotEmpty) {
-      list = list.where((q) => q.title.toLowerCase().contains(_searchQuery)).toList();
+      list = list
+          .where((q) => q.title.toLowerCase().contains(_searchQuery))
+          .toList();
     }
     if (_categoryFilter != null) {
       list = list.where((q) => q.category == _categoryFilter).toList();
@@ -65,7 +65,8 @@ class QuestsListViewModel extends ChangeNotifier {
     list = List.of(list)
       ..sort((a, b) => switch (_sortOrder) {
             QuestSortOrder.dateDesc => b.createdAt.compareTo(a.createdAt),
-            QuestSortOrder.difficultyAsc => a.difficulty.compareTo(b.difficulty),
+            QuestSortOrder.difficultyAsc =>
+              a.difficulty.compareTo(b.difficulty),
             QuestSortOrder.durationAsc =>
               a.estimatedDurationMinutes.compareTo(b.estimatedDurationMinutes),
           });
@@ -113,46 +114,23 @@ class QuestsListViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Délègue le chargement à la source de vérité (QuestViewModel).
   Future<void> loadQuests() async {
     final userId = _auth.userId;
     if (userId == null || userId.isEmpty) {
       debugPrint('QuestsListViewModel: userId vide, chargement annulé');
-      _quests = [];
-      _isLoading = false;
-      notifyListeners();
       return;
     }
-
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-
-    try {
-      _quests = await _questRepo.loadQuests(userId);
-    } catch (e) {
-      debugPrint('QuestsListViewModel: erreur chargement: $e');
-      _error = 'Impossible de charger les quêtes. Vérifiez votre connexion.';
-      _quests = [];
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
+    await _questVM.loadQuests(userId);
   }
 
+  /// Délègue la suppression à la source de vérité (QuestViewModel),
+  /// qui retire la quête de la liste partagée, annule le rappel et notifie.
   Future<void> deleteQuest(String questId) async {
-    try {
-      await _questRepo.deleteQuest(questId);
-      _quests.removeWhere((q) => q.id == questId);
-      notifyListeners();
-      await NotificationService.cancelQuestDeadlineReminder(questId);
-    } catch (e) {
-      debugPrint('QuestsListViewModel: erreur suppression: $e');
-      rethrow;
-    }
+    await _questVM.deleteQuest(questId);
   }
 
   void clearError() {
-    _error = null;
-    notifyListeners();
+    _questVM.clearError();
   }
 }

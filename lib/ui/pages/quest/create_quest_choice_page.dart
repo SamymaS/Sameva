@@ -62,7 +62,7 @@ class CreateQuestChoicePage extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'Laissez Claude IA créer des quêtes adaptées à votre profil.',
+              'Laissez MougiBot créer des quêtes adaptées à votre profil.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),

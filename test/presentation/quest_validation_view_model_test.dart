@@ -7,6 +7,7 @@ import 'package:sameva/data/repositories/quest_repository.dart';
 import 'package:sameva/domain/services/validation_ai_service.dart';
 import 'package:sameva/presentation/view_models/auth_view_model.dart';
 import 'package:sameva/presentation/view_models/quest_validation_view_model.dart';
+import 'package:sameva/presentation/view_models/quest_view_model.dart';
 
 class _MockAuth extends Mock implements AuthViewModel {}
 
@@ -41,7 +42,8 @@ void main() {
     auth = _MockAuth();
     repo = _MockQuestRepo();
     ai = _MockValidationAI();
-    vm = QuestValidationViewModel(auth, repo, validationService: ai);
+    // La complétion passe par la source de vérité (QuestViewModel) qui délègue au repo.
+    vm = QuestValidationViewModel(auth, QuestViewModel(repo), validationService: ai);
     when(
       () => ai.analyzeVideoProof(
         quest: any(named: 'quest'),

@@ -3,29 +3,28 @@ import 'package:flutter/material.dart';
 import '../../data/models/quest_model.dart';
 import '../../data/models/player_stats_model.dart';
 import '../../data/repositories/player_repository.dart';
-import '../../data/repositories/quest_repository.dart';
 import './auth_view_model.dart';
+import './quest_view_model.dart';
 
 /// ViewModel pour la page Profil.
-/// Charge et expose les stats joueur et les quêtes via les repositories.
+/// Stats joueur via PlayerRepository (offline-first). Les quêtes sont lues
+/// depuis QuestViewModel (source de vérité unique) — pas de snapshot parallèle.
 class ProfileViewModel extends ChangeNotifier {
   final AuthViewModel _auth;
   final PlayerRepository _playerRepo;
-  final QuestRepository _questRepo;
+  final QuestViewModel _questVM;
 
   PlayerStats? _stats;
-  List<Quest> _quests = [];
   bool _isLoading = true;
 
-  ProfileViewModel(this._auth, this._playerRepo, this._questRepo);
+  ProfileViewModel(this._auth, this._playerRepo, this._questVM);
 
   bool get isLoading => _isLoading;
   PlayerStats? get stats => _stats;
-  List<Quest> get quests => _quests;
+  List<Quest> get quests => _questVM.quests;
   String? get userEmail => _auth.user?.email;
 
-  List<Quest> get completedQuests =>
-      _quests.where((q) => q.status == QuestStatus.completed).toList();
+  List<Quest> get completedQuests => _questVM.completedQuests;
 
   int get streak => _stats?.streak ?? 0;
   int get completedCount => completedQuests.length;
@@ -52,11 +51,10 @@ class ProfileViewModel extends ChangeNotifier {
       debugPrint('ProfileViewModel: erreur sync stats: $e');
     }
 
-    try {
-      _quests = await _questRepo.loadQuests(userId);
-    } catch (e) {
-      debugPrint('ProfileViewModel: erreur chargement quêtes: $e');
-      _quests = [];
+    // Quêtes : source de vérité unique. On déclenche un chargement seulement
+    // si la liste partagée est vide (évite d'écraser un état déjà à jour).
+    if (_questVM.quests.isEmpty) {
+      await _questVM.loadQuests(userId);
     }
 
     _isLoading = false;
