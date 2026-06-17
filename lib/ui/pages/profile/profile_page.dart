@@ -9,6 +9,7 @@ import '../social/leaderboard_page.dart';
 import '../inventory/inventory_page.dart';
 import 'activity_log_page.dart';
 import '../../../data/repositories/player_repository.dart';
+import '../../../presentation/view_models/ai_validation_credits_service.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/view_models/cat_view_model.dart';
 import '../../../presentation/view_models/equipment_view_model.dart';
@@ -145,6 +146,10 @@ class _ProfileContent extends StatelessWidget {
               delegate: SliverChildListDelegate([
                 // Ligne de stats rapides
                 _QuickStatsRow(stats: stats, vm: vm),
+                const SizedBox(height: 16),
+
+                // Premium (CTA abonnement ou statut actif)
+                const _PremiumSection(),
                 const SizedBox(height: 16),
 
                 // Équipement résumé
@@ -481,6 +486,179 @@ class _StatChip extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ─── Premium ──────────────────────────────────────────────────────────────────
+
+/// Section Premium de la page Profil.
+///
+/// Point d'entrée permanent vers l'abonnement (le sheet « plus de jetons » ne
+/// s'affiche qu'au gating à 0 jeton). Affiche :
+/// - si premium actif → statut + date d'expiration ;
+/// - sinon → CTA « Passer à Premium » qui lance le checkout Stripe via
+///   [AiValidationCreditsService.startPremiumCheckout].
+class _PremiumSection extends StatelessWidget {
+  const _PremiumSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final credits = context.watch<AiValidationCreditsService>();
+
+    if (credits.isPremium) {
+      return _PremiumActiveCard(until: credits.premiumUntil);
+    }
+    return _PremiumCtaCard(
+      onSubscribe: () => context
+          .read<AiValidationCreditsService>()
+          .startPremiumCheckout(),
+    );
+  }
+}
+
+/// Carte affichée quand l'abonnement Premium est actif.
+class _PremiumActiveCard extends StatelessWidget {
+  final DateTime? until;
+
+  const _PremiumActiveCard({required this.until});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.gold.withValues(alpha: 0.18),
+            AppColors.primaryViolet.withValues(alpha: 0.18),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.gold.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.workspace_premium, color: AppColors.gold, size: 28),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Premium actif',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  until != null
+                      ? 'Validations IA illimitées · renouvellement le ${_formatDate(until!)}'
+                      : 'Validations IA illimitées',
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _formatDate(DateTime d) {
+    final local = d.toLocal();
+    final jj = local.day.toString().padLeft(2, '0');
+    final mm = local.month.toString().padLeft(2, '0');
+    return '$jj/$mm/${local.year}';
+  }
+}
+
+/// Carte d'appel à l'action vers l'abonnement Premium (non abonné).
+class _PremiumCtaCard extends StatelessWidget {
+  final VoidCallback onSubscribe;
+
+  const _PremiumCtaCard({required this.onSubscribe});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.primaryViolet.withValues(alpha: 0.20),
+            AppColors.primaryTurquoise.withValues(alpha: 0.12),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border:
+            Border.all(color: AppColors.primaryViolet.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.workspace_premium,
+                  color: AppColors.primaryVioletLight, size: 24),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Sameva Premium',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Validations MougiBot illimitées — débloque l\'analyse IA de '
+            'toutes tes preuves de quête, sans compter les jetons.',
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              key: const Key('cta_premium_profil'),
+              onPressed: onSubscribe,
+              icon: const Icon(Icons.diamond_outlined, size: 18),
+              label: const Text('Passer à Premium'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primaryViolet,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                textStyle: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
