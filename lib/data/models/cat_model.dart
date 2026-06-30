@@ -78,13 +78,8 @@ class CatStats {
   static const _validRaces = {
     'michi', 'lune', 'braise', 'neige', 'cosmos', 'sakura'
   };
-  // TODO(rarity-mismatch) : _validRarities contient 'special'
-  // absent du CHECK SQL companions_rarity_check. Aligner avant
-  // implémentation feature gacha (sinon upsert silencieusement
-  // rejeté). Valeurs SQL valides : common, uncommon, rare,
-  // veryRare, epic, legendary, mythic.
   static const _validRarities = {
-    'common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic', 'special'
+    'common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'
   };
 
   static String _safeRace(String? value) =>

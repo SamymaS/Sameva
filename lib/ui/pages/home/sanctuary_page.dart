@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
+import '../../../config/feature_flags.dart';
 import '../../../data/models/quest_model.dart';
 import '../../../domain/services/achievement_service.dart';
 import '../../../domain/services/cat_mood_service.dart';
@@ -236,6 +237,7 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
 
                         // ── Boss hebdomadaire ──────────────────────────
                         ...() {
+                          if (!FeatureFlags.showWeeklyBoss) return <Widget>[];
                           final boss = quests.activeQuests
                               .where((q) => q.category == 'boss')
                               .toList();

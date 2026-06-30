@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
+import '../../../config/feature_flags.dart';
 import '../../../data/models/cat_model.dart';
 import '../../../data/models/item_model.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
@@ -451,25 +452,34 @@ class _CosmeticSlots extends StatelessWidget {
 
   const _CosmeticSlots({required this.cat, required this.catProvider});
 
-  static const _slots = [
-    (slot: 'hat',       label: 'Chapeau',      icon: Icons.dry_outlined),
-    (slot: 'outfit',    label: 'Tenue',        icon: Icons.checkroom_outlined),
-    (slot: 'pants',     label: 'Pantalon',     icon: Icons.accessibility_outlined),
-    (slot: 'shoes',     label: 'Chaussures',   icon: Icons.directions_walk_outlined),
-    (slot: 'aura',      label: 'Aura',         icon: Icons.auto_awesome_outlined),
-    (slot: 'accessory', label: 'Accessoire',   icon: Icons.diamond_outlined),
-    (slot: 'title',     label: 'Titre',        icon: Icons.workspace_premium_outlined),
+  // Slots de base toujours visibles + slots extra masqués pour le MVP
+  // (showExtraCosmeticSlots) : Pantalon, Chaussures, Accessoire, Titre.
+  static const _baseSlots = [
+    (slot: 'hat',    label: 'Chapeau', icon: Icons.dry_outlined),
+    (slot: 'outfit', label: 'Tenue',   icon: Icons.checkroom_outlined),
+    (slot: 'aura',   label: 'Aura',    icon: Icons.auto_awesome_outlined),
+  ];
+
+  static const _extraSlots = [
+    (slot: 'pants',     label: 'Pantalon',   icon: Icons.accessibility_outlined),
+    (slot: 'shoes',     label: 'Chaussures', icon: Icons.directions_walk_outlined),
+    (slot: 'accessory', label: 'Accessoire', icon: Icons.diamond_outlined),
+    (slot: 'title',     label: 'Titre',      icon: Icons.workspace_premium_outlined),
   ];
 
   @override
   Widget build(BuildContext context) {
+    final slots = [
+      ..._baseSlots,
+      if (FeatureFlags.showExtraCosmeticSlots) ..._extraSlots,
+    ];
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Wrap(
         spacing: 12,
         runSpacing: 14,
         alignment: WrapAlignment.center,
-        children: _slots.map((s) {
+        children: slots.map((s) {
           final equipped = _equippedForSlot(s.slot);
           return _SlotButton(
             label: s.label,
