@@ -62,6 +62,11 @@ class AiValidationCreditsService extends ChangeNotifier {
   /// Vrai si un checkout Stripe a été initié (pour déclencher le refresh au resume).
   bool _checkoutInitiated = false;
 
+  /// Vrai si un poll d'entitlement est actuellement en cours.
+  /// Empêche les polls concurrents quand l'utilisateur alterne avant/arrière
+  /// plusieurs fois pendant que le premier poll tourne encore.
+  bool _pollInProgress = false;
+
   StreamSubscription<void>? _signedOutSub;
   StreamSubscription<void>? _signedInSub;
 
@@ -238,8 +243,14 @@ class AiValidationCreditsService extends ChangeNotifier {
 
   /// Vide le state en mémoire au logout (sans purger Hive).
   /// Les données restent en Hive isolées par userId.
+  ///
+  /// Invalide également les flags de poll ([_checkoutInitiated] et
+  /// [_pollInProgress]) pour qu'un logout ou changement d'utilisateur
+  /// n'empêche pas un nouveau checkout d'être suivi correctement.
   void reset() {
     _userId = null;
+    _checkoutInitiated = false;
+    _pollInProgress = false;
     _state = AiValidationState.empty();
     notifyListeners();
   }
@@ -415,10 +426,15 @@ class AiValidationCreditsService extends ChangeNotifier {
   /// - Le JWT est passé automatiquement par le client Supabase authentifié.
   /// - L'URL de la session Stripe est ouverte dans le navigateur externe.
   /// - [checkoutUrl] peut être injecté en test pour court-circuiter l'invoke.
+  ///
+  /// Garde : no-op immédiat si l'utilisateur est déjà premium (protection financière).
   Future<void> startPremiumCheckout({
     SupabaseClient? supabaseClient,
     Future<String?> Function()? checkoutUrlProvider,
   }) async {
+    // Garde financière : inutile d'ouvrir un nouveau checkout si premium actif.
+    if (_state.isPremium) return;
+
     try {
       String? url;
 
@@ -455,24 +471,60 @@ class AiValidationCreditsService extends ChangeNotifier {
 
   /// Appelé au resume de l'app si un checkout a été initié.
   ///
-  /// Effectue un poll court (3 tentatives espacées de 2 s) car le webhook Stripe
-  /// est asynchrone — l'entitlement peut ne pas être encore à jour immédiatement.
-  Future<void> onAppResumedAfterCheckout() async {
+  /// Effectue un poll avec backoff progressif (8 tentatives, ~30 s) pour couvrir
+  /// la latence variable du webhook Stripe. Arrête dès que [isPremium] bascule true.
+  ///
+  /// Chaque tentative passe par [refreshEntitlement] → [_fetchAndApplyPremiumEntitlement]
+  /// → [notifyListeners] : la propagation UI est automatique, sans redémarrage.
+  ///
+  /// Le flag [_checkoutInitiated] est réinitialisé à la FIN (succès ou épuisement),
+  /// pas au début — des resumes successifs pendant l'attente ne lancent pas un second
+  /// poll concurrent (protégé par [_pollInProgress]).
+  ///
+  /// [delayProvider] : injectable en test pour court-circuiter les vraies durées.
+  /// En production, laissé null → délais backoff par défaut.
+  Future<void> onAppResumedAfterCheckout({
+    Duration Function(int attempt)? delayProvider,
+  }) async {
     if (!_checkoutInitiated) return;
-    _checkoutInitiated = false;
+    // Un poll est déjà en cours : on laisse le cycle actuel se terminer.
+    if (_pollInProgress) return;
 
-    // Poll : jusqu'à 3 tentatives espacées de 2 secondes.
-    const maxTentatives = 3;
-    const delai = Duration(seconds: 2);
+    _pollInProgress = true;
 
-    for (var i = 0; i < maxTentatives; i++) {
-      await refreshEntitlement();
-      if (_state.isPremium) return; // succès : premium confirmé
-      if (i < maxTentatives - 1) {
-        await Future<void>.delayed(delai);
+    // Délais progressifs en secondes entre les tentatives.
+    // 8 tentatives × ~30 s de couverture totale (2+3+4+5+5+5+5 = 29 s entre les polls).
+    const delaisSecondes = [2, 3, 4, 5, 5, 5, 5];
+
+    try {
+      for (var i = 0; i <= delaisSecondes.length; i++) {
+        await refreshEntitlement();
+        if (_state.isPremium) {
+          // Succès : entitlement confirmé, UI déjà notifiée par refreshEntitlement.
+          _checkoutInitiated = false;
+          return;
+        }
+        if (i < delaisSecondes.length) {
+          final delay = delayProvider != null
+              ? delayProvider(i)
+              : Duration(seconds: delaisSecondes[i]);
+          await Future<void>.delayed(delay);
+        }
       }
+      // Épuisement : le webhook Stripe était trop lent.
+      // L'utilisateur obtiendra son statut au prochain load (redémarrage ou reconnexion).
+      _checkoutInitiated = false;
+    } on Exception catch (e) {
+      // Defense in depth : refreshEntitlement() ne lève jamais en pratique
+      // (son propre try/catch absorbe toutes les erreurs réseau/Hive).
+      // Ce catch protège contre un futur refactoring qui retirerait ce garde-fou.
+      // _checkoutInitiated reste true → le prochain resume retentera.
+      debugPrint(
+        'AiValidationCreditsService.onAppResumedAfterCheckout: erreur inattendue: $e',
+      );
+    } finally {
+      _pollInProgress = false;
     }
-    // Dernier refresh même si toujours non premium (peut arriver si le webhook est lent).
   }
 
   /// Met à jour le statut premium.
@@ -596,4 +648,23 @@ class AiValidationCreditsService extends ChangeNotifier {
     await grantOnboarding();
     await grantDailyIfDue(DateTime.now());
   }
+
+  // ---- Helpers de test ----
+
+  /// Marque le checkout comme initié, pour les tests du mécanisme de poll.
+  ///
+  /// En production, [_checkoutInitiated] est positionné uniquement par
+  /// [startPremiumCheckout] après l'ouverture réussie du navigateur externe.
+  /// Ce helper permet aux tests d'atteindre [onAppResumedAfterCheckout] sans
+  /// appeler [launchUrl] (non disponible dans l'environnement de test).
+  @visibleForTesting
+  void markCheckoutInitiatedForTest() => _checkoutInitiated = true;
+
+  /// Expose [_checkoutInitiated] en lecture pour les tests.
+  @visibleForTesting
+  bool get checkoutInitiatedForTest => _checkoutInitiated;
+
+  /// Expose [_pollInProgress] en lecture pour les tests.
+  @visibleForTesting
+  bool get pollInProgressForTest => _pollInProgress;
 }

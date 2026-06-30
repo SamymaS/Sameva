@@ -409,6 +409,138 @@ void main() {
         returnsNormally,
       );
     });
+
+    test(
+      'garde financière : isPremium=true → checkoutUrlProvider jamais invoqué ; '
+      'contrôle positif : isPremium=false → provider bien invoqué',
+      () async {
+        // ── Cas négatif (garde financière) ────────────────────────────────────
+        // Service RÉEL (pas de surcharge de startPremiumCheckout) dont l'état Hive
+        // porte isPremium=true. La garde `if (_state.isPremium) return;` doit
+        // court-circuiter avant toute création de session Stripe.
+        final etatPremium = AiValidationState(
+          balance: 0,
+          isPremium: true,
+          updatedAt: DateTime.now().toUtc(),
+        );
+        when(() => box.get(_hiveKey)).thenReturn(etatPremium.toJson());
+        when(() => box.put(any(), any())).thenAnswer((_) async {});
+
+        final servicePremium = AiValidationCreditsService(
+          box,
+          testUserId: _userId,
+        );
+        await servicePremium.load(_userId);
+
+        expect(servicePremium.isPremium, isTrue,
+            reason: 'Précondition : le service doit être en mode premium');
+
+        var urlProviderCalled = false;
+        await servicePremium.startPremiumCheckout(
+          checkoutUrlProvider: () async {
+            urlProviderCalled = true;
+            return null;
+          },
+        );
+
+        expect(
+          urlProviderCalled,
+          isFalse,
+          reason:
+              'La garde financière `if (_state.isPremium) return;` doit '
+              'court-circuiter avant checkoutUrlProvider quand isPremium=true — '
+              'risque de double-checkout Stripe',
+        );
+
+        // ── Contrôle positif ──────────────────────────────────────────────────
+        // Prouve que le test détecterait une garde absente ou cassée :
+        // quand isPremium=false, le même provider DOIT être invoqué.
+        when(() => box.get(_hiveKey)).thenReturn(null);
+
+        final serviceLibre = AiValidationCreditsService(
+          box,
+          testUserId: _userId,
+        );
+        await serviceLibre.load(_userId);
+
+        expect(serviceLibre.isPremium, isFalse,
+            reason: 'Précondition contrôle positif : service non premium');
+
+        var urlProviderCalledLibre = false;
+        await serviceLibre.startPremiumCheckout(
+          checkoutUrlProvider: () async {
+            urlProviderCalledLibre = true;
+            return null; // null → court-circuite launchUrl proprement après l'appel
+          },
+        );
+
+        expect(
+          urlProviderCalledLibre,
+          isTrue,
+          reason:
+              'Contrôle positif : checkoutUrlProvider DOIT être appelé '
+              'quand isPremium=false — prouve que la garde ne bloque pas à tort',
+        );
+      },
+    );
+  });
+
+  // ==========================================================================
+  // reset() — invalidation des flags de poll
+  // ==========================================================================
+
+  group('reset() — invalidation des flags de poll', () {
+    test(
+      'reset() pendant un poll actif : '
+      '_checkoutInitiated=false et _pollInProgress=false immédiatement',
+      () async {
+        when(() => premiumRepo.fetchForUser(_userId)).thenAnswer(
+          (_) async => const PremiumEntitlement.libre(),
+        );
+
+        final service = _buildService(
+          box: box,
+          premiumRepo: premiumRepo,
+        );
+        await service.load(_userId);
+
+        // Démarre un poll SANS l'attendre.
+        // La portion synchrone de onAppResumedAfterCheckout (avant le premier
+        // await refreshEntitlement) positionne _pollInProgress = true
+        // immédiatement. delayProvider = Duration.zero : le poll s'exécutera
+        // rapidement une fois que le Future est résolu.
+        service.markCheckoutInitiatedForTest();
+        final pollEnCours = service.onAppResumedAfterCheckout(
+          delayProvider: (_) => Duration.zero,
+        );
+
+        // Pré-conditions : les deux flags sont actifs avant reset().
+        expect(service.checkoutInitiatedForTest, isTrue,
+            reason: 'précondition : _checkoutInitiated doit être true');
+        expect(service.pollInProgressForTest, isTrue,
+            reason: 'précondition : _pollInProgress doit être true '
+                '(code synchrone avant le premier await a déjà tourné)');
+
+        // reset() doit invalider les deux flags immédiatement (synchrone).
+        service.reset();
+
+        expect(
+          service.checkoutInitiatedForTest,
+          isFalse,
+          reason: 'reset() doit remettre _checkoutInitiated à false : '
+              'un logout invalide tout cycle de checkout en attente',
+        );
+        expect(
+          service.pollInProgressForTest,
+          isFalse,
+          reason: 'reset() doit remettre _pollInProgress à false : '
+              'le verrou doit être libéré pour permettre un nouveau poll',
+        );
+
+        // Nettoyage : laisse le poll initial se terminer (no-op car _userId=null).
+        await pollEnCours;
+      },
+    );
   });
 
   // ==========================================================================
