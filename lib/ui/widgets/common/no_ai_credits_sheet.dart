@@ -139,11 +139,17 @@ class _NoAiCreditsSheetContent extends StatelessWidget {
           _PremiumCtaButton(
             key: const Key('cta_premium'),
             onPressed: () {
+              final svc = context.read<AiValidationCreditsService>();
+              // Garde défensive (couche UI) : ne relance pas le checkout si premium
+              // est déjà actif (ex. webhook arrivé entre l'ouverture du sheet et le tap).
+              // La protection principale est dans startPremiumCheckout() (couche service).
+              if (svc.isPremium) {
+                Navigator.of(context).pop();
+                return;
+              }
               // Ferme le sheet avant d'ouvrir le navigateur (UX propre).
               Navigator.of(context).pop();
-              context
-                  .read<AiValidationCreditsService>()
-                  .startPremiumCheckout();
+              svc.startPremiumCheckout();
             },
           ),
           const SizedBox(height: 20),
