@@ -9,6 +9,9 @@ class FeatureFlags {
   FeatureFlags._();
 
   /// Mini-jeux (page Jeux) — retirée de la DockBar pour le MVP.
+  /// NOTE : `MinigamesPage` n'est actuellement instanciée nulle part
+  /// (code orphelin sous lib/ui/pages/minigames/). Ce flag documente
+  /// l'intention ; la réactivation nécessitera de re-brancher un point d'entrée.
   static const bool showMinigames = false;
 
   /// Classement social (leaderboard).

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../../config/feature_flags.dart';
 import '../../../data/models/item_model.dart';
 import '../../../domain/services/activity_log_service.dart';
 import 'achievements_page.dart';
@@ -100,14 +101,15 @@ class _ProfileContent extends StatelessWidget {
             pinned: true,
             backgroundColor: AppColors.backgroundNightBlue,
             actions: [
-              IconButton(
-                icon: const Icon(Icons.leaderboard_rounded,
-                    color: AppColors.primaryVioletLight, size: 20),
-                tooltip: 'Classement',
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const LeaderboardPage()),
+              if (FeatureFlags.showLeaderboard)
+                IconButton(
+                  icon: const Icon(Icons.leaderboard_rounded,
+                      color: AppColors.primaryVioletLight, size: 20),
+                  tooltip: 'Classement',
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const LeaderboardPage()),
+                  ),
                 ),
-              ),
               IconButton(
                 icon: const Icon(Icons.emoji_events_outlined,
                     color: AppColors.gold, size: 20),
@@ -177,8 +179,10 @@ class _ProfileContent extends StatelessWidget {
                 const SizedBox(height: 16),
 
                 // Historique d'activité
-                _ActivityLogButton(),
-                const SizedBox(height: 16),
+                if (FeatureFlags.showHistory) ...[
+                  _ActivityLogButton(),
+                  const SizedBox(height: 16),
+                ],
 
                 // Déconnexion
                 _LogoutButton(vm: vm),

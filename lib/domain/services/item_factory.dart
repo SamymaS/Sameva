@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
+import '../../config/feature_flags.dart';
 import '../../data/models/item_model.dart';
 import '../../data/models/quest_model.dart';
 
@@ -393,6 +394,18 @@ class ItemFactory {
     },
   ];
 
+  /// Slots cosmétiques masqués hors MVP (cf. FeatureFlags.showExtraCosmeticSlots).
+  /// Les items correspondants sont exclus du gacha et de la boutique pour ne
+  /// pas distribuer de cosmétiques inéquipables (slots cachés dans la CatPage).
+  static const _hiddenCosmeticSlots = {'pants', 'shoes', 'accessory', 'title'};
+
+  /// Filtre une entrée de catalogue selon les feature flags actifs.
+  static bool _isEntryEnabled(Map<String, dynamic> c) {
+    if (FeatureFlags.showExtraCosmeticSlots) return true;
+    if (c['type'] != ItemType.cosmetic) return true;
+    return !_hiddenCosmeticSlots.contains(c['cosmeticSlot']);
+  }
+
   /// Lance les dés et retourne une rareté selon les probabilités gacha.
   static QuestRarity rollGachaRarity() {
     final roll = _random.nextDouble() * 100;
@@ -428,13 +441,14 @@ class ItemFactory {
   /// Si aucun template ne correspond exactement, descend d'un cran de rareté
   /// (au lieu de retomber silencieusement sur le commun).
   static Item generateRandomItem(QuestRarity rarity) {
+    final pool = _catalog.where(_isEntryEnabled).toList();
     QuestRarity target = rarity;
     List<Map<String, dynamic>> matching = const [];
     while (true) {
-      matching = _catalog.where((c) => c['rarity'] == target).toList();
+      matching = pool.where((c) => c['rarity'] == target).toList();
       if (matching.isNotEmpty) break;
       if (target.index == 0) {
-        matching = _catalog;
+        matching = pool;
         break;
       }
       target = QuestRarity.values[target.index - 1];
@@ -531,6 +545,7 @@ class ItemFactory {
   static List<Item> getMarketCatalog() {
     return _catalog
         .where((c) => c['type'] != ItemType.material)
+        .where(_isEntryEnabled)
         .map((c) => Item(
               id: 'market_${c['name']}',
               name: c['name'] as String,
