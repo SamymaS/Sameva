@@ -65,4 +65,17 @@ class ProfileViewModel extends ChangeNotifier {
     await _auth.signOut();
     notifyListeners();
   }
+
+  /// Supprime définitivement le compte (RGPD — droit à l'effacement).
+  ///
+  /// Délègue à [AuthViewModel.deleteAccount()]. Sur succès,
+  /// [AuthViewModel.signOut()] est appelé en interne, ce qui propage
+  /// [AuthViewModel.onSignedOut] vers tous les ViewModels abonnés.
+  ///
+  /// Lance une [Exception] sur tout échec — l'appelant doit afficher
+  /// le message d'erreur sans déconnecter l'utilisateur.
+  Future<void> deleteAccount() async {
+    await _auth.deleteAccount();
+    notifyListeners();
+  }
 }
