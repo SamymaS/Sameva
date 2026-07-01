@@ -130,13 +130,46 @@ void main() {
       expect(find.text('Sanctuaire'), findsOneWidget);
     });
 
-    testWidgets('affiche l\'indicateur de série (streak)', (tester) async {
+    testWidgets('affiche l\'indicateur de série dans _StatsCard (corps de page)', (tester) async {
       await tester.pumpWidget(_buildSanctuary());
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      // streak = 3 → affiche '3j'
-      expect(find.text('3j'), findsOneWidget);
+      // streak = 3 → affiché dans _StatsCard sous la forme "3 jours"
+      expect(find.text('3 jours'), findsOneWidget);
+    });
+
+    testWidgets('le badge streak N\'est PAS dans l\'AppBar', (tester) async {
+      await tester.pumpWidget(_buildSanctuary());
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Le format court "3j" (unique à l'ancien badge AppBar) ne doit plus exister
+      expect(find.text('3j'), findsNothing);
+    });
+
+    testWidgets('l\'AppBar se construit sans erreur et sans badge streak', (tester) async {
+      await tester.pumpWidget(_buildSanctuary());
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // L'AppBar (SliverAppBar) existe toujours avec son titre
+      expect(find.text('Sanctuaire'), findsOneWidget);
+      // Aucun widget Icon fire dans l'AppBar (ancien badge)
+      // — on vérifie via l'absence du texte court qui était exclusif à l'AppBar
+      expect(find.text('3j'), findsNothing);
+      // Le streak est bien dans le corps (body), pas dans l'AppBar
+      expect(find.text('3 jours'), findsOneWidget);
+    });
+
+    testWidgets('le streak dans _StatsCard est contextualisé avec HP', (tester) async {
+      await tester.pumpWidget(_buildSanctuary());
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // _StatsCard montre HP et streak dans la même rangée
+      expect(find.text('100 / 100 HP'), findsOneWidget);
+      expect(find.text('3 jours'), findsOneWidget);
     });
 
     testWidgets('affiche la carte de stats XP/HP quand les stats sont chargées',
