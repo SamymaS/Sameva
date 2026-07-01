@@ -22,6 +22,7 @@ import '../../theme/app_colors.dart';
 import '../../utils/app_notification.dart';
 import '../../widgets/cat/cat_widget.dart';
 import '../../widgets/common/rarity_badge.dart';
+import 'delete_account_confirm_dialog.dart';
 
 
 class ProfilePage extends StatefulWidget {
@@ -186,7 +187,13 @@ class _ProfileContent extends StatelessWidget {
 
                 // Déconnexion
                 _LogoutButton(vm: vm),
+                const SizedBox(height: 24),
+
+                // Zone dangereuse — suppression de compte (RGPD)
+                const _DangerZoneDivider(),
                 const SizedBox(height: 16),
+                _DeleteAccountButton(vm: vm),
+                const SizedBox(height: 32),
               ]),
             ),
           ),
@@ -1228,6 +1235,79 @@ class _ActivityLogButton extends StatelessWidget {
         minimumSize: const Size.fromHeight(44),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
+    );
+  }
+}
+
+// ─── Séparateur zone dangereuse ───────────────────────────────────────────────
+
+class _DangerZoneDivider extends StatelessWidget {
+  const _DangerZoneDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Divider(
+            color: AppColors.error.withValues(alpha: 0.35),
+            thickness: 1,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text(
+            'ZONE SENSIBLE',
+            style: TextStyle(
+              color: AppColors.error.withValues(alpha: 0.55),
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.4,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Divider(
+            color: AppColors.error.withValues(alpha: 0.35),
+            thickness: 1,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Suppression de compte (RGPD) ─────────────────────────────────────────────
+
+class _DeleteAccountButton extends StatelessWidget {
+  final ProfileViewModel vm;
+
+  const _DeleteAccountButton({required this.vm});
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      key: const Key('btn_delete_account'),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppColors.error,
+        side: BorderSide(color: AppColors.error.withValues(alpha: 0.7)),
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      onPressed: () => _openConfirmDialog(context),
+      icon: const Icon(Icons.delete_forever_outlined, size: 20),
+      label: const Text(
+        'Supprimer mon compte',
+        style: TextStyle(fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+
+  void _openConfirmDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => DeleteAccountConfirmDialog(vm: vm),
     );
   }
 }

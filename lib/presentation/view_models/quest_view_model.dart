@@ -26,6 +26,16 @@ class QuestViewModel with ChangeNotifier {
     notifyListeners();
   }
 
+  /// Vide le cache des quêtes en mémoire sans toucher la persistance.
+  ///
+  /// Appelé lors d'un effacement de compte RGPD : QuestViewModel n'est pas
+  /// abonné au stream [AuthViewModel.onSignedOut], donc ce reset doit être
+  /// déclenché explicitement par l'UI de suppression de compte.
+  void clearCache() {
+    _quests = [];
+    notifyListeners();
+  }
+
   Future<void> loadQuests(String userId) async {
     if (userId.isEmpty) {
       _quests = [];
