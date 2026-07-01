@@ -2,7 +2,8 @@
 ///
 /// Ce que prouvent ces tests :
 /// 1. Bouton de suppression inactif tant que la case n'est pas cochée.
-/// 2. Sur succès : dialog fermé + QuestViewModel.clearCache() appelé.
+/// 2. Sur succès : dialog fermé + QuestViewModel vidé via le stream onSignedOut
+///    (plus d'appel explicite clearCache() dans le dialog — prouve l'abonnement).
 /// 3. Sur échec partiel : PAS de fermeture, message d'erreur affiché,
 ///    bouton réactivé pour permettre une nouvelle tentative.
 /// 4. Bouton non re-cliquable pendant l'appel réseau (un seul invoke même
@@ -208,8 +209,14 @@ void main() {
   // ────────────────────────────────────────────────────────────────────────────
   group('DeleteAccountConfirmDialog — succès', () {
     testWidgets(
-        'ferme le dialog et vide le cache quêtes sur succès',
+        'ferme le dialog et vide le cache quêtes via onSignedOut sur succès',
         (tester) async {
+      // ── Stream onSignedOut contrôlé par le test ──────────────────────────
+      // Simule ce que produirait deleteAccount → signOut → _signedOutController.add(null).
+      // sync: true : delivery synchrone → clearCache() s'exécute pendant le stub,
+      // garantissant que le cache est vide quand _onConfirmDelete continue.
+      final signedOutCtrl = StreamController<void>.broadcast(sync: true);
+
       // ── VMs construits à la main pour contrôler les quêtes pré-chargées ──
       final authVm = _MockAuthViewModel();
       final mockUser = _MockUser();
@@ -221,12 +228,17 @@ void main() {
       when(() => authVm.isLoading).thenReturn(false);
       when(() => authVm.errorMessage).thenReturn(null);
       when(() => authVm.onSignedOut)
-          .thenAnswer((_) => const Stream<void>.empty());
+          .thenAnswer((_) => signedOutCtrl.stream);
       when(() => authVm.onSignedIn)
           .thenAnswer((_) => const Stream<void>.empty());
-      when(() => authVm.deleteAccount()).thenAnswer((_) async {});
+      // Le stub émet sur le stream (simule le onSignedOut que signOut() déclencherait).
+      // Prouve que c'est l'ABONNEMENT (pas un clearCache() explicite dans le dialog)
+      // qui vide le cache des quêtes.
+      when(() => authVm.deleteAccount()).thenAnswer((_) async {
+        signedOutCtrl.add(null);
+      });
 
-      // QuestViewModel avec une quête active (deadline null → pas de notification)
+      // QuestViewModel abonné au stream — reçoit onSignedOut → clearCache().
       final questRepo = _MockQuestRepository();
       final fakeQuest = Quest(
         id: 'q-rgpd-clear-1',
@@ -243,7 +255,9 @@ void main() {
       );
       when(() => questRepo.loadQuests('uid-test'))
           .thenAnswer((_) async => [fakeQuest]);
-      final questVm = QuestViewModel(questRepo);
+      // QuestViewModel connecté au stream — c'est ce câblage qui garantit
+      // le nettoyage sans appel explicite depuis le dialog.
+      final questVm = QuestViewModel(questRepo, onSignedOut: signedOutCtrl.stream);
 
       // Charger les quêtes : QuestViewModel n'écrit pas Hive, pas besoin de
       // runAsync. Le mock repo résout immédiatement le Future.
@@ -276,7 +290,7 @@ void main() {
       await _checkConfirmBox(tester);
       await tester.tap(find.byKey(const Key('btn_confirm_delete')));
       await tester.pump(); // frame 1 : _isLoading = true + lancement de l'appel
-      await tester.pump(); // frame 2 : microtasks (mock future) + Navigator.pop()
+      await tester.pump(); // frame 2 : mock deleteAccount + signedOutCtrl.add(null) + clearCache() + Navigator.pop()
       // Animation de fermeture du dialog (fade-out ~300 ms)
       await tester.pumpAndSettle(const Duration(seconds: 1));
 
@@ -287,13 +301,16 @@ void main() {
       // deleteAccount a été appelé exactement une fois
       verify(() => authVm.deleteAccount()).called(1);
 
-      // ── Assertion principale : clearCache() doit avoir vidé la liste ──────
-      // Ce test ÉCHOUE si clearCache() n'est pas appelé dans _onConfirmDelete.
+      // ── Assertion principale : le stream onSignedOut a vidé la liste ──────
+      // Ce test ÉCHOUE si QuestViewModel n'est pas abonné à onSignedOut.
+      // Il ne dépend plus d'un clearCache() explicite dans le dialog.
       expect(questVm.quests, isEmpty,
           reason:
-              'clearCache() doit avoir vidé la liste des quêtes après suppression');
+              'L\'abonnement onSignedOut doit avoir vidé le cache des quêtes '
+              'sans appel explicite dans le dialog (rustine supprimée en P1)');
 
       await tester.pumpWidget(const SizedBox());
+      await signedOutCtrl.close();
     });
   });
 

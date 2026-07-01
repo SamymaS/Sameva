@@ -204,13 +204,10 @@ class AuthViewModel with ChangeNotifier {
     // ── Succès complet — purge Hive étendue puis signOut ─────────────────
     // Purge des clés per-user non couvertes par _purgeHiveData() au logout.
     await _purgeHivePerUserData(uid);
-    // Fermeture de la fuite RGPD ActivityLogService :
-    // clearLog() couvre les deux vecteurs — _cache = null (mémoire statique)
-    // + _box.delete('activity_log') (clé Hive dans la box 'settings').
-    // Placé ici, sous la même garde success && audit_deleted && auth_user_deleted,
-    // donc jamais exécuté sur échec partiel ou erreur réseau.
-    await ActivityLogService.clearLog();
-    // signOut propage onSignedOut → reset des ViewModels abonnés.
+    // ActivityLogService.clearLog() est désormais appelé par _purgeHiveData()
+    // à l'intérieur de signOut() — supprimé ici pour éviter le double-appel.
+    // Équivalence : _purgeHiveData() est atteint via signOut() → clearLog() s'exécute.
+    // signOut propage onSignedOut → reset des ViewModels abonnés (QuestViewModel inclus).
     // Si l'appel échoue (compte déjà supprimé côté serveur), on force le
     // reset local pour que _AuthGate redirige vers LoginPage.
     try {
@@ -257,6 +254,12 @@ class AuthViewModel with ChangeNotifier {
   /// reset via le stream onSignedOut. La purge Hive est donc redondante
   /// mais idempotente, et garantit qu'aucune donnée locale persiste
   /// même si un VM oublie de s'abonner ou de reset proprement.
+  ///
+  /// ⚠️ CHANGEMENT DE COMPORTEMENT (P1 — 2026-07-01) : ActivityLogService.clearLog()
+  /// est maintenant appelé ici, donc à CHAQUE logout (normal ET suppression de compte).
+  /// Avant P1, clearLog() n'était appelé qu'à la suppression de compte (via deleteAccount).
+  /// La clé 'activity_log' est fixe (non per-user) → vider le log au logout simple est
+  /// plus sûr côté fuite inter-comptes sur appareil partagé. Changement intentionnel.
   Future<void> _purgeHiveData() async {
     try {
       // Stats joueur (PlayerRepository utilise la clé 'stats' dans la box 'playerStats')
@@ -278,6 +281,9 @@ class AuthViewModel with ChangeNotifier {
       if (Hive.isBoxOpen('settings')) {
         await Hive.box('settings').delete('achievements');
       }
+      // Historique d'activité — purgé à chaque logout (clé fixe, sécurité inter-comptes).
+      // Couvre logout simple ET suppression de compte. Voir note ⚠️ ci-dessus.
+      await ActivityLogService.clearLog();
     } catch (e) {
       debugPrint('AuthViewModel: erreur purge Hive au logout: $e');
     }

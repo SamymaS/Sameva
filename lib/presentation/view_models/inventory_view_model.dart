@@ -5,22 +5,40 @@ import '../../data/models/item_model.dart';
 
 /// ViewModel pour l'inventaire joueur (50 slots, stackable).
 /// Persisté localement via la Hive box 'inventory'.
+///
+/// Abonné aux streams [onSignedOut] et [onSignedIn] pour le lifecycle auth
+/// uniforme (pattern identique à CatViewModel) :
+/// - [onSignedOut] → [reset()] : vide l'inventaire et purge la clé Hive fixe.
+/// - [onSignedIn] → [loadInventory()] : recharge (garde idempotente si non vide).
+///
+/// Note P1 : la clé Hive est fixe ('items'), non per-user. La migration vers
+/// des clés per-user est reportée en P1b (hors périmètre P1).
 class InventoryViewModel with ChangeNotifier {
   static const int _maxSlots = 50;
 
   final Box _box;
   StreamSubscription<void>? _signedOutSub;
+  StreamSubscription<void>? _signedInSub;
   List<Item> _items = [];
 
-  InventoryViewModel(this._box, {Stream<void>? onSignedOut}) {
+  InventoryViewModel(this._box, {Stream<void>? onSignedOut, Stream<void>? onSignedIn}) {
     if (onSignedOut != null) {
       _signedOutSub = onSignedOut.listen((_) => reset());
+    }
+    if (onSignedIn != null) {
+      _signedInSub = onSignedIn.listen((_) {
+        // Garde idempotente : si des items sont déjà en mémoire (boot avec session
+        // persistée), ne pas recharger. Après onSignedOut (reset()), _items est vide.
+        if (_items.isNotEmpty) return;
+        loadInventory();
+      });
     }
   }
 
   @override
   void dispose() {
     _signedOutSub?.cancel();
+    _signedInSub?.cancel();
     super.dispose();
   }
 

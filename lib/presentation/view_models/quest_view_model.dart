@@ -1,4 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../../data/models/quest_model.dart';
 import '../../data/repositories/quest_repository.dart';
 import '../../domain/services/notification_service.dart';
@@ -6,14 +10,65 @@ import '../../domain/services/quest_rewards_calculator.dart';
 
 /// ViewModel pour les quêtes (état global partagé entre pages).
 /// Délègue la persistance à QuestRepository.
+///
+/// Abonné aux streams [onSignedOut] et [onSignedIn] pour gérer
+/// le lifecycle auth uniformément (pattern identique à CatViewModel) :
+/// - [onSignedOut] → [clearCache()] : vide les quêtes en mémoire.
+/// - [onSignedIn] → [loadQuests(uid)] : recharge les quêtes (avec garde idempotente).
 class QuestViewModel with ChangeNotifier {
   final QuestRepository _repo;
+
+  /// Injecté en test pour contourner l'accès à Supabase.instance.
+  /// En production, laissé null → accès via Supabase.instance.client.
+  final String? _overrideUserId;
+
+  StreamSubscription<void>? _signedOutSub;
+  StreamSubscription<void>? _signedInSub;
 
   List<Quest> _quests = [];
   bool _isLoading = false;
   String? _error;
 
-  QuestViewModel(this._repo);
+  QuestViewModel(
+    this._repo, {
+    Stream<void>? onSignedOut,
+    Stream<void>? onSignedIn,
+    String? testUserId,
+  }) : _overrideUserId = testUserId {
+    if (onSignedOut != null) {
+      _signedOutSub = onSignedOut.listen((_) => clearCache());
+    }
+    if (onSignedIn != null) {
+      _signedInSub = onSignedIn.listen((_) async {
+        // Garde idempotente : si les quêtes sont déjà en mémoire (ex. SanctuaryPage
+        // KeepAlive qui a déjà déclenché loadQuests()), ne pas recharger.
+        if (_quests.isNotEmpty) return;
+        final uid = _currentUserId;
+        if (uid == null) return;
+        await loadQuests(uid);
+      });
+    }
+  }
+
+  /// Retourne l'identifiant de l'utilisateur courant.
+  /// En production : Supabase.instance.client.auth.currentUser?.id.
+  /// En test : valeur injectée via testUserId (évite l'accès à Supabase.instance).
+  String? get _currentUserId {
+    if (_overrideUserId != null) return _overrideUserId;
+    try {
+      return Supabase.instance.client.auth.currentUser?.id;
+    } catch (_) {
+      // Supabase non initialisé (environnement de test sans testUserId).
+      return null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _signedOutSub?.cancel();
+    _signedInSub?.cancel();
+    super.dispose();
+  }
 
   List<Quest> get quests => _quests;
   bool get isLoading => _isLoading;
@@ -28,9 +83,9 @@ class QuestViewModel with ChangeNotifier {
 
   /// Vide le cache des quêtes en mémoire sans toucher la persistance.
   ///
-  /// Appelé lors d'un effacement de compte RGPD : QuestViewModel n'est pas
-  /// abonné au stream [AuthViewModel.onSignedOut], donc ce reset doit être
-  /// déclenché explicitement par l'UI de suppression de compte.
+  /// Déclenché automatiquement via le stream [onSignedOut] à chaque logout
+  /// (logout normal, expiration de token, suppression de compte).
+  /// Plus d'appel explicite depuis l'UI nécessaire.
   void clearCache() {
     _quests = [];
     notifyListeners();

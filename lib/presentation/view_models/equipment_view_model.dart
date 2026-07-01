@@ -6,9 +6,23 @@ import './inventory_view_model.dart';
 
 /// ViewModel pour l'équipement joueur.
 /// Persisté localement via la Hive box 'equipment'.
+///
+/// Abonné aux streams [onSignedOut] et [onSignedIn] pour le lifecycle auth
+/// uniforme (pattern identique à CatViewModel) :
+/// - [onSignedOut] → [reset()] : vide tous les slots et purge les clés Hive fixes.
+/// - [onSignedIn] → [loadEquipment()] : recharge (garde [_loaded] idempotente).
+///
+/// Note P1 : les clés Hive sont fixes ('equipment', 'cosmetics'), non per-user.
+/// La migration vers des clés per-user est reportée en P1b (hors périmètre P1).
 class EquipmentViewModel with ChangeNotifier {
   final Box _box;
   StreamSubscription<void>? _signedOutSub;
+  StreamSubscription<void>? _signedInSub;
+
+  /// Indique si [loadEquipment()] a déjà été exécuté au moins une fois
+  /// (boot inclus). Remis à false par [reset()] au logout.
+  /// Utilisé comme garde idempotente dans le handler [onSignedIn].
+  bool _loaded = false;
 
   final Map<EquipmentSlot, Item?> _equipped = {
     for (final slot in EquipmentSlot.values) slot: null,
@@ -24,15 +38,25 @@ class EquipmentViewModel with ChangeNotifier {
 
   static const List<String> cosmeticSlots = ['hat', 'outfit', 'pants', 'shoes', 'aura'];
 
-  EquipmentViewModel(this._box, {Stream<void>? onSignedOut}) {
+  EquipmentViewModel(this._box, {Stream<void>? onSignedOut, Stream<void>? onSignedIn}) {
     if (onSignedOut != null) {
       _signedOutSub = onSignedOut.listen((_) => reset());
+    }
+    if (onSignedIn != null) {
+      _signedInSub = onSignedIn.listen((_) {
+        // Garde idempotente : si l'équipement a déjà été chargé au boot
+        // (session persistée), ne pas recharger. Après onSignedOut (reset()),
+        // _loaded == false → rechargement déclenché.
+        if (_loaded) return;
+        loadEquipment();
+      });
     }
   }
 
   @override
   void dispose() {
     _signedOutSub?.cancel();
+    _signedInSub?.cancel();
     super.dispose();
   }
 
@@ -89,6 +113,10 @@ class EquipmentViewModel with ChangeNotifier {
     } catch (e) {
       debugPrint('EquipmentViewModel: erreur chargement: $e');
       notifyListeners();
+    } finally {
+      // Marque le chargement comme effectué (même sur erreur) pour éviter
+      // les tentatives répétées via le handler onSignedIn.
+      _loaded = true;
     }
   }
 
@@ -133,6 +161,7 @@ class EquipmentViewModel with ChangeNotifier {
   }
 
   /// Vide tous les slots équipement + cosmétiques en mémoire et dans Hive (changement de compte).
+  /// Remet [_loaded] à false pour que le handler [onSignedIn] recharge au prochain login.
   Future<void> reset() async {
     for (final slot in EquipmentSlot.values) {
       _equipped[slot] = null;
@@ -140,6 +169,7 @@ class EquipmentViewModel with ChangeNotifier {
     for (final slot in cosmeticSlots) {
       _cosmetics[slot] = null;
     }
+    _loaded = false;
     try {
       await _box.delete('equipment');
       await _box.delete('cosmetics');

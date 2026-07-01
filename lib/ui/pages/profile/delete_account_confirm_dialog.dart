@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import '../../../presentation/view_models/profile_view_model.dart';
-import '../../../presentation/view_models/quest_view_model.dart';
 import '../../theme/app_colors.dart';
 
 /// Dialog de confirmation irréversible à double palier pour la suppression
@@ -208,7 +206,6 @@ class _DeleteAccountConfirmDialogState
   Future<void> _onConfirmDelete(BuildContext context) async {
     // Capturer les références AVANT tout await (règle use_build_context_synchronously).
     final profileVm = widget.vm;
-    final questVm = context.read<QuestViewModel>();
 
     setState(() {
       _isLoading = true;
@@ -217,10 +214,9 @@ class _DeleteAccountConfirmDialogState
 
     try {
       // Appel Edge Function + purge Hive + signOut (via ProfileViewModel).
+      // signOut() propage onSignedOut → QuestViewModel (et tous les VMs abonnés)
+      // se vident automatiquement via leurs StreamSubscriptions.
       await profileVm.deleteAccount();
-
-      // QuestViewModel n'est pas abonné à onSignedOut → vider son cache explicitement.
-      questVm.clearCache();
 
       // _AuthGate détecte l'absence de session et redirige vers LoginPage.
       // On ferme le dialog si le widget est encore monté (cas des tests).

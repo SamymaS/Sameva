@@ -79,10 +79,13 @@ void main() async {
   final equipmentBox       = Hive.box('equipment');
   final catsBox            = Hive.box('cats');
   final aiValidationBox    = Hive.box('aiValidation');
-  final questViewModel      = QuestViewModel(questRepo);
-  final playerViewModel     = PlayerViewModel(playerRepo, onSignedOut: signedOutStream);
-  final inventoryViewModel  = InventoryViewModel(inventoryBox, onSignedOut: signedOutStream)..loadInventory();
-  final equipmentViewModel  = EquipmentViewModel(equipmentBox, onSignedOut: signedOutStream)..loadEquipment();
+  // P1 lifecycle auth : tous les VMs per-user reçoivent maintenant onSignedIn.
+  // onSignedOut → reset() (déjà présent), onSignedIn → rechargement automatique.
+  // La garde idempotente de chaque VM protège du double-load avec SanctuaryPage._load().
+  final questViewModel      = QuestViewModel(questRepo, onSignedOut: signedOutStream, onSignedIn: signedInStream);
+  final playerViewModel     = PlayerViewModel(playerRepo, onSignedOut: signedOutStream, onSignedIn: signedInStream);
+  final inventoryViewModel  = InventoryViewModel(inventoryBox, onSignedOut: signedOutStream, onSignedIn: signedInStream)..loadInventory();
+  final equipmentViewModel  = EquipmentViewModel(equipmentBox, onSignedOut: signedOutStream, onSignedIn: signedInStream)..loadEquipment();
   // loadCats() au boot lit la box Hive avec la clé per-user
   // si un user est déjà connecté (session persistée). Le
   // stream onSignedIn déclenchera un second loadCats() au

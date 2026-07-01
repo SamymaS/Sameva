@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/models/quest_model.dart';
 import '../../data/models/player_stats_model.dart';
 import '../../data/repositories/player_repository.dart';
@@ -15,22 +16,57 @@ export '../../data/models/player_stats_model.dart';
 
 /// ViewModel pour les statistiques joueur (état global).
 /// Délègue la persistance à PlayerRepository — logique métier ici.
+///
+/// Abonné aux streams [onSignedOut] et [onSignedIn] pour le lifecycle auth
+/// uniforme (pattern identique à CatViewModel) :
+/// - [onSignedOut] → [reset()] : vide les stats en mémoire.
+/// - [onSignedIn] → [loadPlayerStats(uid)] : recharge (garde idempotente si déjà chargé).
 class PlayerViewModel with ChangeNotifier {
   final PlayerRepository _repo;
+
+  /// Injecté en test pour contourner l'accès à Supabase.instance.
+  final String? _testUserId;
+
   StreamSubscription<void>? _signedOutSub;
+  StreamSubscription<void>? _signedInSub;
 
   PlayerStats? _stats;
   String? _currentUserId;
 
-  PlayerViewModel(this._repo, {Stream<void>? onSignedOut}) {
+  PlayerViewModel(
+    this._repo, {
+    Stream<void>? onSignedOut,
+    Stream<void>? onSignedIn,
+    String? testUserId,
+  }) : _testUserId = testUserId {
     if (onSignedOut != null) {
       _signedOutSub = onSignedOut.listen((_) => reset());
+    }
+    if (onSignedIn != null) {
+      _signedInSub = onSignedIn.listen((_) async {
+        // Garde idempotente : si les stats sont déjà chargées, ne pas recharger.
+        if (_stats != null) return;
+        final uid = _testUserId ?? _supabaseUserId;
+        if (uid == null) return;
+        await loadPlayerStats(uid);
+      });
+    }
+  }
+
+  /// Résout le userId depuis Supabase (production uniquement).
+  /// Retourne null si Supabase n'est pas initialisé (tests sans injection).
+  String? get _supabaseUserId {
+    try {
+      return Supabase.instance.client.auth.currentUser?.id;
+    } catch (_) {
+      return null;
     }
   }
 
   @override
   void dispose() {
     _signedOutSub?.cancel();
+    _signedInSub?.cancel();
     super.dispose();
   }
 
