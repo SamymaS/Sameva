@@ -1230,7 +1230,7 @@ class _ActionButtons extends StatelessWidget {
       ),
     ));
 
-    // Vendre (désactivé si verrouillé)
+    // Vendre (désactivé si verrouillé : onTap null = pas d'interaction)
     if (buttons.isNotEmpty) buttons.add(const SizedBox(width: 8));
     buttons.add(Expanded(
       child: _ActionBtn(
@@ -1239,7 +1239,7 @@ class _ActionButtons extends StatelessWidget {
         color: item.isLocked ? AppColors.textMuted : AppColors.gold,
         outlined: true,
         onTap: item.isLocked
-            ? () {}
+            ? null
             : () {
                 final price = (item.goldValue * 0.5).round();
                 inventory.removeItem(item.id, force: true);
@@ -1263,7 +1263,9 @@ class _ActionBtn extends StatelessWidget {
   final IconData icon;
   final Color color;
   final bool outlined;
-  final VoidCallback onTap;
+  /// Callback de l'action. Si null, le bouton est visuellement désactivé
+  /// (opacité réduite) et ne répond pas aux taps.
+  final VoidCallback? onTap;
 
   const _ActionBtn({
     required this.label,
@@ -1275,32 +1277,35 @@ class _ActionBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 13),
-        decoration: BoxDecoration(
-          color: outlined ? Colors.transparent : color.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: outlined ? color.withValues(alpha: 0.5) : color,
-            width: outlined ? 1 : 1.5,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 16),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-              ),
+    return Opacity(
+      opacity: onTap == null ? 0.45 : 1.0,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 13),
+          decoration: BoxDecoration(
+            color: outlined ? Colors.transparent : color.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: outlined ? color.withValues(alpha: 0.5) : color,
+              width: outlined ? 1 : 1.5,
             ),
-          ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: color, size: 16),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

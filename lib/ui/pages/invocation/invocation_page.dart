@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -36,6 +38,10 @@ class _InvocationTabState extends State<InvocationTab>
   List<Item>? _multiPullResults;
   int _lastDupeRefund = 0;
 
+  /// Timer périodique qui rafraîchit l'affichage du compte à rebours du
+  /// tirage gratuit. S'auto-annule dès que le tirage redevient disponible.
+  Timer? _countdownTimer;
+
   static const _historyKey = 'gacha_history';
   static const _historyMax = 20;
 
@@ -63,6 +69,25 @@ class _InvocationTabState extends State<InvocationTab>
         CurvedAnimation(parent: _revealController, curve: Curves.easeInOut));
 
     _loadHistory();
+    _startCountdownIfNeeded();
+  }
+
+  /// Démarre un Timer.periodic d'1 seconde pour mettre à jour l'affichage
+  /// du compte à rebours du tirage gratuit. Annule le timer précédent avant
+  /// d'en créer un nouveau. S'arrête dès que le tirage redevient disponible.
+  void _startCountdownIfNeeded() {
+    _countdownTimer?.cancel();
+    if (_canUseFree) return;
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
+      if (_canUseFree) {
+        t.cancel();
+      }
+      setState(() {}); // force le rebuild pour afficher le temps restant à jour
+    });
   }
 
   void _loadHistory() {
@@ -152,6 +177,7 @@ class _InvocationTabState extends State<InvocationTab>
 
   @override
   void dispose() {
+    _countdownTimer?.cancel();
     _pulseController.dispose();
     _revealController.dispose();
     super.dispose();
@@ -195,6 +221,8 @@ class _InvocationTabState extends State<InvocationTab>
       await player.spendCrystals(userId, 50);
     } else {
       await _settings.put('lastFreePullAt', DateTime.now().toIso8601String());
+      // Démarre le compte à rebours dès que lastFreePullAt est enregistré
+      _startCountdownIfNeeded();
     }
 
     setState(() => _isRevealing = true);
@@ -510,39 +538,33 @@ class _InvocationTabState extends State<InvocationTab>
                               ),
                               const SizedBox(width: 12),
                               Expanded(
-                                child: StatefulBuilder(
-                                  builder: (ctx, setLocalState) {
-                                    return FilledButton.icon(
-                                      style: FilledButton.styleFrom(
-                                        backgroundColor: _canUseFree
-                                            ? AppColors.gold
-                                            : AppColors.gold
-                                                .withValues(alpha: 0.3),
-                                      ),
-                                      onPressed: (!_isRevealing && _canUseFree)
-                                          ? () {
-                                              _pull(isFree: true);
-                                              setLocalState(() {});
-                                            }
-                                          : null,
-                                      icon: const Icon(Icons.star,
-                                          size: 16,
-                                          color:
-                                              AppColors.backgroundNightCosmos),
-                                      label: _canUseFree
-                                          ? const Text('Gratuit',
-                                              style: TextStyle(
-                                                  color: AppColors
-                                                      .backgroundNightCosmos))
-                                          : Text(
-                                              _formatTimer(_freeTimeRemaining),
-                                              style: const TextStyle(
-                                                  color: AppColors
-                                                      .backgroundNightCosmos,
-                                                  fontSize: 11),
-                                            ),
-                                    );
-                                  },
+                                // Le Timer.periodic dans _startCountdownIfNeeded()
+                                // appelle setState() chaque seconde → ce widget
+                                // se reconstruit automatiquement sans StatefulBuilder.
+                                child: FilledButton.icon(
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: _canUseFree
+                                        ? AppColors.gold
+                                        : AppColors.gold.withValues(alpha: 0.3),
+                                  ),
+                                  onPressed: (!_isRevealing && _canUseFree)
+                                      ? () => _pull(isFree: true)
+                                      : null,
+                                  icon: const Icon(Icons.star,
+                                      size: 16,
+                                      color: AppColors.backgroundNightCosmos),
+                                  label: _canUseFree
+                                      ? const Text('Gratuit',
+                                          style: TextStyle(
+                                              color: AppColors
+                                                  .backgroundNightCosmos))
+                                      : Text(
+                                          _formatTimer(_freeTimeRemaining),
+                                          style: const TextStyle(
+                                              color: AppColors
+                                                  .backgroundNightCosmos,
+                                              fontSize: 11),
+                                        ),
                                 ),
                               ),
                             ],
