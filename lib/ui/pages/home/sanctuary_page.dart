@@ -16,6 +16,7 @@ import '../../../presentation/view_models/quest_view_model.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/app_notification.dart';
 import '../../widgets/cat/cat_widget.dart';
+import '../../widgets/common/quest_detail_sheet.dart';
 
 /// Page d'accueil : sanctuaire du joueur.
 /// Le chat compagnon est en position hero centrale.
@@ -697,33 +698,40 @@ class _QuestTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.backgroundDarkPanel,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: AppColors.primaryViolet.withValues(alpha: 0.20),
+    // L'objet Quest complet est passé directement — pas de lookup par id.
+    return GestureDetector(
+      onTap: () => QuestDetailSheet.show(context, quest: quest),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.backgroundDarkPanel,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: AppColors.primaryViolet.withValues(alpha: 0.20),
+          ),
         ),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.assignment_outlined,
-              color: AppColors.primaryVioletLight, size: 20),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              quest.title,
-              style: const TextStyle(color: AppColors.textPrimary),
-              overflow: TextOverflow.ellipsis,
+        child: Row(
+          children: [
+            const Icon(Icons.assignment_outlined,
+                color: AppColors.primaryVioletLight, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                quest.title,
+                style: const TextStyle(color: AppColors.textPrimary),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-          ),
-          Text(
-            '${quest.estimatedDurationMinutes} min',
-            style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-          ),
-        ],
+            Text(
+              '${quest.estimatedDurationMinutes} min',
+              style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right,
+                color: AppColors.textMuted, size: 16),
+          ],
+        ),
       ),
     );
   }
@@ -746,31 +754,37 @@ class _MissedQuestTile extends StatelessWidget {
         ? '${diff.inHours}h de retard'
         : '${diff.inDays}j de retard';
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.coralRare.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.coralRare.withValues(alpha: 0.40)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.warning_amber_rounded,
-              color: AppColors.coralRare, size: 18),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              quest.title,
-              style: const TextStyle(color: AppColors.textPrimary),
-              overflow: TextOverflow.ellipsis,
+    // L'objet Quest complet est passé directement — pas de lookup par id.
+    return GestureDetector(
+      onTap: () => QuestDetailSheet.show(context, quest: quest),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.coralRare.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
+          border:
+              Border.all(color: AppColors.coralRare.withValues(alpha: 0.40)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded,
+                color: AppColors.coralRare, size: 18),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                quest.title,
+                style: const TextStyle(color: AppColors.textPrimary),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-          ),
-          Text(
-            retardLabel,
-            style: const TextStyle(color: AppColors.coralRare, fontSize: 11),
-          ),
-        ],
+            Text(
+              retardLabel,
+              style:
+                  const TextStyle(color: AppColors.coralRare, fontSize: 11),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -787,121 +801,131 @@ class _BossQuestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.rarityEpic.withValues(alpha: 0.18),
-            AppColors.backgroundDarkPanel,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.rarityEpic.withValues(alpha: 0.6), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.rarityEpic.withValues(alpha: 0.18),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
+    // L'objet Quest complet est passé directement — pas de lookup par id.
+    return GestureDetector(
+      onTap: () => QuestDetailSheet.show(context, quest: quest),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              AppColors.rarityEpic.withValues(alpha: 0.18),
+              AppColors.backgroundDarkPanel,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.whatshot, color: AppColors.rarityEpic, size: 18),
-              const SizedBox(width: 6),
-              Text(
-                'Boss de la semaine',
-                style: GoogleFonts.nunito(
-                  color: AppColors.rarityEpic,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 13,
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.rarityEpic.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.rarityEpic.withValues(alpha: 0.5)),
-                ),
-                child: const Text(
-                  'ÉPIQUE',
-                  style: TextStyle(
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+              color: AppColors.rarityEpic.withValues(alpha: 0.6), width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.rarityEpic.withValues(alpha: 0.18),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.whatshot,
+                    color: AppColors.rarityEpic, size: 18),
+                const SizedBox(width: 6),
+                Text(
+                  'Boss de la semaine',
+                  style: GoogleFonts.nunito(
                     color: AppColors.rarityEpic,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            quest.title,
-            style: GoogleFonts.nunito(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w800,
-              fontSize: 16,
+                const Spacer(),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.rarityEpic.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                        color: AppColors.rarityEpic.withValues(alpha: 0.5)),
+                  ),
+                  child: const Text(
+                    'ÉPIQUE',
+                    style: TextStyle(
+                      color: AppColors.rarityEpic,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          if (quest.description != null) ...[
-            const SizedBox(height: 4),
+            const SizedBox(height: 10),
             Text(
-              quest.description!,
+              quest.title,
               style: GoogleFonts.nunito(
-                color: AppColors.textSecondary,
-                fontSize: 12,
-                height: 1.4,
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w800,
+                fontSize: 16,
               ),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
-          ],
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            children: [
-              _RewardChip(
-                icon: Icons.star,
-                color: AppColors.primaryTurquoise,
-                label: '+${quest.xpReward ?? 0} XP',
-              ),
-              _RewardChip(
-                icon: Icons.monetization_on,
-                color: AppColors.gold,
-                label: '+${quest.goldReward ?? 0} or',
-              ),
-              const _RewardChip(
-                icon: Icons.inventory_2_outlined,
-                color: AppColors.rarityLegendary,
-                label: 'Loot rare+',
+            if (quest.description != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                quest.description!,
+                style: GoogleFonts.nunito(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                  height: 1.4,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
-          ),
-          if (quest.deadline != null) ...[
-            const SizedBox(height: 8),
-            Row(
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
               children: [
-                const Icon(Icons.timer_outlined, color: AppColors.textMuted, size: 12),
-                const SizedBox(width: 4),
-                Text(
-                  _deadlineLabel(quest.deadline!),
-                  style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                _RewardChip(
+                  icon: Icons.star,
+                  color: AppColors.primaryTurquoise,
+                  label: '+${quest.xpReward ?? 0} XP',
+                ),
+                _RewardChip(
+                  icon: Icons.monetization_on,
+                  color: AppColors.gold,
+                  label: '+${quest.goldReward ?? 0} or',
+                ),
+                const _RewardChip(
+                  icon: Icons.inventory_2_outlined,
+                  color: AppColors.rarityLegendary,
+                  label: 'Loot rare+',
                 ),
               ],
             ),
+            if (quest.deadline != null) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.timer_outlined,
+                      color: AppColors.textMuted, size: 12),
+                  const SizedBox(width: 4),
+                  Text(
+                    _deadlineLabel(quest.deadline!),
+                    style: const TextStyle(
+                        color: AppColors.textMuted, fontSize: 11),
+                  ),
+                ],
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

@@ -25,12 +25,16 @@ class CreateQuestChoicePage extends StatelessWidget {
             ),
             const SizedBox(height: 32),
             FilledButton.icon(
-              onPressed: () {
-                Navigator.of(context).push(
+              onPressed: () async {
+                // Attend le résultat : true = quête créée, on se ferme aussi.
+                final created = await Navigator.of(context).push<bool>(
                   MaterialPageRoute(
                     builder: (_) => const CreateQuestByThemePage(),
                   ),
                 );
+                if (created == true && context.mounted) {
+                  Navigator.of(context).pop(true);
+                }
               },
               icon: const Icon(Icons.category_outlined),
               label: const Text('Par thème (Sport, Loisir, Maison)'),

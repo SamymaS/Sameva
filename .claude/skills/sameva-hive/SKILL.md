@@ -149,6 +149,56 @@ void reset() {
 Brancher `reset()` sur `onSignedOut` et le rechargement sur `onSignedIn` quand le
 service écoute les changements d'auth.
 
+## Piège FakeAsync + Hive dans les tests widget
+
+`testWidgets` exécute son corps dans une **zone `FakeAsync`** : l'horloge (donc
+les `Timer`) y est **virtuelle**, pilotée par `tester.pump(Duration)`. Mais une
+écriture Hive (`box.put` / `box.delete` non triviale) déclenche une **vraie
+écriture disque** dont le callback de complétion tourne sur la boucle
+d'événements **réelle**, que `FakeAsync` ne fait jamais avancer.
+
+⇒ Un `await box.put(...)` **deadlocke** dans la zone fake : le `Future` ne se
+complète jamais et le test **timeout à 10 min** (symptôme piégeux : le test
+« bloque » sans exception, souvent mis à tort sur le dos d'un `Timer`).
+
+> Nuance : `box.delete` sur une clé **absente** est un no-op qui se résout
+> synchronement → il « passe » parfois, ce qui masque le problème jusqu'à ce
+> qu'une écriture réelle bloque. Ne pas s'y fier.
+
+**Règle** : envelopper **toute écriture Hive** dans `tester.runAsync()` (zone
+réelle). Les **lectures** (`box.get`) sont synchrones/en mémoire → OK partout,
+y compris dans le `build`. `pumpWidget` / `pump` / `dispose` restent en zone fake.
+
+```dart
+testWidgets('...', (tester) async {
+  // ✅ écriture Hive en zone réelle
+  await tester.runAsync(() => Hive.box('settings').put('k', v));
+
+  // ✅ build / pump / dispose en zone fake
+  await tester.pumpWidget(_build());
+  await tester.pump();
+  // ... asserts ...
+  await tester.pumpWidget(const SizedBox()); // dispose → annule les Timer
+});
+```
+
+### Timer.periodic dans un widget testé
+
+Un `Timer.periodic` (ex. compte à rebours qui se rafraîchit chaque seconde) **ne
+bloque PAS `pump()`** en `FakeAsync` : il est simplement piloté par l'horloge
+virtuelle. Il faut seulement :
+
+- ❌ ne **jamais** appeler `pumpAndSettle()` (n'atteindrait jamais l'état stable
+  avec un timer répétitif → timeout) ; utiliser `pump(const Duration(seconds: 1))`
+  pour avancer l'horloge tic par tic ;
+- ✅ **disposer** le widget en fin de test (`pumpWidget(const SizedBox())`) pour
+  déclencher le `cancel()` du timer, sinon le framework lève « Timer still pending ».
+
+> ⚠️ Ne PAS « contourner » en enveloppant `pumpWidget` dans `runAsync()` : ça crée
+> un **vrai** `Timer` OS non piloté par la zone fake, qui reste pendant → même
+> timeout 10 min. `runAsync` sert **uniquement** aux I/O réelles (écritures Hive),
+> pas au cycle build/pump.
+
 ## Checklist — nouveau modèle persisté
 
 1. Modèle immuable dans `data/models/` avec `toJson` / `fromJson` / `copyWith` / `empty()`.

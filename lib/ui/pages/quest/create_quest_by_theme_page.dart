@@ -172,8 +172,9 @@ class _CreateQuestByThemePageState extends State<CreateQuestByThemePage> {
 
     await context.read<QuestViewModel>().addQuest(quest);
     if (!mounted) return;
-    Navigator.of(context).pop(); // back to choice page
-    Navigator.of(context).pop(); // back to list
+    // Pop unique avec résultat `true` : CreateQuestChoicePage reçoit le signal
+    // et se ferme à son tour. Remplace le double pop() fragile.
+    Navigator.of(context).pop(true);
     AppNotification.show(context, message: 'Quête créée');
   }
 }
