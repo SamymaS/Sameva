@@ -189,25 +189,6 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
                         fontSize: 20,
                       ),
                     ),
-                    actions: [
-                      Padding(
-                        padding: const EdgeInsets.only(right: 16),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.local_fire_department,
-                                color: AppColors.warning, size: 20),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${stats.streak}j',
-                              style: GoogleFonts.nunito(
-                                color: AppColors.warning,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
                   ),
 
                   SliverPadding(

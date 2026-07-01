@@ -1231,6 +1231,7 @@ class _ActionButtons extends StatelessWidget {
     ));
 
     // Vendre (désactivé si verrouillé : onTap null = pas d'interaction)
+    // Demande une confirmation avant d'exécuter la vente (aligné sur _bulkSellLowRarity).
     if (buttons.isNotEmpty) buttons.add(const SizedBox(width: 8));
     buttons.add(Expanded(
       child: _ActionBtn(
@@ -1240,8 +1241,43 @@ class _ActionButtons extends StatelessWidget {
         outlined: true,
         onTap: item.isLocked
             ? null
-            : () {
+            : () async {
                 final price = (item.goldValue * 0.5).round();
+                final ok = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    backgroundColor: AppColors.backgroundDarkPanel,
+                    title: const Text(
+                      'Vendre cet objet',
+                      style: TextStyle(color: AppColors.textPrimary),
+                    ),
+                    content: Text(
+                      'Vendre "${item.name}" pour $price or ?',
+                      style: const TextStyle(color: AppColors.textMuted),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text(
+                          'Annuler',
+                          style: TextStyle(color: AppColors.textMuted),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text(
+                          'Vendre',
+                          style: TextStyle(
+                            color: AppColors.gold,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+                if (ok != true) return;
+                if (!context.mounted) return;
                 inventory.removeItem(item.id, force: true);
                 if (player.stats != null) player.addGold(userId, price);
                 Navigator.pop(context);
