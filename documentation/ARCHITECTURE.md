@@ -2,124 +2,132 @@
 
 ## Vue d'ensemble
 
-Architecture **MVVM** en 3 couches strictes, avec Provider/ChangeNotifier comme gestion d'état.
+Architecture **MVVM en quatre couches**, avec Provider et ChangeNotifier pour la gestion d'état.
 
 ```
 lib/
-├── data/           # Repositories — accès aux données (Supabase + Hive)
-├── domain/         # Services — logique métier pure
-├── presentation/   # ViewModels — état UI (ChangeNotifier)
-└── ui/             # Pages + Widgets
+├── config/         # Lecture du .env (URLs, clés)
+├── data/           # Modèles + repositories : accès aux données (Supabase + Hive)
+├── domain/         # Services : logique métier pure
+├── presentation/   # ViewModels (ChangeNotifier) + use cases
+└── ui/             # Pages, widgets, thème
 ```
 
-**Règle absolue** : les dépendances ne vont que vers l'intérieur.
-`ui` → `presentation` → `domain` ← `data`
+**Règle de dépendance stricte** : `ui → presentation → domain → data`. Une couche ne connaît jamais celle qui la consomme.
 
 ---
 
-## Couche Data — Repositories
+## Couche Data
 
-Accès aux données uniquement. Pas de `notifyListeners()`, pas de logique métier.
+Accès aux données uniquement. Pas de `notifyListeners()`, pas de logique métier. Les repositories reçoivent leurs dépendances par constructeur (`SupabaseClient`, `Box`) et n'accèdent jamais à `Supabase.instance.client` en dur, ce qui les rend mockables.
 
-| Fichier | Rôle |
-|---|---|
-| `auth_repository.dart` | Supabase Auth (signIn, signUp, signOut) |
-| `user_repository.dart` | Table `users` Supabase (création/lecture profil) |
-| `quest_repository.dart` | CRUD quêtes Supabase + reset daily |
-| `player_repository.dart` | Stats joueur (Hive offline-first + sync Supabase) |
+| Repository | Rôle | Persistance |
+| ---------- | ---- | ----------- |
+| `auth_repository.dart` | Supabase Auth (signIn, signUp, signOut), expose les changements de session | Supabase |
+| `user_repository.dart` | Table `users` (profil) | Supabase |
+| `quest_repository.dart` | CRUD quêtes, reset des quêtes récurrentes | Supabase uniquement |
+| `player_repository.dart` | Stats joueur | Hive (source de lecture) + `player_stats` en synchronisation |
+| `cat_repository.dart` | Compagnons | Hive + `companions` |
+| `ai_credits_repository.dart` | Portefeuille de jetons | Hive + `ai_validation_credits` |
+| `premium_subscription_repository.dart` | État de l'abonnement | `premium_subscriptions` (lecture seule côté client) |
+| `leaderboard_repository.dart` | Classement | `leaderboard_view` |
 
-**Convention** : les repositories reçoivent leurs dépendances par constructeur (`SupabaseClient`, `Box`), retournent des modèles ou lancent des exceptions. Jamais d'accès global `Supabase.instance.client` en dur.
+**Modèles** (`lib/data/models/`) : `Quest`, `PlayerStats`, `Item`, `CatModel`, `CharacterModel`, `CraftRecipeModel`, `LeaderboardEntryModel`, `AiValidationStateModel`.
+
+Les modèles implémentent une double sérialisation : camelCase pour Hive (`toJson` / `fromJson`) et snake_case pour Supabase (`toSupabaseMap` / `fromSupabaseMap`).
+
+> **Note Hive** : la persistance locale utilise du JSON simple, **pas** de `TypeAdapter`. Il n'y a aucune annotation `@HiveType` dans le projet et **aucune étape `build_runner` n'est nécessaire**.
 
 ---
 
-## Couche Domain — Services
+## Couche Domain, services
 
-Logique métier sans dépendances UI ni repositories.
+Logique métier sans dépendance à l'UI ni aux repositories.
 
-| Fichier | Rôle |
-|---|---|
-| `quest_rewards_calculator.dart` | XP = 10 × difficulté, bonus timing/streak |
-| `validation_ai_service.dart` | Interface + mock validation par preuve photo |
-| `claude_validation_ai_service.dart` | Implémentation Claude API |
-| `item_factory.dart` | Génération d'items par rareté, catalogue marché |
-| `health_regeneration_service.dart` | Récupération HP nocturne |
-| `cat_mood_service.dart` | Humeur des chats compagnons |
+| Service | Rôle |
+| ------- | ---- |
+| `quest_rewards_calculator.dart` | XP et or selon difficulté, bonus de ponctualité et de streak |
+| `validation_ai_service.dart` | Interface `ValidationAIService` + `MockValidationAIService` |
+| `api_validation_ai_service.dart` | Appel HTTP de l'Edge Function de validation |
+| `claude_validation_ai_service.dart` | Appel direct de l'API Messages (Claude) |
+| `quest_suggestion_service.dart` | Interface de suggestion de quêtes |
+| `api_quest_suggestion_service.dart` | Suggestion via Edge Function |
+| `claude_quest_generator_service.dart` | Génération de quêtes via Claude |
+| `item_factory.dart` | Génération d'items par rareté, catalogue du marché, gacha |
+| `craft_service.dart` | Recettes de fabrication |
+| `weekly_boss_service.dart` | Boss hebdomadaire |
+| `achievement_service.dart` | Succès débloquables |
+| `health_regeneration_service.dart` | Régénération passive des HP |
+| `cat_mood_service.dart` | Humeur du compagnon |
+| `minigame_service.dart` | Logique des mini-jeux |
+| `activity_log_service.dart` | Journal d'activité (service statique, boîte `settings`) |
 | `notification_service.dart` | Notifications locales |
 
----
-
-## Couche Presentation — ViewModels
-
-Chaque ViewModel est un `ChangeNotifier`. Il consomme des Repositories ou Services et expose l'état à la vue.
-
-| ViewModel | Dépendances | Pages |
-|---|---|---|
-| `ThemeViewModel` | Hive `settings` | `app.dart`, `settings_page.dart` |
-| `AuthViewModel` | `AuthRepository` | `login_page.dart`, `register_page.dart` |
-| `QuestViewModel` | `QuestRepository` | toutes les pages quêtes |
-| `PlayerViewModel` | `PlayerRepository` | sanctuary, profil, récompenses |
-| `InventoryViewModel` | Hive `inventory` | `inventory_page.dart`, `market_page.dart` |
-| `EquipmentViewModel` | Hive `equipment` | `inventory_page.dart` |
-| `CatViewModel` | Hive `cats` | `cat_page.dart`, `sanctuary_page.dart` |
-| `NotificationViewModel` | Hive `settings` | `settings_page.dart` |
-| `ProfileViewModel` | `PlayerRepository`, `QuestRepository` | `profile_page.dart` |
-| `QuestsListViewModel` | `QuestRepository` | `quests_list_page.dart` |
-| `CreateQuestViewModel` | `QuestRepository` | `create_quest_page.dart` |
-| `QuestValidationViewModel` | `QuestRepository` | `quest_validation_page.dart` |
-
-### ViewModels globaux vs locaux
-
-Les ViewModels à état partagé entre plusieurs pages sont enregistrés dans `main.dart` via `MultiProvider` :
-
-```dart
-ChangeNotifierProvider(create: (_) => ThemeViewModel(settingsBox))
-ChangeNotifierProvider(create: (_) => AuthViewModel(authRepo))
-ChangeNotifierProvider.value(value: questViewModel)
-ChangeNotifierProvider.value(value: playerViewModel)
-ChangeNotifierProvider.value(value: inventoryViewModel)
-ChangeNotifierProvider.value(value: equipmentViewModel)
-ChangeNotifierProvider.value(value: catViewModel)
-ChangeNotifierProvider(create: (_) => NotificationViewModel(settingsBox))
-```
-
-Les ViewModels spécifiques à une seule page sont créés localement dans `didChangeDependencies()` :
-
-```dart
-_vm ??= QuestsListViewModel(
-  context.read<QuestRepository>(),
-  context.read<AuthViewModel>(),
-);
-```
+L'abstraction de `ValidationAIService` permet de remplacer l'implémentation (mock en développement, API en production) sans toucher au reste du code.
 
 ---
 
-## Use Cases
+## Couche Presentation, ViewModels
 
-`lib/presentation/use_cases/complete_quest_use_case.dart` orchestre la complétion d'une quête :
-1. Marquer la quête complète (`QuestViewModel`)
-2. Calculer les récompenses (`QuestRewardsCalculator`)
-3. Distribuer XP, or, cristaux (`PlayerViewModel`)
-4. Mettre à jour le streak et les achievements
-5. Annuler le rappel de notification
+Chaque ViewModel est un `ChangeNotifier` qui consomme des repositories ou services et expose l'état à la vue.
+
+| ViewModel | Portée |
+| --------- | ------ |
+| `AuthViewModel` | Global, **source des événements d'authentification** |
+| `QuestViewModel` | Global, source de vérité unique des quêtes |
+| `PlayerViewModel` | Global, stats joueur |
+| `InventoryViewModel` | Global, inventaire |
+| `EquipmentViewModel` | Global, équipement et cosmétiques |
+| `CatViewModel` | Global, compagnons |
+| `AiValidationCreditsService` | Global, portefeuille de jetons |
+| `ThemeViewModel` | Global, préférence de thème |
+| `NotificationViewModel` | Global, rappels |
+| `QuestsListViewModel`, `CreateQuestViewModel`, `QuestValidationViewModel`, `ProfileViewModel`, `RewardsViewModel`, `SettingsViewModel`, `LeaderboardViewModel`, `CraftViewModel` | Locaux à une page |
+
+`QuestViewModel` est l'unique autorité sur les quêtes : les ViewModels de page ne conservent pas de copie en mémoire, ils lisent `questVM.quests` et délèguent leurs mutations. Ce choix corrige un motif de sources de vérité parallèles désynchronisées observé à plusieurs reprises.
 
 ---
 
-## Injection de dépendances (main.dart)
+## Cycle de vie d'authentification
 
-Les repositories sont instanciés une fois dans `main.dart` et exposés via `Provider.value` pour permettre l'injection dans les ViewModels de page :
+`AuthViewModel` expose deux flux d'événements, `onSignedIn` et `onSignedOut`. Tous les ViewModels et services porteurs d'un état propre à l'utilisateur les reçoivent par constructeur depuis `main.dart` :
 
 ```dart
-Provider<QuestRepository>.value(value: questRepo)
-Provider<PlayerRepository>.value(value: playerRepo)
+final signedOutStream = authViewModel.onSignedOut;
+final signedInStream  = authViewModel.onSignedIn;
+
+final questViewModel  = QuestViewModel(questRepo, onSignedOut: signedOutStream, onSignedIn: signedInStream);
+final playerViewModel = PlayerViewModel(playerRepo, onSignedOut: signedOutStream, onSignedIn: signedInStream);
+// idem Inventory, Equipment, Cat, AiValidationCredits
 ```
+
+- **À la connexion** : chaque composant recharge ses données distantes et réconcilie son cache local. Une garde idempotente évite le double chargement lorsqu'une page déclenche aussi un chargement.
+- **À la déconnexion** : chaque composant vide son cache (`reset()`).
+
+`ActivityLogService` fait exception : c'est un service statique dont le cache est purgé par `AuthViewModel._purgeHiveData()` lors de la déconnexion, et non par abonnement.
+
+Ce câblage est documenté dans [`docs/adr/0001`](../docs/adr/0001-phase-zero-restructuration.md).
+
+---
+
+## Use cases
+
+| Use case | Rôle |
+| -------- | ---- |
+| `complete_quest_use_case.dart` | Marque la quête complète, calcule les récompenses, distribue XP/or/cristaux, met à jour streak et succès, annule le rappel, journalise |
+| `daily_reset_use_case.dart` | Réinitialisation quotidienne des quêtes récurrentes |
+
+---
+
+## Injection de dépendances
+
+Les repositories sont instanciés une fois dans `main.dart` et exposés via `Provider.value`. Les ViewModels globaux sont enregistrés dans un `MultiProvider`; les ViewModels de page sont créés localement dans `didChangeDependencies()`.
 
 ---
 
 ## Conventions
 
-- Fichiers : `snake_case`
-- Classes : `PascalCase`
-- Variables/méthodes : `camelCase`
-- Commentaires : `///` en tête de classe (1–2 lignes)
-- Imports : relatifs (pas de `package:sameva/...`)
-- Pas de `print()` : utiliser `debugPrint()` si nécessaire
+- Fichiers : `snake_case` ; classes : `PascalCase` ; variables et méthodes : `camelCase`
+- Commentaires `///` en tête de classe, en français
+- Pas de `print()` : utiliser `debugPrint()`
+- Tout le code, les commentaires et l'interface sont en français
