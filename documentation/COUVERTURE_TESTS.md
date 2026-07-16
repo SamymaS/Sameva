@@ -1,11 +1,27 @@
-# Couverture des tests unitaires (Sameva)
+# Couverture des tests
 
 ## Synthèse
 
-| Indicateur | Valeur (à jour avec `flutter test`) |
-|------------|-------------------------------------|
-| **Nombre total de tests** | 173 (`flutter test` sans option) |
-| **Analyse statique** | `flutter analyze` — 0 issue |
+| Indicateur | Valeur |
+| ---------- | ------ |
+| Fichiers de test | 64 |
+| Groupes (`group`) | 147 |
+| Cas de test déclarés (`test` + `testWidgets`) | 469 |
+| Analyse statique | `flutter analyze`, 0 erreur |
+
+> Les valeurs ci-dessus sont obtenues par comptage des déclarations dans `test/`. Le décompte affiché par `flutter test` peut différer légèrement si des cas sont générés dynamiquement dans des boucles.
+
+Répartition par couche :
+
+| Couche | Fichiers | Groupes | Cas |
+| ------ | -------- | ------- | --- |
+| `test/domain/` | 9 | 24 | 71 |
+| `test/data/` | 14 | 38 | 74 |
+| `test/presentation/` | 23 | 63 | 230 |
+| `test/ui/` (+ `widget_test.dart`) | 18 | 22 | 94 |
+| **Total** | **64** | **147** | **469** |
+
+---
 
 ## Commandes
 
@@ -14,86 +30,64 @@ flutter test
 flutter test --coverage
 ```
 
-Pour un pourcentage global et un rapport HTML (nécessite [lcov](https://github.com/linux-test-project/lcov) sur le PATH) :
+Pour un pourcentage global et un rapport HTML (nécessite `lcov`) :
 
 ```bash
 lcov --summary coverage/lcov.info
 genhtml coverage/lcov.info -o coverage/html
 ```
 
-Sur Windows, installer lcov ou utiliser WSL pour ces commandes.
+Sur Windows, utiliser WSL pour ces deux commandes.
 
-## Dossiers couverts
+---
 
-### `test/domain/` — services métier
+## Principes
 
-| Fichier | Cible dans `lib/domain/` |
-|---------|---------------------------|
-| `quest_rewards_calculator_test.dart` | `QuestRewardsCalculator` |
-| `cat_mood_service_test.dart` | `CatMoodService` |
-| `item_factory_test.dart` | `ItemFactory` (gacha, catalogue, `generateRandomItem` pour chaque rareté) |
-| `health_regeneration_service_test.dart` | `HealthRegenerationService` (moins d’1 h sans regen, timestamp invalide, plafond 8 h, preview) |
-| `api_validation_ai_service_test.dart` | `ApiValidationAIService` avec `http.Client` injecté (`MockClient`) |
-| `claude_validation_ai_service_test.dart` | `ClaudeValidationAIService` (parsing réponse Messages API + `MockClient`) |
-| `mock_validation_ai_service_test.dart` | `MockValidationAIService` (formules score, `simulatedDelay: Duration.zero`) |
-| `claude_quest_generator_service_test.dart` | `ClaudeQuestGeneratorService` (`http.Client` injecté, parsing JSON quêtes, erreurs HTTP) |
+La stratégie suit la pyramide des tests : une base large de tests unitaires rapides et déterministes sur Domain, Data et Presentation, complétée par des tests widget sur les chemins réellement empruntés par l'utilisateur. `flutter_test` est enrichi par `mocktail` (mocks typés, sans génération de code). Chaque test est indépendant, déterministe et sans dépendance réseau.
 
-### `test/data/` — modèles / enums
+---
+
+## `test/domain/` — services métier
 
 | Fichier | Cible |
-|---------|--------|
-| `player_stats_model_test.dart` | `PlayerStats` JSON + `fromSupabaseMap` / `toSupabaseMap` |
-| `quest_model_enums_test.dart` | Enums quête (parsing Supabase) |
-| `character_appearance_test.dart` | `CharacterAppearance` JSON / défauts / `copyWith` ; labels enums (`CharacterGender`, `SkinTone`, `HairStyle`) |
-| `quest_from_supabase_map_test.dart` | `Quest.fromSupabaseMap`, dates ISO ; `CatStats` JSON |
-| `quest_to_supabase_roundtrip_test.dart` | `toSupabaseMap` ↔ `fromSupabaseMap`, `is_completed` |
-| `item_model_test.dart` | `Item` JSON, `slotForItem`, `cosmeticSlotForItem` |
+| ------- | ----- |
+| `quest_rewards_calculator_test.dart` | `QuestRewardsCalculator` (récompenses, bonus, pénalités) |
+| `cat_mood_service_test.dart` | `CatMoodService` |
+| `item_factory_test.dart` | `ItemFactory` (gacha, catalogue, rareté) |
+| `health_regeneration_service_test.dart` | `HealthRegenerationService` (cas limites, plafond, horodatage) |
+| `api_validation_ai_service_test.dart` | `ApiValidationAIService` (`http.Client` injecté) |
+| `claude_validation_ai_service_test.dart` | `ClaudeValidationAIService` (parsing Messages API) |
+| `mock_validation_ai_service_test.dart` | `MockValidationAIService` (`simulatedDelay: Duration.zero`) |
+| `claude_quest_generator_service_test.dart` | `ClaudeQuestGeneratorService` (parsing, erreurs HTTP) |
 
-### `test/presentation/` — ViewModels
+## `test/data/` — modèles et repositories
 
-| Fichier | ViewModel |
-|---------|-----------|
-| `auth_view_model_test.dart` | `AuthViewModel` |
-| `theme_view_model_test.dart` | `ThemeViewModel` |
-| `create_quest_view_model_test.dart` | `CreateQuestViewModel` |
-| `quests_list_view_model_test.dart` | `QuestsListViewModel` |
-| `player_view_model_test.dart` | `PlayerViewModel` (+ Hive `settings`) |
-| `rewards_view_model_test.dart` | `RewardsViewModel` : défauts, XP, sync distante en échec (stats locales), `dispose` |
-| `quest_view_model_test.dart` | `QuestViewModel` : chargement, `isLoading` pendant l’appel repo, erreurs, filtres jour, `completeQuest` / `deleteQuest` en erreur |
-| `quest_validation_view_model_test.dart` | `QuestValidationViewModel` : analyse IA succès/échec/seuil 70, preuve vide, `setProof` reset, notifications |
-| `inventory_view_model_test.dart` | `InventoryViewModel` : plein 50 slots, exception au chargement |
-| `equipment_view_model_test.dart` | `EquipmentViewModel` : équipement, cosmétiques, restauration Hive |
-| `profile_view_model_test.dart` | `ProfileViewModel` (auth + repos mockés) |
-| `settings_view_model_test.dart` | `SettingsViewModel` (façade thème / notif / joueur / auth) |
-| `cat_view_model_test.dart` | `CatViewModel` (box `cats` mockée) |
-| `notification_view_model_test.dart` | `NotificationViewModel` (box mockée + `persistAndScheduleReminder` injecté pour éviter le plugin) |
+Sérialisation aller-retour (`toSupabaseMap` / `fromSupabaseMap`), parsing des enums avec repli, dates ISO, et CRUD des repositories via mocks Supabase et Hive.
 
-### `test/helpers/`
+## `test/presentation/` — ViewModels
 
-| Fichier | Rôle |
-|---------|------|
-| `quest_test_factory.dart` | `buildTestQuest` pour dates déterministes |
+Un fichier de test par ViewModel : authentification, thème, création et liste de quêtes, progression joueur, récompenses, validation IA (succès, échec, seuil 70), inventaire (50 slots), équipement, profil, paramètres, compagnons, notifications, portefeuille de jetons.
 
-### Widget minimal
+## `test/ui/` — widgets
 
-| Fichier | Rôle |
-|---------|------|
-| `test/widget_test.dart` | Smoke test Material (pas l’app complète) |
+Tests widget sur le chemin réel de validation, c'est-à-dire la page effectivement empruntée par l'utilisateur, afin d'éviter de tester du code jamais instancié en production. `test/widget_test.dart` couvre le rendu de `LoginPage` avec un `AuthRepository` mocké.
 
-## Dossiers non couverts ou partiellement couverts
+## `test/helpers/`
+
+`quest_test_factory.dart` : `buildTestQuest` pour des dates déterministes.
+
+---
+
+## Zones non couvertes
 
 | Zone | Justification |
-|------|----------------|
-| **`lib/ui/`** | Écrans et widgets : coût / rapport pour la certification RNCP moindre que ViewModels + domaine ; possibles tests widget ciblés plus tard. |
-| **Repositories concrets** | `AuthRepository`, `QuestRepository`, `PlayerRepository` : dépendance Supabase / Hive réelle ; les tests passent par des **mocks** depuis les ViewModels. |
-| **`NotificationService` (plugin)** | Planification réelle des notifications : hors tests unitaires ; `NotificationViewModel` accepte un callback `persistAndScheduleReminder` pour les tests. |
-| **ViewModels non testés à ce jour** | Aucun ViewModel « orphelin » majeur ; l’UI reste hors tests unitaires (voir `lib/ui/`). |
-| **Modèles** | Pas de `PlayerModel` / `UserModel` séparés dans le dépôt ; persistance joueur via `PlayerStats` et profil Supabase côté repository. |
+| ---- | ------------- |
+| Repositories concrets (accès réseau réel) | Dépendance Supabase et Hive réelle ; couverts indirectement via mocks depuis les ViewModels |
+| `NotificationService` (plugin natif) | Planification réelle hors tests unitaires ; `NotificationViewModel` accepte un callback injectable |
+| Edge Functions (Deno) | Non couvertes par `flutter test` ; testées manuellement via `curl` et le cahier de recettes |
 
-## Précision `QuestValidationViewModel`
+---
 
-Le ViewModel expose `isAnalyzing`, `result` (`ValidationResult` : score, `isValid`, `explication`) et `proofImage`. Il n’y a pas de `errorMessage` : une erreur réseau / service remonte via l’exception sur `analyzeProof` (testée). Le reset UI passe par `setProof(null)` ou une nouvelle preuve qui efface `result`.
+## Précision sur `QuestValidationViewModel`
 
-## Argumentaire RNCP (rappel)
-
-L’architecture MVVM permet de tester **services purs**, **orchestration ViewModel** et **sérialisation** sans lancer Supabase, sans UI ni device. La CI (`.github/workflows/ci.yml`) exécute `flutter analyze` et `flutter test` à chaque push / PR sur les branches configurées.
+Le ViewModel expose `isAnalyzing`, `result` (`ValidationResult` : score, `isValid`, explication) et `proofImage`. Il n'y a pas de champ `errorMessage` : une erreur réseau ou service remonte par exception depuis `analyzeProof` (comportement testé). Le reset passe par `setProof(null)` ou par une nouvelle preuve, qui efface le résultat précédent.
