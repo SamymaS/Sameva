@@ -1,160 +1,121 @@
-# Guide de Configuration Supabase pour Sameva
+# Configuration Supabase
 
-## 📋 Vue d'ensemble
+Ce guide décrit la mise en place complète du backend Sameva : base de données, authentification, clés et Edge Functions.
 
-Ce guide vous explique comment configurer Supabase avec le schéma SQL complet pour l'application Sameva.
+---
 
-## 🚀 Étapes d'installation
+## 1. Créer le projet
 
-### 1. Créer un projet Supabase
+1. Aller sur [supabase.com](https://supabase.com) et créer un projet.
+2. Noter le mot de passe de la base et choisir la région la plus proche.
+3. Récupérer le **Reference ID** (Settings, General) : il sert à lier la CLI.
 
-1. Allez sur [supabase.com](https://supabase.com)
-2. Créez un compte ou connectez-vous
-3. Cliquez sur "New Project"
-4. Remplissez les informations :
-   - **Name** : `sameva` (ou le nom de votre choix)
-   - **Database Password** : Choisissez un mot de passe fort
-   - **Region** : Choisissez la région la plus proche
-5. Cliquez sur "Create new project"
+---
 
-### 2. Exécuter le schéma SQL
+## 2. Appliquer le schéma
 
-1. Dans votre projet Supabase, allez dans **SQL Editor** (dans le menu de gauche)
-2. Cliquez sur **New Query**
-3. Copiez tout le contenu du fichier `supabase_schema.sql`
-4. Collez-le dans l'éditeur SQL
-5. Cliquez sur **Run** (ou appuyez sur `Ctrl+Enter`)
+Le schéma se compose de deux éléments complémentaires.
 
-✅ Le schéma devrait être créé avec succès !
+**a. Schéma de base** : `documentation/supabase_schema.sql` contient les sept tables fondatrices (`users`, `items`, `user_inventory`, `user_equipment`, `companions`, `quests`, `transactions`), leurs types énumérés, index, triggers et politiques RLS. À exécuter une fois dans SQL Editor, New Query, Run.
 
-### 3. Vérifier les tables créées
+**b. Migrations versionnées** : `supabase/migrations/` contient les évolutions ultérieures, à appliquer ensuite :
 
-1. Allez dans **Table Editor** (dans le menu de gauche)
-2. Vous devriez voir toutes les tables :
-   - `users`
-   - `items`
-   - `user_inventory`
-   - `user_equipment`
-   - `companions`
-   - `quests`
-   - `transactions`
+```bash
+supabase link --project-ref VOTRE_PROJECT_REF
+supabase db push
+```
 
-### 4. Configurer l'authentification
+| Migration | Apport |
+| --------- | ------ |
+| `player_stats` | Table de synchronisation des stats joueur entre appareils |
+| `quest_difficulty_check` | Table d'audit `quest_difficulty_audit`, correction des données historiques et contrainte `CHECK difficulty BETWEEN 1 AND 4` |
+| `harden_rls_policies` | Durcissement des politiques RLS |
+| `companions_sync_support` | Synchronisation des compagnons |
+| `document_leaderboard_view_security` | Documentation du modèle de sécurité de `leaderboard_view` |
+| `ai_validation_credits` (+ correctif) | Portefeuille de jetons de validation IA |
+| `premium_subscriptions` | État de l'abonnement premium |
 
-1. Allez dans **Authentication** > **Providers**
-2. Activez **Email** provider (déjà activé par défaut)
-3. Optionnel : Activez **Anonymous** sign-ins si vous voulez permettre la connexion anonyme
+> **Limite connue** : le schéma de base n'est pas encore versionné sous forme de migration initiale. Sur une instance vierge, les migrations qui référencent `quests` échouent tant que `supabase_schema.sql` n'a pas été exécuté. Une migration initiale versionnée est prévue pour rendre la reconstruction entièrement reproductible.
 
-### 5. Récupérer les clés API
+---
 
-1. Allez dans **Settings** > **API**
-2. Copiez :
-   - **Project URL** : `https://xxxxx.supabase.co`
-   - **anon public** key : `eyJhbGci...`
-3. Ajoutez-les dans votre fichier `.env` :
+## 3. Tables
+
+| Table | Rôle | Origine |
+| ----- | ---- | ------- |
+| `users` | Profil joueur, extension de `auth.users` | schéma de base |
+| `quests` | Quêtes créées par les joueurs | schéma de base |
+| `items` | Catalogue d'items | schéma de base |
+| `user_inventory` | Inventaire persistant | schéma de base |
+| `user_equipment` | Équipement porté | schéma de base |
+| `companions` | Compagnons possédés | schéma de base |
+| `transactions` | Historique des transactions | schéma de base |
+| `player_stats` | Stats joueur synchronisées (niveau, XP, or, HP, streak, succès) | migration |
+| `quest_difficulty_audit` | Journal d'audit de la correction de difficulté | migration |
+| `ai_validation_credits` | Portefeuille de jetons par utilisateur | migration |
+| `premium_subscriptions` | Abonnement premium par utilisateur | migration |
+
+Une vue, `leaderboard_view`, expose une projection publique restreinte pour le classement.
+
+> **État d'usage** : l'application lit et écrit `quests`, `users`, `player_stats`, `companions`, `user_equipment`, `ai_validation_credits`, `premium_subscriptions` et `leaderboard_view`. Les tables `items`, `user_inventory` et `transactions` existent dans le schéma mais ne sont pas encore consommées : l'inventaire et les transactions sont actuellement gérés en local (Hive). Elles constituent la cible de la synchronisation à venir.
+
+---
+
+## 4. Authentification
+
+Dans Authentication, Providers :
+
+1. Activer **Email** (actif par défaut).
+2. Activer **Anonymous sign-ins** pour permettre l'essai sans compte.
+
+Un trigger crée automatiquement le profil dans `users` et un équipement vide à l'inscription.
+
+---
+
+## 5. Clés et fichier `.env`
+
+Dans Settings, API, copier le Project URL et la clé **anon public**, puis renseigner `.env` à la racine du projet Flutter :
 
 ```env
-SUPABASE_URL=https://xxxxx.supabase.co
-SUPABASE_ANON_KEY=eyJhbGci...
+SUPABASE_URL=https://VOTRE_PROJECT_REF.supabase.co
+SUPABASE_ANON_KEY=eyJ...
+VALIDATION_AI_URL=https://VOTRE_PROJECT_REF.supabase.co/functions/v1/analyze-quest-proof
+SUGGEST_QUESTS_URL=https://VOTRE_PROJECT_REF.supabase.co/functions/v1/suggest-quests
 ```
 
-## 📊 Structure des Tables
+La clé anon est publique par conception : elle est protégée par la RLS. La clé `service_role` ne doit **jamais** être placée dans `.env` ni dans l'application ; elle est injectée automatiquement dans les Edge Functions par la plateforme.
 
-### `users`
-Extension de `auth.users` avec les statistiques du joueur :
-- `level`, `experience`, `gold`, `crystals`
-- `health_points`, `moral`, `streak`
-- `achievements` (JSONB)
+---
 
-### `items`
-Catalogue de tous les items disponibles dans le jeu.
+## 6. Sécurité (RLS)
 
-### `user_inventory`
-Inventaire des joueurs (items possédés avec quantité).
+La Row Level Security est activée sur toutes les tables, chaque politique filtrant sur `auth.uid() = user_id`. Conséquences notables :
 
-### `user_equipment`
-Équipement actuellement porté par le joueur.
+- Un utilisateur ne lit et n'écrit que ses propres données.
+- L'entitlement premium est en **lecture seule** côté client : seule la fonction `stripe-webhook`, en `service_role`, peut l'écrire. L'élévation de privilège depuis le client est donc impossible.
+- Le classement passe par une vue à projection restreinte plutôt que par un accès direct aux tables.
 
-### `companions`
-Compagnons possédés par les joueurs.
+---
 
-### `quests`
-Quêtes créées par les joueurs.
+## 7. Edge Functions
 
-### `transactions`
-Historique de toutes les transactions (achats, ventes, récompenses).
+Le déploiement des cinq fonctions et la configuration des secrets (`ANTHROPIC_API_KEY`, clés Stripe) sont décrits dans [SUPABASE_EDGE_FUNCTION_IA.md](SUPABASE_EDGE_FUNCTION_IA.md).
 
-## 🔒 Sécurité (RLS)
+---
 
-Toutes les tables ont **Row Level Security (RLS)** activé :
-- Les utilisateurs ne peuvent voir/modifier que leurs propres données
-- Les items sont visibles par tous les utilisateurs authentifiés
-- Les transactions sont en lecture seule (insertion uniquement)
+## 8. Vérifier l'installation
 
-## 🧪 Tester la configuration
+1. Créer un compte depuis l'application, puis vérifier qu'une ligne apparaît dans `users` avec `level = 1`.
+2. Créer une quête et vérifier qu'elle apparaît dans `quests`.
+3. Valider une quête par photo et vérifier que le solde de `ai_validation_credits` décroît.
 
-### Test 1 : Créer un utilisateur
+---
 
-Dans l'application Flutter :
-1. Créez un compte avec email/password
-2. Vérifiez dans Supabase > Table Editor > `users` qu'un profil a été créé automatiquement
+## 9. Dépannage
 
-### Test 2 : Vérifier le trigger
-
-1. Allez dans **Table Editor** > `users`
-2. Vous devriez voir votre utilisateur avec les valeurs par défaut :
-   - `level` = 1
-   - `gold` = 0
-   - `crystals` = 0
-   - etc.
-
-### Test 3 : Créer une quête
-
-Dans l'application :
-1. Créez une quête
-2. Vérifiez dans `quests` qu'elle apparaît bien
-
-## 📝 Notes importantes
-
-1. **Trigger automatique** : Quand un utilisateur s'inscrit, un profil est automatiquement créé dans `users` et un équipement vide dans `user_equipment`.
-
-2. **Types ENUM** : Les types ENUM sont créés automatiquement et utilisés pour garantir l'intégrité des données.
-
-3. **Index** : Des index ont été créés sur les colonnes fréquemment utilisées pour optimiser les performances.
-
-4. **Cascade Delete** : Quand un utilisateur est supprimé, toutes ses données associées sont automatiquement supprimées.
-
-## 🔧 Maintenance
-
-### Ajouter des items de base
-
-Vous pouvez ajouter des items dans la table `items` :
-
-```sql
-INSERT INTO public.items (name, description, type, rarity, value, is_equippable, attack_bonus)
-VALUES 
-  ('Épée en bois', 'Une simple épée en bois', 'weapon', 'common', 50, true, 5),
-  ('Bouclier de cuir', 'Un bouclier basique', 'shield', 'common', 30, true, 0);
-```
-
-### Vérifier les performances
-
-Dans **Database** > **Query Performance**, vous pouvez voir les requêtes les plus lentes et optimiser si nécessaire.
-
-## 🆘 Dépannage
-
-### Erreur : "relation already exists"
-Si vous avez déjà exécuté le schéma, supprimez d'abord les tables existantes ou utilisez `DROP TABLE IF EXISTS`.
-
-### Erreur : "permission denied"
-Vérifiez que vous êtes connecté en tant qu'administrateur du projet.
-
-### Les données ne s'affichent pas
-Vérifiez que RLS est bien configuré et que vous êtes authentifié dans l'application.
-
-## 📚 Ressources
-
-- [Documentation Supabase](https://supabase.com/docs)
-- [Guide RLS](https://supabase.com/docs/guides/auth/row-level-security)
-- [API Reference](https://supabase.com/docs/reference/dart/introduction)
-
+| Symptôme | Piste |
+| -------- | ----- |
+| `relation already exists` | Le schéma a déjà été exécuté ; ne pas le rejouer |
+| `relation "quests" does not exist` lors d'une migration | Exécuter `supabase_schema.sql` avant `supabase db push` |
+| `permission denied` / données invisibles | Vérifier l'authentification et les politiques RLS |
+| La validation IA renvoie 502 | Vérifier `ANTHROPIC_API_KEY` via `supabase secrets list` |
