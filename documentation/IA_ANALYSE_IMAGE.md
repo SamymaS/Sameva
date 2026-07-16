@@ -1,120 +1,127 @@
-# Analyse d’image par IA — Par où commencer
+# Validation de preuve par IA (MougiBot)
 
-L’app utilise déjà un **service de validation** (`ValidationAIService`) et un **mock** (`MockValidationAIService`). Pour une vraie analyse d’image par IA, voici l’ordre recommandé.
-
----
-
-## 1. Comprendre le flux actuel
-
-- L’utilisateur prend une **photo** (ou vidéo) sur la **page de validation**.
-- L’app appelle `ValidationAIService.analyzeProof(quest, imageBytes)`.
-- Le service doit renvoyer : **score (0–100)** + **explication** (texte).  
-  Seuil de validation : **70/100**.
-
-Aujourd’hui, seul le **mock** est utilisé : pas d’appel réseau, pas d’IA réelle.
+> Ce document décrit le flux de validation **tel qu'il est implémenté**. Le validateur est en production sur l'Edge Function `analyze-quest-proof` et s'appuie sur **Anthropic Claude Haiku Vision**.
 
 ---
 
-## 2. Choisir où fait tourner l’IA (recommandation)
+## 1. Principe
 
-**Ne pas appeler l’API d’IA directement depuis l’app Flutter** (clé API exposée, coût, sécurité).
+L'utilisateur photographie une preuve de sa quête. L'image est analysée par MougiBot, l'esprit analytique du compagnon Mougi, qui renvoie un **score de 0 à 100** et une **explication courte en français**.
 
-Mettre l’analyse côté **backend** :
+| Score | Conséquence |
+| ----- | ----------- |
+| >= 70 | Validation automatique, récompense complète (XP, gold, items) |
+| < 70  | Validation manuelle possible, récompense réduite de moitié |
 
-| Option | Avantage | À faire |
-|--------|----------|--------|
-| **Supabase Edge Function** | Déjà dans ton stack, une seule plateforme | Créer une Edge Function qui reçoit image + contexte quête, appelle l’IA, renvoie `{ score, explanation }`. |
-| **Backend perso** (Node, Python, etc.) | Contrôle total | Exposer une route POST qui fait la même chose. |
-| **Firebase Cloud Functions** | Si tu utilises déjà Firebase | Idem : une fonction qui reçoit l’image, appelle l’IA, renvoie le résultat. |
-
-Recommandation : **Supabase Edge Function** (tu utilises déjà Supabase).
+L'utilisateur n'est **jamais bloqué** : la validation manuelle reste toujours accessible, y compris sans jeton, sans premium ou en cas de panne de l'IA.
 
 ---
 
-## 3. Choisir le modèle IA (vision)
+## 2. Chaîne d'appel
 
-- **OpenAI GPT-4 Vision** : très adapté (image + prompt texte → score + explication). Payant, simple à intégrer.
-- **Google Cloud Vision API** : détection d’objets/labels ; tu peux ensuite comparer avec le titre/catégorie de la quête. Autre option si tu es déjà sur GCP.
-- **Modèle open source (local ou API)** : plus technique, possible si tu veux tout maîtriser.
+```
+QuestValidationPage
+  └─> QuestValidationViewModel.analyzeProof()
+        └─> ValidationAIService (interface)
+              ├─ MockValidationAIService        (développement et tests, score déterministe, aucun réseau)
+              ├─ ApiValidationAIService         (appel HTTP vers l'Edge Function)
+              └─ ClaudeValidationAIService      (appel direct de l'API Messages, réservé aux tests d'intégration)
+                    └─> Edge Function analyze-quest-proof (Deno)
+                          └─> API Anthropic /v1/messages (Claude Haiku Vision)
+```
 
-Pour démarrer rapidement : **GPT-4 Vision** derrière une Edge Function.
+Le service est choisi au démarrage selon la configuration : si `VALIDATION_AI_URL` est renseignée dans le `.env`, l'application utilise l'implémentation réseau, sinon elle retombe sur le mock. Le client HTTP est injectable, ce qui rend les tests unitaires indépendants du réseau.
 
----
-
-## 4. Étapes concrètes (ordre conseillé)
-
-### Étape A — Backend (Supabase Edge Function)
-
-1. Créer une **Edge Function** Supabase (ex. `analyze-quest-proof`).
-2. Elle reçoit en **POST** :
-   - **image** : base64 (ou multipart).
-   - **quest_title** : string.
-   - **quest_category** : string.
-3. Dans la fonction :
-   - Décoder l’image, appeler l’API **OpenAI Vision** (ou autre) avec un prompt du type :  
-     *“Cette image prouve-t-elle que la tâche « [quest_title] » (catégorie [quest_category]) a été réalisée ? Réponds en JSON : { \"score\": 0-100, \"explanation\": \"...\" }. Sois strict : 70+ seulement si la preuve est convaincante.”*
-   - Récupérer `score` et `explanation`, les renvoyer en JSON.
-4. Stocker la **clé API OpenAI** (ou autre) dans les **secrets** Supabase, pas dans le code.
-
-### Étape B — Flutter : appeler ton backend
-
-1. Ajouter le package **`http`** dans `pubspec.yaml` (pour les appels HTTP).
-2. Utiliser le service **`ApiValidationAIService`** (déjà préparé dans le projet) :
-   - Il envoie en POST l’image (base64) + titre/catégorie de la quête vers l’URL de ton Edge Function (ou de ton backend).
-   - Il lit la réponse JSON `{ score, explanation }` et retourne un `ValidationResult`.
-3. Dans l’app, **remplacer** `MockValidationAIService()` par `ApiValidationAIService(baseUrl: '...')` (ou injecter l’URL via config / .env).
-
-### Étape C — Config et sécurité
-
-- Mettre l’**URL de l’Edge Function** (ou du backend) dans un fichier **`.env`** (ou config Supabase) et la charger au démarrage.
-- Ne jamais mettre la clé API OpenAI dans le client : uniquement dans les **secrets** de l’Edge Function (ou variables d’environnement du serveur).
+La clé API Anthropic n'est **jamais** embarquée dans l'application. Elle vit dans les secrets Supabase et n'est lue que par l'Edge Function.
 
 ---
 
-## 5. Format d’échange suggéré (backend ↔ app)
+## 3. Format d'échange
 
-**Requête POST** (body JSON) :
+**Requête** (POST, JSON) :
 
 ```json
 {
-  "image_base64": "<données image en base64>",
+  "image_base64": "<base64 sans le préfixe data:image>",
   "quest_title": "Ranger ma chambre",
   "quest_category": "Maison"
 }
 ```
 
-**Réponse** (JSON) :
+**Réponse 200** :
 
 ```json
 {
   "score": 82,
-  "explanation": "La photo montre une pièce rangée, lit fait, bureau dégagé. Cohérent avec la quête."
+  "explanation": "Bravo, ta chambre est nickel, mission accomplie !"
 }
 ```
 
-L’app attend exactement ces deux champs pour construire `ValidationResult` et afficher le score + l’explication.
+**Réponses d'erreur** :
+
+| Code | Cause                                                        |
+| ---- | ------------------------------------------------------------ |
+| 400  | `image_base64`, `quest_title` ou `quest_category` manquant ou invalide |
+| 405  | Méthode autre que POST                                       |
+| 413  | Image supérieure à environ 5 Mo en base64                     |
+| 502  | Échec de l'analyse (timeout, erreur API, réponse illisible)   |
+
+Le préfixe `data:image/...;base64,` est toléré et retiré côté serveur. Le type de média (JPEG, PNG, GIF, WebP) est déduit de la signature du base64.
 
 ---
 
-## 6. Fichiers utiles dans le projet
+## 4. Comportement du modèle
 
-- **`lib/domain/services/validation_ai_service.dart`**  
-  Définition de `ValidationAIService` et du **mock**. C’est ici qu’on ajoute / utilise une implémentation « réelle ».
+Le prompt système fixe une échelle de notation explicite :
 
-- **`lib/domain/services/api_validation_ai_service.dart`**  
-  Squelette du service qui appelle **ton backend** (Edge Function ou autre). À brancher sur l’URL et le format ci‑dessus.
+| Plage  | Interprétation |
+| ------ | -------------- |
+| 85-100 | Preuve excellente, accomplissement clair et sans ambiguïté |
+| 70-84  | Preuve crédible, seuil de validation automatique |
+| 50-69  | Preuve ambiguë ou partielle (photo floue, cadrage incomplet) |
+| 20-49  | Preuve insuffisante, effort visible mais hors sujet partiel |
+| 0-19   | Preuve absente ou tentative de triche (capture d'écran, image téléchargée, photo vide) |
 
-- **`lib/ui/pages/quest/quest_validation_page.dart`**  
-  Utilise le service (mock ou API) ; aucun changement majeur une fois le bon service injecté.
+Le ton des explications est bienveillant, tutoyé, en une phrase de 25 mots maximum. Une photo floue est traitée avec indulgence plutôt que sanctionnée.
 
 ---
 
-## 7. Résumé « par où commencer »
+## 5. Robustesse
 
-1. **Décider** : Supabase Edge Function + OpenAI Vision (ou autre modèle).
-2. **Créer** l’Edge Function qui reçoit image + contexte quête et renvoie `score` + `explanation`.
-3. **Tester** l’Edge Function avec un outil (Postman, curl) avant de toucher à Flutter.
-4. **Dans Flutter** : ajouter `http`, configurer `ApiValidationAIService` avec l’URL, et l’utiliser à la place du mock.
-5. **Garder** le mock pour le dev hors ligne ou les tests.
+La fonction ne fait pas confiance à la sortie du modèle et la contrôle systématiquement :
 
-Une fois l’Edge Function en place et l’URL configurée, le reste est surtout du branchement dans `ApiValidationAIService` et le choix du service (mock vs API) au lancement de l’app.
+- **Nettoyage** : les éventuels blocs markdown (backticks) sont retirés avant analyse.
+- **Extraction** : le premier objet JSON est isolé entre la première accolade ouvrante et la dernière fermante.
+- **Bornage** : le score est arrondi puis contraint dans l'intervalle 0 à 100.
+- **Rejet** : un score non numérique ou une explication vide lève une erreur, remontée en 502.
+- **Timeout** : l'appel est interrompu au bout de 25 secondes via un `AbortController`.
+- **Taille** : toute image dépassant environ 5 Mo est refusée avant l'appel au modèle.
+
+En cas d'échec, l'application n'est pas bloquée : l'utilisateur bascule sur la validation manuelle.
+
+---
+
+## 6. Sécurité du prompt
+
+Le titre et la catégorie de quête sont des **données utilisateur non fiables**. Le prompt système ordonne explicitement d'ignorer toute instruction qu'ils pourraient contenir, de ne jamais révéler les instructions internes, et de conserver le rôle de MougiBot quoi qu'il arrive. Cette consigne protège contre l'injection de prompt par le titre de quête ou par du texte présent dans l'image.
+
+---
+
+## 7. Fichiers concernés
+
+| Fichier | Rôle |
+| ------- | ---- |
+| `supabase/functions/analyze-quest-proof/index.ts` | Edge Function, prompt système, appel Anthropic, parsing |
+| `lib/domain/services/validation_ai_service.dart` | Interface `ValidationAIService` et mock |
+| `lib/domain/services/api_validation_ai_service.dart` | Appel HTTP vers l'Edge Function |
+| `lib/domain/services/claude_validation_ai_service.dart` | Appel direct de l'API Messages |
+| `lib/presentation/view_models/quest_validation_view_model.dart` | Orchestration, état `isAnalyzing`, `result` |
+| `lib/ui/pages/quest/quest_validation_page.dart` | Prise de photo et affichage du score |
+
+---
+
+## 8. Coût
+
+Chaque validation consomme un appel Claude Haiku Vision, de l'ordre de **0,5 à 1 centime**. Le coût est borné côté produit par le portefeuille de jetons (`ai_validation_credits`) et par l'abonnement premium, décrits dans le README.
+
+→ Déploiement et configuration : [SUPABASE_EDGE_FUNCTION_IA.md](SUPABASE_EDGE_FUNCTION_IA.md)
