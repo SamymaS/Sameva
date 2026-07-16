@@ -33,7 +33,7 @@ Tu veux juste essayer l'application sans rien installer ? Un APK prêt à l'empl
 | Client       | Flutter (Material Design 3)                     | Application cross-platform iOS / Android              |
 | Architecture | MVVM, Provider / ChangeNotifier                 | Séparation UI / logique / données                     |
 | Backend      | Supabase (PostgreSQL + Auth JWT + RLS)          | Base de données, authentification, sécurité           |
-| Cache local  | Hive                                            | Persistance offline-first (quêtes, stats, inventaire) |
+| Cache local  | Hive                                            | Persistance offline-first (stats, inventaire, compagnons, jetons) |
 | IA           | Edge Function Supabase → Anthropic Claude Haiku | Validation de preuves visuelles et génération de quêtes |
 | Paiement     | Stripe (mode abonnement)                        | Offre premium et gestion de l'entitlement             |
 | CI/CD        | GitHub Actions                                  | Analyse statique, tests, couverture                   |
@@ -107,7 +107,7 @@ L'architecture suit un découpage en 4 couches avec une règle de dépendance st
 
 - **Auth** : email / mot de passe avec confirmation par mail (Supabase Auth).
 - **Suppression de compte RGPD** : Edge Function dédiée, garde JWT, suppression respectant les clés étrangères, purge locale déclenchée seulement après confirmation serveur.
-- **Offline-first** : Hive en cache local, synchronisation vers Supabase.
+- **Offline-first** : les stats joueur, l'inventaire, les compagnons et le portefeuille de jetons sont lus depuis Hive et synchronisés vers Supabase en arrière-plan. Les quêtes sont, elles, servies directement par Supabase.
 - **Notifications** : rappels quotidiens configurables.
 - **Thème** : clair / sombre / système, persisté en local.
 
@@ -128,8 +128,12 @@ L'architecture suit un découpage en 4 couches avec une règle de dépendance st
 | `user_equipment`       | Équipement actuellement porté                                             |
 | `companions`           | Compagnons possédés par les joueurs                                       |
 | `transactions`         | Historique des transactions (achats, ventes, récompenses)                 |
+| `player_stats`         | Stats joueur synchronisées entre appareils (niveau, XP, or, HP, streak)   |
 | `ai_validation_credits`| Crédits de validation IA par utilisateur (freemium)                       |
 | `premium_subscriptions`| État de l'abonnement premium par utilisateur (Stripe)                     |
+| `quest_difficulty_audit`| Journal d'audit de la correction de difficulté historique                |
+
+Une vue, `leaderboard_view`, expose une projection publique restreinte pour le classement.
 
 **Sécurité** : Row Level Security activé sur toutes les tables, chaque utilisateur ne voit et ne modifie que ses propres données, JWT vérifié sur chaque requête. La vue de classement est isolée derrière une projection publique restreinte.
 
@@ -155,7 +159,7 @@ Cinq fonctions serverless (Deno / TypeScript), les clés sensibles restant côt�
 
 ## Tests
 
-64 fichiers de test couvrant les trois couches :
+**469 cas de test** répartis sur **64 fichiers** et 147 groupes, couvrant les quatre couches :
 
 - **Domain** : QuestRewardsCalculator (récompenses, bonus de ponctualité, streak, pénalités), ItemFactory (raretés, gacha, marché), CraftService, WeeklyBossService, HealthRegenerationService (limites, plafonds, horodatages), ValidationAIService (parsing, erreurs HTTP, fallback).
 - **Data** : sérialisation aller-retour des modèles (`toSupabaseMap` et `fromSupabaseMap`), parsing d'enums avec fallback, CRUD des repositories via mocks.
@@ -201,7 +205,6 @@ flutter run -d chrome              # Lancer sur Chrome
 flutter analyze                    # Analyse statique
 flutter test                       # Tests unitaires et widget
 flutter test --coverage            # Tests avec couverture
-dart run build_runner build        # Générer les adaptateurs Hive (@HiveType)
 flutter build apk --release        # Build Android (APK de production)
 flutter build web                  # Build Web
 ```
@@ -227,10 +230,10 @@ flutter build web                  # Build Web
 | --------------------------- | -------- |
 | Lignes de code Dart (lib)   | ~28 500  |
 | Fichiers source (lib)       | 99       |
-| Fichiers de test            | 64       |
+| Cas de test                 | 469 (64 fichiers) |
 | Edge Functions              | 5        |
-| Tables Supabase             | 9        |
-| Analyse statique            | 0 issue  |
+| Tables Supabase             | 11 (+ 1 vue) |
+| Analyse statique            | 0 erreur |
 
 ---
 
