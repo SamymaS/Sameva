@@ -106,7 +106,7 @@ final playerViewModel = PlayerViewModel(playerRepo, onSignedOut: signedOutStream
 
 `ActivityLogService` fait exception : c'est un service statique dont le cache est purgé par `AuthViewModel._purgeHiveData()` lors de la déconnexion, et non par abonnement.
 
-Ce câblage est documenté dans [`docs/adr/0001`](../docs/adr/0001-phase-zero-restructuration.md).
+Ce câblage est documenté dans [`docs/adr/0001`](../docs/adr/0001-cycle-de-vie-authentification.md).
 
 ---
 
