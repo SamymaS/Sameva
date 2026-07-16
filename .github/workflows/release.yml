@@ -1,0 +1,104 @@
+name: Release
+
+# Livraison de l'application cliente.
+# Deux façons de déclencher :
+#   1. Onglet Actions > Release > Run workflow, en saisissant la version (ex : v1.0.0).
+#      Le tag est alors créé automatiquement par le workflow.
+#   2. Pose d'un tag commençant par "v" par tout autre moyen.
+# Dans les deux cas : un tag = une version = un artefact téléchargeable.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version à publier, au format vX.Y.Z (ex : v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Compiler l'APK et publier la Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Récupérer les sources
+        uses: actions/checkout@v4
+
+      - name: Déterminer la version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            v="${{ github.event.inputs.version }}"
+          else
+            v="${{ github.ref_name }}"
+          fi
+          case "$v" in
+            v*) ;;
+            *) echo "::error::La version doit commencer par v (recu : $v)"; exit 1 ;;
+          esac
+          echo "value=$v" >> "$GITHUB_OUTPUT"
+          echo "Version a publier : $v"
+
+      - name: Installer Java (requis par la chaîne de build Android)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Installer Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Générer le fichier d'environnement
+        # Les valeurs proviennent des secrets du dépôt : aucune clé n'est versionnée.
+        # Seule la clé anon est embarquée dans l'APK ; elle est publique par
+        # conception et protégée par la RLS côté Supabase.
+        run: |
+          cat > .env << EOF
+          SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
+          VALIDATION_AI_URL=${{ secrets.VALIDATION_AI_URL }}
+          SUGGEST_QUESTS_URL=${{ secrets.SUGGEST_QUESTS_URL }}
+          EOF
+
+      - name: Installer les dépendances
+        run: flutter pub get
+
+      - name: Analyse statique
+        run: flutter analyze --no-fatal-warnings
+
+      - name: Tests automatisés
+        # Porte de passage : aucune version n'est publiée si un test échoue.
+        run: flutter test
+
+      - name: Compiler l'APK de production
+        run: flutter build apk --release
+
+      - name: Nommer l'artefact avec la version
+        run: mv build/app/outputs/flutter-apk/app-release.apk sameva-${{ steps.version.outputs.value }}.apk
+
+      - name: Publier la Release et y attacher l'APK
+        # Le tag est créé automatiquement s'il n'existe pas encore.
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.value }}
+          name: Sameva ${{ steps.version.outputs.value }}
+          files: sameva-${{ steps.version.outputs.value }}.apk
+          generate_release_notes: true
+          body: |
+            ## Installation
+
+            1. Télécharger le fichier `sameva-${{ steps.version.outputs.value }}.apk` ci-dessous sur un appareil Android.
+            2. Ouvrir le fichier, puis autoriser l'installation depuis cette source si Android le demande.
+            3. Créer un compte, ou utiliser le compte de démonstration fourni.
+
+            L'application se connecte à un projet Supabase de démonstration. La validation des
+            quêtes par photo consomme des jetons ; la validation manuelle reste toujours
+            disponible, l'application ne bloque jamais l'utilisateur.
