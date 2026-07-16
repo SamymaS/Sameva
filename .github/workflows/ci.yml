@@ -38,14 +38,28 @@ jobs:
       - name: Tests avec couverture
         run: flutter test --coverage
 
-      - name: Résumé couverture
+      - name: Taux de couverture
         if: always()
         run: |
-          if [ -f coverage/lcov.info ]; then
-            echo "📊 Lignes couvertes :"
-            grep -c "^DA:" coverage/lcov.info || echo "0"
-            echo "📊 Fichiers couverts :"
-            grep -c "^SF:" coverage/lcov.info || echo "0"
-          else
-            echo "⚠️ Pas de fichier de couverture généré"
+          if [ ! -f coverage/lcov.info ]; then
+            echo "Pas de fichier de couverture genere"
+            exit 0
           fi
+          # lcov : une ligne "DA:<ligne>,<nb_executions>".
+          # Une ligne est couverte si le nombre d'executions est different de 0.
+          total=$(grep -c "^DA:" coverage/lcov.info)
+          couvertes=$(grep "^DA:" coverage/lcov.info | grep -vc ",0$")
+          fichiers=$(grep -c "^SF:" coverage/lcov.info)
+          taux=$(awk "BEGIN { printf \"%.1f\", ($couvertes/$total)*100 }")
+          echo "Fichiers instrumentes : $fichiers"
+          echo "Lignes couvertes      : $couvertes / $total"
+          echo "Taux de couverture    : $taux %"
+          {
+            echo "### Couverture des tests"
+            echo ""
+            echo "| Indicateur | Valeur |"
+            echo "| --- | --- |"
+            echo "| Fichiers instrumentes | $fichiers |"
+            echo "| Lignes couvertes | $couvertes / $total |"
+            echo "| Taux de couverture | **$taux %** |"
+          } >> "$GITHUB_STEP_SUMMARY"
