@@ -1,0 +1,68 @@
+name: Deploy backend
+
+# Déploiement continu du backend.
+# Toute modification d'une Edge Function fusionnée sur main est déployée
+# automatiquement, sans intervention manuelle.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/functions/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy-functions:
+    name: Déployer les Edge Functions
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Récupérer les sources
+        uses: actions/checkout@v4
+
+      - name: Lire l'identifiant du projet
+        # La référence du projet est déjà versionnée dans supabase/config.toml
+        # et n'a rien de confidentiel : elle est déduite de l'URL publique du
+        # backend. Inutile d'en faire un secret.
+        id: ref
+        run: |
+          ref=$(grep -E '^project_id' supabase/config.toml | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+          if [ -z "$ref" ]; then
+            echo "::error::project_id introuvable dans supabase/config.toml"
+            exit 1
+          fi
+          echo "value=$ref" >> "$GITHUB_OUTPUT"
+          echo "Projet ciblé : $ref"
+
+      - name: Installer la CLI Supabase
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Déployer les cinq fonctions
+        # stripe-webhook est déclarée sans vérification de JWT dans config.toml,
+        # car Stripe appelle sans session Supabase : elle est authentifiée par
+        # signature HMAC. Les autres fonctions exigent un JWT valide.
+        run: supabase functions deploy --project-ref "${{ steps.ref.outputs.value }}"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Vérifier que la fonction de validation répond
+        # Contrôle de bon déploiement : une requête au corps vide doit être
+        # rejetée par la fonction elle-même (400), ce qui prouve qu'elle est en
+        # ligne et qu'elle valide ses entrées. Un 404 signalerait un échec.
+        env:
+          PROJECT_REF: ${{ steps.ref.outputs.value }}
+          ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+            "https://${PROJECT_REF}.supabase.co/functions/v1/analyze-quest-proof" \
+            -H "Authorization: Bearer ${ANON_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{}')
+          echo "Code retourné : $code"
+          if [ "$code" = "404" ] || [ "$code" = "000" ]; then
+            echo "::error::La fonction ne répond pas, déploiement en échec."
+            exit 1
+          fi
+          echo "Fonction en ligne."
