@@ -88,7 +88,7 @@ jobs:
         run: flutter test
 
       - name: Compiler l'APK de production
-        run: flutter build apk --release
+        run: flutter build apk --release --no-tree-shake-icons
 
       - name: Nommer l'artefact avec la version
         run: mv build/app/outputs/flutter-apk/app-release.apk sameva-${{ steps.version.outputs.value }}.apk
