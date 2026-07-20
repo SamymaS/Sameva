@@ -60,13 +60,22 @@ jobs:
         # Les valeurs proviennent des secrets du dépôt : aucune clé n'est versionnée.
         # Seule la clé anon est embarquée dans l'APK ; elle est publique par
         # conception et protégée par la RLS côté Supabase.
+        # Les URLs des Edge Functions sont dérivées de SUPABASE_URL : elles
+        # suivent toujours le motif <url>/functions/v1/<nom>, inutile d'en faire
+        # des secrets supplémentaires.
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          cat > .env << EOF
-          SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
-          VALIDATION_AI_URL=${{ secrets.VALIDATION_AI_URL }}
-          SUGGEST_QUESTS_URL=${{ secrets.SUGGEST_QUESTS_URL }}
-          EOF
+          base="${SUPABASE_URL%/}"
+          {
+            echo "SUPABASE_URL=${base}"
+            echo "SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}"
+            echo "VALIDATION_AI_URL=${base}/functions/v1/analyze-quest-proof"
+            echo "SUGGEST_QUESTS_URL=${base}/functions/v1/suggest-quests"
+          } > .env
+          echo "Fichier .env genere (valeurs masquees) :"
+          sed -E 's/=(.*)/=***/' .env
 
       - name: Installer les dépendances
         run: flutter pub get
