@@ -108,6 +108,18 @@ class _LoginPageState extends State<LoginPage> {
                   onPressed: () => Navigator.of(context).pushNamed('/register'),
                   child: const Text('Créer un compte'),
                 ),
+                const SizedBox(height: 24),
+                const Divider(),
+                const SizedBox(height: 16),
+                Consumer<AuthViewModel>(
+                  builder: (context, auth, _) {
+                    return TextButton(
+                      key: const Key('btn_continuer_invite'),
+                      onPressed: auth.isLoading ? null : () => _continuerInvite(auth),
+                      child: const Text('Continuer en tant qu\'invité'),
+                    );
+                  },
+                ),
               ],
             ),
           ),
@@ -123,6 +135,18 @@ class _LoginPageState extends State<LoginPage> {
         _emailController.text.trim(),
         _passwordController.text,
       );
+      if (!mounted) return;
+      if (auth.isAuthenticated) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+      }
+    } catch (_) {
+      // Message déjà dans AuthViewModel.errorMessage
+    }
+  }
+
+  Future<void> _continuerInvite(AuthViewModel auth) async {
+    try {
+      await auth.continueAsGuest();
       if (!mounted) return;
       if (auth.isAuthenticated) {
         Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);

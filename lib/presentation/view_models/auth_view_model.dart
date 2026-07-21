@@ -72,6 +72,7 @@ class AuthViewModel with ChangeNotifier {
 
   User? get user => _user;
   bool get isAuthenticated => _user != null;
+  bool get isGuest => _user?.isAnonymous ?? false;
   String? get userId => _user?.id;
   String? get errorMessage => _errorMessage;
   bool get isLoading => _isLoading;
@@ -106,6 +107,53 @@ class AuthViewModel with ChangeNotifier {
     _setLoading(true);
     try {
       _user = await _repo.createUserWithEmailAndPassword(email, password);
+      _user ??= _repo.currentUser;
+      _errorMessage = null;
+    } on AuthException catch (e) {
+      _errorMessage = _traduireErreur(e);
+      rethrow;
+    } catch (e) {
+      _errorMessage = e.toString();
+      rethrow;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Connexion anonyme (mode invité). Les données locales sont préservées.
+  Future<void> continueAsGuest() async {
+    _setLoading(true);
+    try {
+      _user = await _repo.signInAnonymously();
+      _user ??= _repo.currentUser;
+      _errorMessage = null;
+    } on AuthException catch (e) {
+      _errorMessage = _traduireErreur(e);
+      rethrow;
+    } catch (e) {
+      _errorMessage = e.toString();
+      rethrow;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Met à niveau le compte invité actuel vers un compte email/mot de passe.
+  /// Préserve le user_id — toutes les données restent intactes.
+  /// Une confirmation par email peut être requise selon la config du projet.
+  Future<void> saveGuestAccount({
+    required String email,
+    required String password,
+  }) async {
+    if (email.trim().isEmpty) throw Exception('Veuillez entrer votre email');
+    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email.trim())) {
+      throw Exception('Email invalide');
+    }
+    if (password.length < 6) throw Exception('Le mot de passe doit contenir au moins 6 caractères');
+
+    _setLoading(true);
+    try {
+      _user = await _repo.upgradeAnonymousToEmail(email: email, password: password);
       _user ??= _repo.currentUser;
       _errorMessage = null;
     } on AuthException catch (e) {

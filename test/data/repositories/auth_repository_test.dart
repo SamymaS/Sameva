@@ -9,6 +9,10 @@ class _MockGoTrueClient extends Mock implements GoTrueClient {}
 
 class _MockUser extends Mock implements User {}
 
+class _MockUserResponse extends Mock implements UserResponse {}
+
+class _FakeUserAttributes extends Fake implements UserAttributes {}
+
 // Valeurs fictives utilisées uniquement dans les mocks — aucun appel réseau réel.
 const _fakeEmail = 'test@example.com';
 const _fakePassword = 'fake-password-tests-only';
@@ -17,6 +21,10 @@ void main() {
   late _MockSupabaseClient supabase;
   late _MockGoTrueClient goTrue;
   late AuthRepository repo;
+
+  setUpAll(() {
+    registerFallbackValue(_FakeUserAttributes());
+  });
 
   setUp(() {
     supabase = _MockSupabaseClient();
@@ -123,6 +131,67 @@ void main() {
         await repo.signOut();
 
         verify(() => goTrue.signOut()).called(1);
+      });
+    });
+
+    group('signInAnonymously', () {
+      test('délègue à GoTrue signInAnonymously et retourne l\'utilisateur', () async {
+        final user = _MockUser();
+        when(() => user.id).thenReturn('anon-uid');
+        when(() => goTrue.signInAnonymously())
+            .thenAnswer((_) async => AuthResponse(user: user));
+
+        final result = await repo.signInAnonymously();
+
+        expect(result, user);
+        verify(() => goTrue.signInAnonymously()).called(1);
+      });
+
+      test('propage l\'exception AuthException si GoTrue échoue', () async {
+        when(() => goTrue.signInAnonymously())
+            .thenThrow(const AuthException('Connexion anonyme désactivée'));
+
+        await expectLater(
+          () => repo.signInAnonymously(),
+          throwsA(isA<AuthException>()),
+        );
+      });
+    });
+
+    group('upgradeAnonymousToEmail', () {
+      test('appelle GoTrue updateUser avec email trimmé et mot de passe', () async {
+        final user = _MockUser();
+        when(() => user.id).thenReturn('anon-uid');
+
+        final userResponse = _MockUserResponse();
+        when(() => userResponse.user).thenReturn(user);
+        when(() => goTrue.updateUser(any()))
+            .thenAnswer((_) async => userResponse);
+
+        final result = await repo.upgradeAnonymousToEmail(
+          email: '  $_fakeEmail  ',
+          password: _fakePassword,
+        );
+
+        expect(result, user);
+        final captured =
+            verify(() => goTrue.updateUser(captureAny())).captured.single
+                as UserAttributes;
+        expect(captured.email, _fakeEmail);
+        expect(captured.password, _fakePassword);
+      });
+
+      test('propage l\'exception AuthException si la mise à niveau échoue', () async {
+        when(() => goTrue.updateUser(any()))
+            .thenThrow(const AuthException('Email déjà utilisé'));
+
+        await expectLater(
+          () => repo.upgradeAnonymousToEmail(
+            email: _fakeEmail,
+            password: _fakePassword,
+          ),
+          throwsA(isA<AuthException>()),
+        );
       });
     });
   });

@@ -134,5 +134,70 @@ void main() {
       completer.complete(null);
       await tester.pump();
     });
+
+    // ── Bouton invité ──────────────────────────────────────────────────────
+
+    testWidgets('affiche le bouton "Continuer en tant qu\'invité"',
+        (tester) async {
+      final vm = _makeVm(_MockAuthRepository());
+      await tester.pumpWidget(_buildLogin(vm));
+
+      expect(
+        find.byKey(const Key('btn_continuer_invite')),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Continuer en tant qu\'invité'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets(
+        'le bouton invité appelle continueAsGuest() sur AuthViewModel',
+        (tester) async {
+      final repo = _MockAuthRepository();
+      final anonUser = _FakeUser();
+      when(() => repo.signInAnonymously())
+          .thenAnswer((_) async => anonUser);
+      final vm = _makeVm(repo);
+      await tester.pumpWidget(_buildLogin(vm));
+
+      await tester.tap(find.byKey(const Key('btn_continuer_invite')));
+      await tester.pump();
+      await tester.pump();
+
+      verify(() => repo.signInAnonymously()).called(1);
+    });
+
+    testWidgets(
+        'le bouton invité est désactivé pendant le chargement',
+        (tester) async {
+      final repo = _MockAuthRepository();
+      final completer = Completer<User?>();
+      when(() => repo.signInAnonymously())
+          .thenAnswer((_) => completer.future);
+      final vm = _makeVm(repo);
+      await tester.pumpWidget(_buildLogin(vm));
+
+      await tester.tap(find.byKey(const Key('btn_continuer_invite')));
+      await tester.pump();
+
+      final btn = tester.widget<TextButton>(
+        find.byKey(const Key('btn_continuer_invite')),
+      );
+      expect(btn.onPressed, isNull);
+
+      completer.complete(null);
+      await tester.pump();
+    });
   });
+}
+
+/// Faux utilisateur anonyme pour les tests du bouton invité.
+class _FakeUser extends Fake implements User {
+  @override
+  String get id => 'anon-fake';
+
+  @override
+  bool get isAnonymous => true;
 }

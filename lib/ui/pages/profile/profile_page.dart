@@ -6,6 +6,7 @@ import '../../../config/feature_flags.dart';
 import '../../../data/models/item_model.dart';
 import '../../../domain/services/activity_log_service.dart';
 import 'achievements_page.dart';
+import '../auth/save_guest_account_page.dart';
 import '../social/leaderboard_page.dart';
 import '../inventory/inventory_page.dart';
 import 'activity_log_page.dart';
@@ -150,6 +151,12 @@ class _ProfileContent extends StatelessWidget {
                 // Ligne de stats rapides
                 _QuickStatsRow(stats: stats, vm: vm),
                 const SizedBox(height: 16),
+
+                // Bandeau invité — visible uniquement pour les comptes anonymes
+                if (context.watch<AuthViewModel>().isGuest) ...[
+                  const _GuestBanner(),
+                  const SizedBox(height: 16),
+                ],
 
                 // Premium (CTA abonnement ou statut actif)
                 const _PremiumSection(),
@@ -497,6 +504,91 @@ class _StatChip extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ─── Bandeau invité ───────────────────────────────────────────────────────────
+
+/// Bandeau affiché uniquement pour les comptes anonymes (isGuest == true).
+/// Invite l'utilisateur à sauvegarder sa progression en créant un compte email.
+class _GuestBanner extends StatelessWidget {
+  const _GuestBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.warning.withValues(alpha: 0.18),
+            AppColors.primaryTurquoise.withValues(alpha: 0.12),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.person_outline, color: AppColors.warning, size: 22),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Mode invité',
+                  style: TextStyle(
+                    color: AppColors.warning,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Votre progression n\'est pas synchronisée. '
+            'Sauvegardez votre compte pour ne rien perdre si vous '
+            'changez d\'appareil.',
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              key: const Key('btn_sauvegarder_progression'),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const SaveGuestAccountPage(),
+                ),
+              ),
+              icon: const Icon(Icons.save_outlined, size: 18),
+              label: const Text('Sauvegarder ma progression'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.warning,
+                foregroundColor: Colors.black87,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                textStyle: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

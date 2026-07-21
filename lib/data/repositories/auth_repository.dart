@@ -30,6 +30,24 @@ class AuthRepository {
     return response.user;
   }
 
+  /// Connexion anonyme (mode invité). Le user_id est stable jusqu'à la mise à niveau.
+  Future<User?> signInAnonymously() async {
+    final response = await _supabase.auth.signInAnonymously();
+    return response.user;
+  }
+
+  /// Met à niveau un compte invité vers un compte email/mot de passe.
+  /// Doit être appelé sur la session anonyme active — préserve le user_id.
+  Future<User?> upgradeAnonymousToEmail({
+    required String email,
+    required String password,
+  }) async {
+    final response = await _supabase.auth.updateUser(
+      UserAttributes(email: email.trim(), password: password),
+    );
+    return response.user;
+  }
+
   Future<void> signOut() async {
     await _supabase.auth.signOut();
   }
