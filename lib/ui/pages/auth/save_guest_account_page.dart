@@ -174,12 +174,68 @@ class _SaveGuestAccountPageState extends State<SaveGuestAccountPage> {
                     );
                   },
                 ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(child: Divider(color: AppColors.textSecondary.withValues(alpha: 0.3))),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        'ou',
+                        style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                      ),
+                    ),
+                    Expanded(child: Divider(color: AppColors.textSecondary.withValues(alpha: 0.3))),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Associez votre compte Google : votre progression '
+                  '(quêtes, XP, items) est conservée à l\'identique.',
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                Consumer<AuthViewModel>(
+                  builder: (context, auth, _) {
+                    return OutlinedButton(
+                      key: const Key('btn_continuer_google_invite'),
+                      onPressed: auth.isLoading ? null : () => _continuerAvecGoogle(auth),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.textPrimary,
+                        side: BorderSide(color: AppColors.textSecondary.withValues(alpha: 0.4)),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text('Continuer avec Google'),
+                    );
+                  },
+                ),
               ],
             ),
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _continuerAvecGoogle(AuthViewModel auth) async {
+    try {
+      await auth.signInWithGoogle();
+      if (!mounted) return;
+      if (!auth.isGuest && auth.isAuthenticated) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Compte Google associé ! Votre progression est conservée.'),
+          ),
+        );
+        Navigator.of(context).pop();
+      }
+    } catch (_) {
+      // Message déjà dans AuthViewModel.errorMessage (ou annulation silencieuse)
+    }
   }
 
   Future<void> _submit(AuthViewModel auth) async {

@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sameva/data/repositories/auth_repository.dart';
 import 'package:sameva/presentation/view_models/auth_view_model.dart';
@@ -222,6 +223,99 @@ void main() {
         await expectLater(
           () => vm.saveGuestAccount(email: 'taken@test.fr', password: 'secure123'),
           throwsA(isA<AuthException>()),
+        );
+        expect(vm.errorMessage, isNotNull);
+        expect(vm.isLoading, isFalse);
+      });
+    });
+
+    // ── signInWithGoogle ───────────────────────────────────────────────────
+    group('signInWithGoogle', () {
+      test('appelle repo.signInWithGoogle et met à jour _user en cas de succès',
+          () async {
+        final googleUser = _MockUser();
+        when(() => googleUser.id).thenReturn('google-uid');
+        when(() => googleUser.isAnonymous).thenReturn(false);
+        when(() => repo.signInWithGoogle())
+            .thenAnswer((_) async => googleUser);
+
+        final vm = newVm();
+        await vm.signInWithGoogle();
+
+        expect(vm.user, googleUser);
+        expect(vm.isAuthenticated, isTrue);
+        expect(vm.errorMessage, isNull);
+        verify(() => repo.signInWithGoogle()).called(1);
+      });
+
+      test('isLoading passe à true pendant l\'appel puis revient à false',
+          () async {
+        final googleUser = _MockUser();
+        when(() => googleUser.id).thenReturn('google-uid');
+        when(() => googleUser.isAnonymous).thenReturn(false);
+
+        var loadingSeenTrue = false;
+        when(() => repo.signInWithGoogle()).thenAnswer((_) async {
+          return googleUser;
+        });
+
+        final vm = newVm();
+        vm.addListener(() {
+          if (vm.isLoading) loadingSeenTrue = true;
+        });
+
+        await vm.signInWithGoogle();
+
+        expect(loadingSeenTrue, isTrue);
+        expect(vm.isLoading, isFalse);
+      });
+
+      test('propage l\'erreur et stocke errorMessage sur AuthException '
+          '(ex. identité déjà liée à un autre compte)', () async {
+        when(() => repo.signInWithGoogle()).thenThrow(const AuthException(
+          'Ce compte Google est déjà associé à un autre profil Sameva.',
+          code: 'identity_already_exists',
+        ));
+
+        final vm = newVm();
+        await expectLater(
+          () => vm.signInWithGoogle(),
+          throwsA(isA<AuthException>()),
+        );
+        expect(vm.errorMessage, isNotNull);
+        expect(vm.isLoading, isFalse);
+      });
+
+      test('annulation utilisateur : se termine silencieusement, sans '
+          'message d\'erreur ni exception propagée', () async {
+        when(() => repo.signInWithGoogle()).thenThrow(
+          const GoogleSignInException(
+            code: GoogleSignInExceptionCode.canceled,
+            description: 'Annulé par l\'utilisateur',
+          ),
+        );
+
+        final vm = newVm();
+        // Ne doit PAS lancer d'exception — annulation silencieuse.
+        await vm.signInWithGoogle();
+
+        expect(vm.errorMessage, isNull);
+        expect(vm.isLoading, isFalse);
+      });
+
+      test('autre erreur GoogleSignInException (non-annulation) : message '
+          'affiché et exception relancée', () async {
+        when(() => repo.signInWithGoogle()).thenThrow(
+          const GoogleSignInException(
+            code: GoogleSignInExceptionCode.unknownError,
+            description: 'Erreur inconnue',
+          ),
+        );
+
+        final vm = newVm();
+        await expectLater(
+          () => vm.signInWithGoogle(),
+          throwsA(isA<GoogleSignInException>()),
         );
         expect(vm.errorMessage, isNotNull);
         expect(vm.isLoading, isFalse);

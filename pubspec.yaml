@@ -16,6 +16,9 @@ dependencies:
   # Supabase (Auth + Base de données)
   supabase_flutter: ^2.5.4
 
+  # Connexion Google (API 7.x — GoogleSignIn.instance, singleton)
+  google_sign_in: ^7.2.0
+
   # State Management
   # P1.1 : flutter_bloc et equatable supprimés — BLoC non utilisé (Provider uniquement)
   provider: ^6.1.2

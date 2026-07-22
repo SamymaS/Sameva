@@ -36,6 +36,21 @@ class SupabaseConfig {
     return key;
   }
 
+  /// ID client Web Google (Google Cloud Console > Identifiants).
+  /// Public par conception, transmis au SDK Google Sign-In au démarrage
+  /// du flux d'authentification.
+  static String get googleWebClientId {
+    final id = dotenv.env['GOOGLE_WEB_CLIENT_ID'];
+    if (id == null || id.isEmpty) {
+      throw Exception(
+        'GOOGLE_WEB_CLIENT_ID n\'est pas défini dans le fichier .env\n'
+        'Veuillez l\'ajouter à la racine du projet.\n'
+        'Voir .env.example pour un exemple.',
+      );
+    }
+    return id;
+  }
+
   /// URL de l'Edge Function d'analyse de preuve (optionnel).
   /// Si défini, l'app utilisera l'IA réelle au lieu du mock.
   /// Ex. https://VOTRE_PROJECT_REF.supabase.co/functions/v1/analyze-quest-proof

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/repositories/auth_repository.dart';
@@ -156,6 +157,40 @@ class AuthViewModel with ChangeNotifier {
       _user = await _repo.upgradeAnonymousToEmail(email: email, password: password);
       _user ??= _repo.currentUser;
       _errorMessage = null;
+    } on AuthException catch (e) {
+      _errorMessage = _traduireErreur(e);
+      rethrow;
+    } catch (e) {
+      _errorMessage = e.toString();
+      rethrow;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Connexion via Google.
+  ///
+  /// Si l'utilisateur courant est un invité (session anonyme), l'identité
+  /// Google est liée à ce compte — la progression est préservée. Sinon,
+  /// connexion/création classique.
+  ///
+  /// L'annulation du sélecteur de compte Google par l'utilisateur ne
+  /// déclenche AUCUN message d'erreur : l'appel se termine simplement,
+  /// sans changer l'état d'authentification.
+  Future<void> signInWithGoogle() async {
+    _setLoading(true);
+    try {
+      _user = await _repo.signInWithGoogle();
+      _user ??= _repo.currentUser;
+      _errorMessage = null;
+    } on GoogleSignInException catch (e) {
+      if (e.code == GoogleSignInExceptionCode.canceled) {
+        // Annulation utilisateur : pas d'erreur affichée, échec silencieux.
+        _errorMessage = null;
+      } else {
+        _errorMessage = 'Impossible de se connecter avec Google. Veuillez réessayer.';
+        rethrow;
+      }
     } on AuthException catch (e) {
       _errorMessage = _traduireErreur(e);
       rethrow;

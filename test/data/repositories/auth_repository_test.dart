@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sameva/data/repositories/auth_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -13,24 +14,35 @@ class _MockUserResponse extends Mock implements UserResponse {}
 
 class _FakeUserAttributes extends Fake implements UserAttributes {}
 
+// Double de test pour GoogleAuthGateway — évite tout appel au SDK natif
+// Google Sign-In (singleton non mockable) dans les tests du repository.
+class _MockGoogleAuthGateway extends Mock implements GoogleAuthGateway {}
+
 // Valeurs fictives utilisées uniquement dans les mocks — aucun appel réseau réel.
 const _fakeEmail = 'test@example.com';
 const _fakePassword = 'fake-password-tests-only';
+const _fakeGoogleTokens = GoogleAuthTokens(
+  idToken: 'fake-id-token-tests-only',
+  accessToken: 'fake-access-token-tests-only',
+);
 
 void main() {
   late _MockSupabaseClient supabase;
   late _MockGoTrueClient goTrue;
+  late _MockGoogleAuthGateway googleAuth;
   late AuthRepository repo;
 
   setUpAll(() {
     registerFallbackValue(_FakeUserAttributes());
+    registerFallbackValue(OAuthProvider.google);
   });
 
   setUp(() {
     supabase = _MockSupabaseClient();
     goTrue = _MockGoTrueClient();
+    googleAuth = _MockGoogleAuthGateway();
     when(() => supabase.auth).thenReturn(goTrue);
-    repo = AuthRepository(supabase);
+    repo = AuthRepository(supabase, googleAuth: googleAuth);
   });
 
   group('AuthRepository', () {
@@ -192,6 +204,129 @@ void main() {
           ),
           throwsA(isA<AuthException>()),
         );
+      });
+    });
+
+    group('signInWithGoogle', () {
+      test('branche invité : lie l\'identité via linkIdentityWithIdToken '
+          'si la session courante est anonyme (préserve le user_id)', () async {
+        final anonUser = _MockUser();
+        when(() => anonUser.id).thenReturn('anon-uid');
+        when(() => anonUser.isAnonymous).thenReturn(true);
+        when(() => goTrue.currentUser).thenReturn(anonUser);
+        when(() => googleAuth.signIn())
+            .thenAnswer((_) async => _fakeGoogleTokens);
+
+        final linkedUser = _MockUser();
+        when(() => linkedUser.id).thenReturn('anon-uid'); // même user_id
+        when(() => linkedUser.isAnonymous).thenReturn(false);
+        when(() => goTrue.linkIdentityWithIdToken(
+              provider: any(named: 'provider'),
+              idToken: any(named: 'idToken'),
+              accessToken: any(named: 'accessToken'),
+            )).thenAnswer((_) async => AuthResponse(user: linkedUser));
+
+        final result = await repo.signInWithGoogle();
+
+        expect(result?.id, 'anon-uid');
+        verify(() => goTrue.linkIdentityWithIdToken(
+              provider: OAuthProvider.google,
+              idToken: _fakeGoogleTokens.idToken,
+              accessToken: _fakeGoogleTokens.accessToken,
+            )).called(1);
+        verifyNever(() => goTrue.signInWithIdToken(
+              provider: any(named: 'provider'),
+              idToken: any(named: 'idToken'),
+              accessToken: any(named: 'accessToken'),
+            ));
+      });
+
+      test('branche normale : connexion via signInWithIdToken si aucune '
+          'session invitée n\'est active', () async {
+        when(() => goTrue.currentUser).thenReturn(null);
+        when(() => googleAuth.signIn())
+            .thenAnswer((_) async => _fakeGoogleTokens);
+
+        final googleUser = _MockUser();
+        when(() => googleUser.id).thenReturn('google-uid');
+        when(() => googleUser.isAnonymous).thenReturn(false);
+        when(() => goTrue.signInWithIdToken(
+              provider: any(named: 'provider'),
+              idToken: any(named: 'idToken'),
+              accessToken: any(named: 'accessToken'),
+            )).thenAnswer((_) async => AuthResponse(user: googleUser));
+
+        final result = await repo.signInWithGoogle();
+
+        expect(result?.id, 'google-uid');
+        verify(() => goTrue.signInWithIdToken(
+              provider: OAuthProvider.google,
+              idToken: _fakeGoogleTokens.idToken,
+              accessToken: _fakeGoogleTokens.accessToken,
+            )).called(1);
+        verifyNever(() => goTrue.linkIdentityWithIdToken(
+              provider: any(named: 'provider'),
+              idToken: any(named: 'idToken'),
+              accessToken: any(named: 'accessToken'),
+            ));
+      });
+
+      test('identité Google déjà liée à un autre compte : la liaison échoue '
+          'avec un message clair, la session invitée n\'est jamais détruite',
+          () async {
+        final anonUser = _MockUser();
+        when(() => anonUser.id).thenReturn('anon-uid');
+        when(() => anonUser.isAnonymous).thenReturn(true);
+        when(() => goTrue.currentUser).thenReturn(anonUser);
+        when(() => googleAuth.signIn())
+            .thenAnswer((_) async => _fakeGoogleTokens);
+        when(() => goTrue.linkIdentityWithIdToken(
+              provider: any(named: 'provider'),
+              idToken: any(named: 'idToken'),
+              accessToken: any(named: 'accessToken'),
+            )).thenThrow(const AuthException(
+          'Identity is already linked to another user',
+          code: 'identity_already_exists',
+        ));
+
+        await expectLater(
+          () => repo.signInWithGoogle(),
+          throwsA(isA<AuthException>().having(
+            (e) => e.code,
+            'code',
+            'identity_already_exists',
+          )),
+        );
+
+        // La session invitée n'est jamais explicitement détruite par le repo.
+        verifyNever(() => goTrue.signOut());
+      });
+
+      test('annulation utilisateur : la GoogleSignInException du gateway '
+          'se propage telle quelle (aucun appel Supabase)', () async {
+        when(() => goTrue.currentUser).thenReturn(null);
+        when(() => googleAuth.signIn()).thenThrow(
+          const GoogleSignInException(
+            code: GoogleSignInExceptionCode.canceled,
+            description: 'Annulé par l\'utilisateur',
+          ),
+        );
+
+        await expectLater(
+          () => repo.signInWithGoogle(),
+          throwsA(isA<GoogleSignInException>()),
+        );
+
+        verifyNever(() => goTrue.signInWithIdToken(
+              provider: any(named: 'provider'),
+              idToken: any(named: 'idToken'),
+              accessToken: any(named: 'accessToken'),
+            ));
+        verifyNever(() => goTrue.linkIdentityWithIdToken(
+              provider: any(named: 'provider'),
+              idToken: any(named: 'idToken'),
+              accessToken: any(named: 'accessToken'),
+            ));
       });
     });
   });

@@ -162,6 +162,7 @@ void main() {
       final vm = _makeVm(repo);
       await tester.pumpWidget(_buildLogin(vm));
 
+      await tester.ensureVisible(find.byKey(const Key('btn_continuer_invite')));
       await tester.tap(find.byKey(const Key('btn_continuer_invite')));
       await tester.pump();
       await tester.pump();
@@ -179,11 +180,72 @@ void main() {
       final vm = _makeVm(repo);
       await tester.pumpWidget(_buildLogin(vm));
 
+      await tester.ensureVisible(find.byKey(const Key('btn_continuer_invite')));
       await tester.tap(find.byKey(const Key('btn_continuer_invite')));
       await tester.pump();
 
       final btn = tester.widget<TextButton>(
         find.byKey(const Key('btn_continuer_invite')),
+      );
+      expect(btn.onPressed, isNull);
+
+      completer.complete(null);
+      await tester.pump();
+    });
+
+    // ── Bouton Google ──────────────────────────────────────────────────────
+
+    testWidgets('affiche le bouton "Continuer avec Google" au-dessus du bouton invité',
+        (tester) async {
+      final vm = _makeVm(_MockAuthRepository());
+      await tester.pumpWidget(_buildLogin(vm));
+
+      expect(find.byKey(const Key('btn_continuer_google')), findsOneWidget);
+      expect(find.text('Continuer avec Google'), findsOneWidget);
+
+      // Vérifie l'ordre : le bouton Google apparaît avant le bouton invité.
+      final googleY = tester
+          .getTopLeft(find.byKey(const Key('btn_continuer_google')))
+          .dy;
+      final inviteY =
+          tester.getTopLeft(find.byKey(const Key('btn_continuer_invite'))).dy;
+      expect(googleY, lessThan(inviteY));
+    });
+
+    testWidgets(
+        'le bouton Google appelle signInWithGoogle() sur AuthViewModel',
+        (tester) async {
+      final repo = _MockAuthRepository();
+      final googleUser = _FakeUser();
+      when(() => repo.signInWithGoogle())
+          .thenAnswer((_) async => googleUser);
+      final vm = _makeVm(repo);
+      await tester.pumpWidget(_buildLogin(vm));
+
+      await tester.ensureVisible(find.byKey(const Key('btn_continuer_google')));
+      await tester.tap(find.byKey(const Key('btn_continuer_google')));
+      await tester.pump();
+      await tester.pump();
+
+      verify(() => repo.signInWithGoogle()).called(1);
+    });
+
+    testWidgets(
+        'le bouton Google est désactivé pendant le chargement',
+        (tester) async {
+      final repo = _MockAuthRepository();
+      final completer = Completer<User?>();
+      when(() => repo.signInWithGoogle())
+          .thenAnswer((_) => completer.future);
+      final vm = _makeVm(repo);
+      await tester.pumpWidget(_buildLogin(vm));
+
+      await tester.ensureVisible(find.byKey(const Key('btn_continuer_google')));
+      await tester.tap(find.byKey(const Key('btn_continuer_google')));
+      await tester.pump();
+
+      final btn = tester.widget<OutlinedButton>(
+        find.byKey(const Key('btn_continuer_google')),
       );
       expect(btn.onPressed, isNull);
 

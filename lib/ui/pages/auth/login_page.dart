@@ -113,6 +113,16 @@ class _LoginPageState extends State<LoginPage> {
                 const SizedBox(height: 16),
                 Consumer<AuthViewModel>(
                   builder: (context, auth, _) {
+                    return OutlinedButton(
+                      key: const Key('btn_continuer_google'),
+                      onPressed: auth.isLoading ? null : () => _continuerAvecGoogle(auth),
+                      child: const Text('Continuer avec Google'),
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+                Consumer<AuthViewModel>(
+                  builder: (context, auth, _) {
                     return TextButton(
                       key: const Key('btn_continuer_invite'),
                       onPressed: auth.isLoading ? null : () => _continuerInvite(auth),
@@ -141,6 +151,18 @@ class _LoginPageState extends State<LoginPage> {
       }
     } catch (_) {
       // Message déjà dans AuthViewModel.errorMessage
+    }
+  }
+
+  Future<void> _continuerAvecGoogle(AuthViewModel auth) async {
+    try {
+      await auth.signInWithGoogle();
+      if (!mounted) return;
+      if (auth.isAuthenticated) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+      }
+    } catch (_) {
+      // Message déjà dans AuthViewModel.errorMessage (ou annulation silencieuse)
     }
   }
 
