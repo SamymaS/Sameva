@@ -168,27 +168,33 @@ jobs:
           EMPREINTE_ATTENDUE: '38:56:6D:61:68:5B:FC:2E:E1:EA:40:64:C5:D1:68:62:F5:EA:A8:DF'
           APK: sameva-${{ steps.version.outputs.value }}.apk
         run: |
-          keytool -printcert -jarfile "$APK"
-          empreinte=$(keytool -printcert -jarfile "$APK" \
-            | grep -iE '^[[:space:]]*SHA-?1:' \
+          apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
+          if [ -z "$apksigner" ]; then
+            echo "::error::apksigner introuvable dans le SDK Android du runner."
+            exit 1
+          fi
+          "$apksigner" verify --print-certs "$APK"
+          empreinte=$("$apksigner" verify --print-certs "$APK" \
+            | grep -i 'SHA-1 digest' \
             | head -1 \
-            | sed -E 's/^[^:]*:[[:space:]]*//' \
+            | sed -E 's/^.*digest:[[:space:]]*//' \
             | tr -d '[:space:]' \
             | tr '[:lower:]' '[:upper:]')
+          attendue=$(echo "$EMPREINTE_ATTENDUE" | tr -d ':')
           if [ -z "$empreinte" ]; then
             echo "::error::Empreinte SHA-1 introuvable : l'APK n'est peut-etre pas signe."
             exit 1
           fi
           echo "SHA-1 de l'APK : $empreinte"
-          echo "SHA-1 attendu  : $EMPREINTE_ATTENDUE"
-          if [ "$empreinte" != "$EMPREINTE_ATTENDUE" ]; then
+          echo "SHA-1 attendu  : $attendue"
+          if [ "$empreinte" != "$attendue" ]; then
             echo "::error::Empreinte SHA-1 inattendue. APK signe avec la mauvaise cle, publication interrompue."
             exit 1
           fi
           {
             echo "### Signature de l'APK"
             echo ""
-            echo "SHA-1 : \`$empreinte\` — conforme au client OAuth Android."
+            echo "SHA-1 : \`$empreinte\`, conforme au client OAuth Android."
           } >> "$GITHUB_STEP_SUMMARY"
           echo "Signature conforme."
 
