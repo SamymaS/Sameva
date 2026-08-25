@@ -22,7 +22,7 @@ flutter run
 
 > **Prérequis** : Flutter (canal stable, testé sur 3.41 / Dart 3.11) · Dart >= 3.3 · un projet [Supabase](https://supabase.com) configuré (voir plus bas).
 
-Tu veux juste essayer l'application sans rien installer ? Un APK prêt à l'emploi est disponible dans la section [Releases](https://github.com/SamymaS/Sameva/releases).
+Tu veux juste essayer l'application sans rien installer ? L'APK de la dernière version est disponible dans la section [Releases](https://github.com/SamymaS/Sameva/releases), publié automatiquement par le pipeline.
 
 ---
 
@@ -36,7 +36,7 @@ Tu veux juste essayer l'application sans rien installer ? Un APK prêt à l'empl
 | Cache local  | Hive                                            | Persistance offline-first (stats, inventaire, compagnons, jetons) |
 | IA           | Edge Function Supabase → Anthropic Claude Haiku | Validation de preuves visuelles et génération de quêtes |
 | Paiement     | Stripe (mode abonnement)                        | Offre premium et gestion de l'entitlement             |
-| CI/CD        | GitHub Actions                                  | Analyse statique, tests, couverture                   |
+| CI/CD        | GitHub Actions (3 workflows)                    | Vérification, déploiement des fonctions, publication  |
 
 ---
 
@@ -59,11 +59,11 @@ lib/
 │                                   # ClaudeValidationAIService, ClaudeQuestGeneratorService,
 │                                   # ItemFactory, CraftService, WeeklyBossService,
 │                                   # AchievementService, HealthRegenerationService,
-│                                   # CatMoodService, NotificationService
+│                                   # CatMoodService, NotificationService, ActivityLogService
 │
 ├── presentation/
 │   ├── view_models/                # Un ViewModel par fonctionnalité (ChangeNotifier)
-│   └── use_cases/                  # CompleteQuestUseCase
+│   └── use_cases/                  # CompleteQuestUseCase, DailyResetUseCase
 │
 └── ui/
     ├── pages/                      # auth, onboarding, home, quest, inventory, market, invocation,
@@ -105,9 +105,10 @@ L'architecture suit un découpage en 4 couches avec une règle de dépendance st
 
 ### Conformité et infrastructure
 
-- **Auth** : email / mot de passe avec confirmation par mail (Supabase Auth).
+- **Auth** : trois voies d'entrée. Connexion anonyme pour démarrer sans inscription, email / mot de passe avec confirmation par mail, et connexion Google. Un compte invité peut être converti en compte identifié par liaison d'identité, qui préserve l'identifiant utilisateur et donc toute la progression accumulée.
 - **Suppression de compte RGPD** : Edge Function dédiée, garde JWT, suppression respectant les clés étrangères, purge locale déclenchée seulement après confirmation serveur.
 - **Offline-first** : les stats joueur, l'inventaire, les compagnons et le portefeuille de jetons sont lus depuis Hive et synchronisés vers Supabase en arrière-plan. Les quêtes sont, elles, servies directement par Supabase.
+- **Journal d'activité** : les 50 derniers événements du joueur (quêtes, niveaux, items, succès, séries) sont consignés localement et consultables depuis le profil.
 - **Notifications** : rappels quotidiens configurables.
 - **Thème** : clair / sombre / système, persisté en local.
 
@@ -159,7 +160,7 @@ Cinq fonctions serverless (Deno / TypeScript), les clés sensibles restant côt�
 
 ## Tests
 
-**469 cas de test** répartis sur **64 fichiers** et 147 groupes, couvrant les quatre couches :
+**505 tests automatisés** couvrant les quatre couches, exécutés en une vingtaine de secondes :
 
 - **Domain** : QuestRewardsCalculator (récompenses, bonus de ponctualité, streak, pénalités), ItemFactory (raretés, gacha, marché), CraftService, WeeklyBossService, HealthRegenerationService (limites, plafonds, horodatages), ValidationAIService (parsing, erreurs HTTP, fallback).
 - **Data** : sérialisation aller-retour des modèles (`toSupabaseMap` et `fromSupabaseMap`), parsing d'enums avec fallback, CRUD des repositories via mocks.
@@ -174,14 +175,35 @@ flutter test --coverage            # Avec rapport de couverture
 
 ## CI/CD
 
-Le pipeline GitHub Actions (`.github/workflows/ci.yml`) s'exécute sur chaque push vers `main` / `develop` et sur les pull requests :
+Trois chaînes GitHub Actions couvrent la vérification, le déploiement backend et la publication.
+
+### `ci.yml` : vérification
+
+Déclenché sur chaque push vers `main` / `develop` et sur les pull requests.
 
 1. **Checkout** et setup Flutter (canal stable, avec cache).
 2. **Injection `.env`** via GitHub Secrets (les clés ne sont jamais dans le code).
 3. **`flutter pub get`** : installation des dépendances.
 4. **`flutter analyze`** : analyse statique Dart (0 issue exigée).
 5. **`flutter test --coverage`** : exécution des tests avec rapport de couverture.
-6. **Résumé lcov** : affichage du taux de couverture.
+6. **Résumé lcov** : affichage du taux de couverture dans le récapitulatif de job.
+
+### `deploy.yml` : déploiement des fonctions serveur
+
+Déclenché sur toute modification de `supabase/functions/**`, ou manuellement.
+
+1. Déploiement des cinq Edge Functions.
+2. **Test de vivacité** sur `analyze-quest-proof` : le job échoue si la fonction ne répond pas. C'est le seul contrôle automatisé de disponibilité effective du backend.
+
+### `release.yml` : publication
+
+Déclenché sur la pose d'une étiquette `v*`, ou manuellement.
+
+1. `flutter analyze` et `flutter test` en porte bloquante.
+2. `flutter build apk --release`.
+3. Création d'une Release GitHub avec l'APK attaché.
+
+Aucune version ne peut donc être publiée sans avoir traversé l'analyse statique et l'intégralité de la suite de tests.
 
 ### Secrets
 
@@ -221,6 +243,7 @@ flutter build web                  # Build Web
 | [IA_ANALYSE_IMAGE.md](documentation/IA_ANALYSE_IMAGE.md)                 | Flux de validation par IA (Claude Haiku), format d'échange, intégration    |
 | [SUPABASE_EDGE_FUNCTION_IA.md](documentation/SUPABASE_EDGE_FUNCTION_IA.md)| Déploiement de l'Edge Function `analyze-quest-proof`                       |
 | [docs/adr/](docs/adr/)                                                    | Enregistrements de décisions d'architecture (ADR)                          |
+| [BACKLOG.md](BACKLOG.md)                                                  | Registre des anomalies et de la dette technique                            |
 
 ---
 
@@ -228,12 +251,16 @@ flutter build web                  # Build Web
 
 | Métrique                    | Valeur   |
 | --------------------------- | -------- |
-| Lignes de code Dart (lib)   | ~28 500  |
-| Fichiers source (lib)       | 99       |
-| Cas de test                 | 469 (64 fichiers) |
+| Lignes de code Dart (lib)   | 29 218   |
+| Fichiers source (lib)       | 100      |
+| Tests automatisés           | 505      |
+| Commits sur `main`          | 269      |
 | Edge Functions              | 5        |
 | Tables Supabase             | 11 (+ 1 vue) |
-| Analyse statique            | 0 erreur |
+| Workflows CI/CD             | 3        |
+| Analyse statique            | 0 issue  |
+
+Relevé au 29 juillet 2026.
 
 ---
 
