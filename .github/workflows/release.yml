@@ -26,6 +26,35 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Vérifier la présence des secrets requis
+        # Garde-fou : aucune version ne doit sortir sans clé de signature ni sans
+        # identifiant client Google. Un APK signé avec une autre clé, ou privé de
+        # GOOGLE_WEB_CLIENT_ID, produit un échec de connexion Google que rien ne
+        # distingue d'une annulation utilisateur. On échoue ici, pas en production.
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          manquants=""
+          for nom in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD \
+                     ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD \
+                     GOOGLE_WEB_CLIENT_ID SUPABASE_URL SUPABASE_ANON_KEY; do
+            if [ -z "${!nom}" ]; then
+              manquants="$manquants $nom"
+            fi
+          done
+          if [ -n "$manquants" ]; then
+            echo "::error::Secrets absents ou vides :$manquants"
+            echo "::error::A definir dans Settings > Secrets and variables > Actions. Publication interrompue."
+            exit 1
+          fi
+          echo "Les sept secrets requis sont presents."
+
       - name: Récupérer les sources
         uses: actions/checkout@v4
 
@@ -66,16 +95,51 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
         run: |
           base="${SUPABASE_URL%/}"
           {
             echo "SUPABASE_URL=${base}"
             echo "SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}"
+            echo "GOOGLE_WEB_CLIENT_ID=${GOOGLE_WEB_CLIENT_ID}"
             echo "VALIDATION_AI_URL=${base}/functions/v1/analyze-quest-proof"
             echo "SUGGEST_QUESTS_URL=${base}/functions/v1/suggest-quests"
           } > .env
           echo "Fichier .env genere (valeurs masquees) :"
           sed -E 's/=(.*)/=***/' .env
+
+      - name: Préparer le keystore de release
+        # Le keystore et key.properties n'existent que sur le runner, le temps du
+        # build. Ils sont effacés avant la publication (étape « Effacer les secrets
+        # de signature »), et ne peuvent donc pas fuir dans la Release.
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '\n\r' | base64 -d > android/app/sameva-release.jks
+          if [ ! -s android/app/sameva-release.jks ]; then
+            echo "::error::Le keystore decode est vide. ANDROID_KEYSTORE_BASE64 est-il bien le base64 du fichier .jks ?"
+            exit 1
+          fi
+          # storeFile est relatif a android/app/ (repertoire du module Gradle).
+          {
+            echo "storeFile=sameva-release.jks"
+            echo "storePassword=${ANDROID_KEYSTORE_PASSWORD}"
+            echo "keyAlias=${ANDROID_KEY_ALIAS}"
+            echo "keyPassword=${ANDROID_KEY_PASSWORD}"
+          } > android/key.properties
+          chmod 600 android/key.properties android/app/sameva-release.jks
+          # Controle d'integrite : le keystore s'ouvre-t-il, et l'alias existe-t-il ?
+          if ! keytool -list \
+                 -keystore android/app/sameva-release.jks \
+                 -storepass "$ANDROID_KEYSTORE_PASSWORD" \
+                 -alias "$ANDROID_KEY_ALIAS" > /dev/null 2>&1; then
+            echo "::error::Keystore illisible : mot de passe incorrect, ou alias '${ANDROID_KEY_ALIAS}' absent."
+            exit 1
+          fi
+          echo "Keystore de release en place, alias verifie."
 
       - name: Installer les dépendances
         run: flutter pub get
@@ -92,6 +156,47 @@ jobs:
 
       - name: Nommer l'artefact avec la version
         run: mv build/app/outputs/flutter-apk/app-release.apk sameva-${{ steps.version.outputs.value }}.apk
+
+      - name: Vérifier l'empreinte de signature de l'APK
+        # L'empreinte SHA-1 attendue est celle enregistree dans le client OAuth
+        # Android du projet sameva-503209. Une empreinte differente signifie que
+        # l'APK a ete signe avec une autre cle (typiquement la cle debug) : la
+        # connexion Google echouerait silencieusement. Une empreinte de certificat
+        # est publique, elle n'a pas a etre un secret.
+        env:
+          EMPREINTE_ATTENDUE: '38:56:6D:61:68:5B:FC:2E:E1:EA:40:64:C5:D1:68:62:F5:EA:A8:DF'
+          APK: sameva-${{ steps.version.outputs.value }}.apk
+        run: |
+          keytool -printcert -jarfile "$APK"
+          empreinte=$(keytool -printcert -jarfile "$APK" \
+            | grep -iE '^[[:space:]]*SHA-?1:' \
+            | head -1 \
+            | sed -E 's/^[^:]*:[[:space:]]*//' \
+            | tr -d '[:space:]' \
+            | tr '[:lower:]' '[:upper:]')
+          if [ -z "$empreinte" ]; then
+            echo "::error::Empreinte SHA-1 introuvable : l'APK n'est peut-etre pas signe."
+            exit 1
+          fi
+          echo "SHA-1 de l'APK : $empreinte"
+          echo "SHA-1 attendu  : $EMPREINTE_ATTENDUE"
+          if [ "$empreinte" != "$EMPREINTE_ATTENDUE" ]; then
+            echo "::error::Empreinte SHA-1 inattendue. APK signe avec la mauvaise cle, publication interrompue."
+            exit 1
+          fi
+          {
+            echo "### Signature de l'APK"
+            echo ""
+            echo "SHA-1 : \`$empreinte\` — conforme au client OAuth Android."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "Signature conforme."
+
+      - name: Effacer les secrets de signature du runner
+        # Execute meme en cas d'echec des etapes precedentes. Garantit que ni le
+        # keystore, ni key.properties, ni le .env ne subsistent au moment ou
+        # l'action de publication choisit les fichiers a joindre.
+        if: always()
+        run: rm -f android/app/sameva-release.jks android/key.properties .env
 
       - name: Publier la Release et y attacher l'APK
         # Le tag est créé automatiquement s'il n'existe pas encore.

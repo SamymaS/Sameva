@@ -26,6 +26,41 @@ import 'presentation/view_models/theme_view_model.dart';
 import 'presentation/view_models/auth_view_model.dart';
 import 'app.dart';
 
+/// Journalise les clés de configuration absentes du `.env` embarqué.
+///
+/// Ne lance jamais et ne bloque jamais le démarrage : une clé manquante doit
+/// rester identifiable dans `adb logcat` plutôt que de se manifester plus tard
+/// sous une forme trompeuse. Sans GOOGLE_WEB_CLIENT_ID, l'échec de connexion
+/// Google est en effet indiscernable d'une annulation utilisateur.
+void _journaliserConfigurationManquante() {
+  const clesRequises = [
+    'SUPABASE_URL',
+    'SUPABASE_ANON_KEY',
+    'GOOGLE_WEB_CLIENT_ID',
+  ];
+
+  // dotenv.env lance si le chargement a échoué : dans ce cas, tout manque.
+  final absentes = dotenv.isInitialized
+      ? clesRequises.where((cle) => (dotenv.env[cle] ?? '').isEmpty).toList()
+      : clesRequises;
+
+  if (absentes.isEmpty) return;
+
+  debugPrint('==============================================================');
+  debugPrint('SAMEVA CONFIG: cles absentes du .env embarque -> ${absentes.join(', ')}');
+  if (!dotenv.isInitialized) {
+    debugPrint('SAMEVA CONFIG: le fichier .env n\'a pas pu etre charge du tout.');
+  }
+  if (absentes.contains('GOOGLE_WEB_CLIENT_ID')) {
+    debugPrint(
+      'SAMEVA CONFIG: sans GOOGLE_WEB_CLIENT_ID, la connexion Google echouera '
+      'et l\'echec ressemblera a une annulation utilisateur. '
+      'Build local : renseigner .env. Build CI : verifier le secret GitHub.',
+    );
+  }
+  debugPrint('==============================================================');
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('fr_FR', null);
@@ -42,6 +77,7 @@ void main() async {
   } catch (e) {
     debugPrint('main: erreur chargement .env: $e');
   }
+  _journaliserConfigurationManquante();
 
   await Supabase.initialize(
     url: SupabaseConfig.supabaseUrl,
