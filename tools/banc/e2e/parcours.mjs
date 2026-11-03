@@ -186,6 +186,35 @@ await parcours("lien profond vers une quête", async (page) => {
   r.verifier("quête inconnue : message clair", await voit(page, "introuvable"));
 });
 
+await parcours("invocation gratuite", async (page) => {
+  await entrerCommeInvite(page);
+  await toucher(page, "Portail", { exact: true });
+  await attendre(page, "Gratuit");
+  await pause(800);
+  await toucher(page, "Gratuit", { exact: true });
+  // Séquence plein écran : charge du portail, puis révélation.
+  await attendre(page, "Passer", 20000);
+  await capture(page, "invocation_charge");
+  // La charge ne dure que 1,8 s : si elle s'est achevée seule, rien à passer.
+  await toucher(page, "Passer", { exact: true, timeout: 2500 }).catch(() => {});
+  await attendre(page, "Continuer", 10000);
+  await pause(1200);
+  await capture(page, "invocation_revelation");
+  const etat = await page.evaluate(async () => {
+    const cle = Object.keys(localStorage).find((k) => k.includes("auth-token"));
+    const token = JSON.parse(localStorage.getItem(cle) ?? "{}").access_token;
+    const r = await fetch("http://127.0.0.1:54321/rest/v1/rpc/get_player_state", {
+      method: "POST", headers: { apikey: token, Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: "{}",
+    });
+    return r.json();
+  });
+  r.verifier("serveur : tirage gratuit du jour consommé", etat?.gacha?.objets?.free_available === false, etat?.gacha);
+  r.verifier("serveur : aucun Sceau dépensé", etat?.stats?.seals === 1, etat?.stats);
+  await toucher(page, "Continuer", { exact: true });
+  await attendre(page, "Invoquer (10 Sceaux)", 10000);
+  r.verifier("retour au portail après la révélation", !(await voit(page, "Passer")));
+});
+
 await parcours("triche depuis le navigateur", async (page) => {
   await entrerCommeInvite(page);
   // Un joueur malin réutilise la session de l'app pour écrire en direct.

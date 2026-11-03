@@ -28,7 +28,7 @@ String animationPourHumeur(String mood) => switch (mood.replaceFirst('cat_', '')
 
 /// Chat compagnon en pixel art (Sprint 2, direction Stardew Valley / Celeste).
 ///
-/// Superpose : halo d'aura, chat animé selon l'humeur (sprites 64 px issus du
+/// Superpose : halo d'aura, chat animé selon l'humeur (sprites 96 px issus du
 /// fichier Figma « Sameva · Pixel art ») et chapeau. Les tenues (haut,
 /// pantalon, chaussures, accessoire) ne sont plus dessinées sur le chat :
 /// elles restent visibles dans l'inventaire en attendant des sprites habillés.
@@ -123,6 +123,8 @@ class _CatWidgetState extends State<CatWidget> with SingleTickerProviderStateMix
                       'assets/sprites/objets/$chapeau.png',
                       width: s * 0.36,
                       height: s * 0.36,
+                      // sans fit, une Image ne fait que réduire : l'icône 32 px resterait petite
+                      fit: BoxFit.contain,
                       filterQuality: FilterQuality.none,
                       isAntiAlias: false,
                       errorBuilder: (_, __, ___) => const SizedBox.shrink(),

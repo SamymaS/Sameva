@@ -115,6 +115,11 @@ d'usage (bugs, UX, accessibilité) vont dans `docs/qa/constats.md`.
   `MougiBotSprite` (repos, observe, accepte, refuse), `ItemIcon` (l'ancien chemin `assets/items/x.svg` d'un objet
   désigne `assets/sprites/objets/x.png`). Sons : `Sons.jouer(Son.x)` (`lib/core/audio/sons.dart`), coupables dans les
   réglages, muets sur le web et en test. Ne jamais retoucher les PNG à la main : régénérer depuis Figma.
+- **Interface pixel (maquettes Claude Design « Sameva · Écrans pixel art »)** : `lib/ui/widgets/pixel/pixel_ui.dart`
+  (`PixelCouleurs`, `PixelTextes` : polices embarquées PressStart2P et PixelifySans, `PixelCadre`, `PixelBouton`,
+  `PixelAnneau`, `parPaliers` pour les animations image par image). Cadres épais, ombres franches sans flou, aucun
+  coin arrondi. Invocation : `SequenceInvocation.afficher` (charge du portail dont la couleur annonce la rareté,
+  « Passer », révélation d'un objet ou de dix cartes, meilleure en dernier ; respecte « réduire les animations »).
 
 ## Key Domain Rules (serveur)
 

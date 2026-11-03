@@ -31,3 +31,6 @@ reste listé avec sa date, pour l'historique.
 | Q24 | Sons absents sur le web : le greffon web d'audioplayers 6 n'initialise pas son canal global | Faible (banc seulement) | Contourné le 2026-11-03 (sons coupés sur le web) ; lecture vérifiée sur Android le jour même |
 | Q25 | Android (debug) : écran rouge à l'arrivée au Sanctuaire, un sprite créait un second ticker en changeant d'animation | Haute | Corrigé le 2026-11-03 (TickerProviderStateMixin, animations comparées par valeur, test de non-régression) |
 | Q26 | Supabase CLI 3 refuse la section `[inbucket]` de `supabase/config.toml` | Moyenne (outillage) | Corrigé le 2026-11-03 (`[local_smtp]`) |
+| Q27 | La police « Press Start 2P » du dépôt n'était qu'un texte de remplacement de 47 octets : les chiffres pixel tombaient sur la police par défaut | Moyenne (visuel) | Corrigé le 2026-11-03 (vraie police OFL, plus Pixelify Sans pour le texte) |
+| Q28 | Chapeau du chat affiché à sa taille native (32 px) au lieu de 36 % du chat : `Image` sans `fit` ne fait que réduire | Faible (visuel) | Corrigé le 2026-11-03 (`BoxFit.contain`) |
+| Q29 | Invocation : la révélation se jouait dans une carte au milieu de la page, sans mise en scène ni moyen de passer | Moyenne (UX) | Corrigé le 2026-11-03 (séquence plein écran : charge, « Passer », révélation, dix cartes retournées) |

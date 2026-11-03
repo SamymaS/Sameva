@@ -17,6 +17,7 @@ import '../../theme/app_colors.dart';
 import '../../utils/app_notification.dart';
 import '../../widgets/cat/cat_widget.dart';
 import '../../widgets/common/rarity_badge.dart';
+import 'sequence_invocation.dart';
 
 /// Page invocation gacha (Sprint 1) : payée en Sceaux (10, ou 90 pour 10),
 /// une invocation gratuite par jour, tirage et pity calculés par le serveur.
@@ -231,12 +232,22 @@ class _InvocationTabState extends State<InvocationTab>
 
     // La rareté vient du serveur ; l'objet concret est encore généré
     // localement (TRANSITOIRE jusqu'au Sprint 3).
-    unawaited(Sons.jouer(Sons.invocationPour(result.results.first.rarity.name)));
     final item = ItemFactory.generateRandomItem(result.results.first.rarity);
     final refund = await _claimDupeRefund(player, _dupeRefundBase(item, inventory));
     if (refund <= 0) inventory.addItem(item);
 
-    await _revealController.forward();
+    // Séquence plein écran (charge du portail puis révélation) ; le son de
+    // rareté est joué par la séquence au moment de la révélation.
+    if (mounted) {
+      await SequenceInvocation.afficher(
+        context,
+        objets: [item],
+        remboursement: refund,
+        epiqueDans: result.epicGuaranteedIn,
+        legendaireDans: result.legendaryGuaranteedIn,
+      );
+    }
+    _revealController.value = 1;
 
     if (mounted) {
       setState(() {
@@ -281,11 +292,6 @@ class _InvocationTabState extends State<InvocationTab>
       return;
     }
 
-    // Le son annonce la meilleure rareté du tirage multiple.
-    final meilleure = result.results
-        .map((p) => p.rarity)
-        .reduce((a, b) => a.index >= b.index ? a : b);
-    unawaited(Sons.jouer(Sons.invocationPour(meilleure.name)));
     final results = <Item>[];
     final dupes = <Item>[];
     int dupeTotal = 0;
@@ -306,6 +312,16 @@ class _InvocationTabState extends State<InvocationTab>
       for (final item in dupes) {
         inventory.addItem(item);
       }
+    }
+
+    if (mounted && results.isNotEmpty) {
+      await SequenceInvocation.afficher(
+        context,
+        objets: results,
+        remboursement: totalRefund,
+        epiqueDans: result.epicGuaranteedIn,
+        legendaireDans: result.legendaryGuaranteedIn,
+      );
     }
 
     if (mounted) {
