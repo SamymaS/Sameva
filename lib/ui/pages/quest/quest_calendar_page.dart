@@ -4,8 +4,9 @@ import '../../../data/models/quest_model.dart';
 import '../../../presentation/view_models/quest_view_model.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/common/quest_detail_sheet.dart';
+import '../../widgets/pixel/pixel_ui.dart';
 
-/// Vue calendrier hebdomadaire des quêtes.
+/// Vue calendrier hebdomadaire des quêtes (style pixel).
 /// Chaque colonne = un jour de la semaine courante.
 /// Les quêtes actives avec deadline ce jour-là et les quêtes complétées ce jour-là y apparaissent.
 class QuestCalendarPage extends StatefulWidget {
@@ -41,46 +42,38 @@ class _QuestCalendarPageState extends State<QuestCalendarPage> {
   Widget build(BuildContext context) {
     final quests = context.watch<QuestViewModel>().quests;
     final weekDays = List.generate(7, (i) => _weekStart.add(Duration(days: i)));
+    final libelleSemaine = _isCurrent() ? 'Cette semaine' : _weekLabel();
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundNightBlue,
-      appBar: AppBar(
-        backgroundColor: AppColors.backgroundNightBlue,
-        title: const Text(
-          'Calendrier',
-          style: TextStyle(
-              color: AppColors.textPrimary, fontWeight: FontWeight.bold),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.chevron_left, color: AppColors.textMuted),
-            onPressed: _prevWeek,
-          ),
-          Center(
-            child: Text(
-              _isCurrent() ? 'Cette semaine' : _weekLabel(),
-              style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.chevron_right, color: AppColors.textMuted),
-            onPressed: _nextWeek,
-          ),
-        ],
-      ),
+      backgroundColor: PixelCouleurs.nuit,
+      appBar: pixelBarre('Calendrier'),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
-        children: weekDays.map((day) {
-          final dayQuests = _questsForDay(quests, day);
-          return _DayColumn(day: day, quests: dayQuests);
-        }).toList(),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        children: [
+          // Navigation de semaine : flèches carrées et libellé centré.
+          Row(
+            children: [
+              _BoutonFleche(icone: Icons.chevron_left, libelle: 'Semaine précédente', onTap: _prevWeek),
+              Expanded(
+                child: Semantics(
+                  liveRegion: true,
+                  child: Text(libelleSemaine,
+                      textAlign: TextAlign.center, style: PixelTextes.chiffres(11, PixelCouleurs.orClair)),
+                ),
+              ),
+              _BoutonFleche(icone: Icons.chevron_right, libelle: 'Semaine suivante', onTap: _nextWeek),
+            ],
+          ),
+          const SizedBox(height: 14),
+          for (final day in weekDays) _DayColumn(day: day, quests: _questsForDay(quests, day)),
+        ],
       ),
     );
   }
 
   String _weekLabel() {
     final end = _weekStart.add(const Duration(days: 6));
-    return '${_weekStart.day}/${_weekStart.month} – ${end.day}/${end.month}';
+    return '${_weekStart.day}/${_weekStart.month} au ${end.day}/${end.month}';
   }
 
   List<_DayQuest> _questsForDay(List<Quest> quests, DateTime day) {
@@ -114,6 +107,43 @@ class _DayQuest {
   const _DayQuest({required this.quest, required this.kind});
 }
 
+class _BoutonFleche extends StatelessWidget {
+  final IconData icone;
+  final String libelle;
+  final VoidCallback onTap;
+
+  const _BoutonFleche({required this.icone, required this.libelle, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      container: true,
+      button: true,
+      label: libelle,
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          width: 44,
+          height: 44,
+          alignment: Alignment.center,
+          decoration: const BoxDecoration(
+            color: PixelCouleurs.panneau,
+            border: Border(
+              top: BorderSide(color: PixelCouleurs.violet, width: 3),
+              left: BorderSide(color: PixelCouleurs.violet, width: 3),
+              right: BorderSide(color: PixelCouleurs.violet, width: 3),
+              bottom: BorderSide(color: PixelCouleurs.violetSombre, width: 6),
+            ),
+          ),
+          child: Icon(icone, color: PixelCouleurs.texte),
+        ),
+      ),
+    );
+  }
+}
+
 class _DayColumn extends StatelessWidget {
   final DateTime day;
   final List<_DayQuest> quests;
@@ -132,78 +162,54 @@ class _DayColumn extends StatelessWidget {
     final dayLabel = _dayNames[day.weekday - 1];
     final dateLabel = '${day.day}/${day.month}';
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: AppColors.backgroundDarkPanel,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: _isToday
-              ? AppColors.primaryTurquoise.withValues(alpha: 0.5)
-              : AppColors.textMuted.withValues(alpha: 0.15),
-          width: _isToday ? 1.5 : 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // En-tête du jour
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: _isToday
-                        ? AppColors.primaryTurquoise.withValues(alpha: 0.15)
-                        : AppColors.backgroundNightBlue,
-                    borderRadius: BorderRadius.circular(6),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: PixelCadre(
+        bord: _isToday ? PixelCouleurs.or : PixelCouleurs.trait,
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // En-tête du jour
+            Semantics(
+              header: true,
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                    color: _isToday ? PixelCouleurs.or : PixelCouleurs.panneauProfond,
+                    child: Text(dayLabel,
+                        style: PixelTextes.chiffres(9, _isToday ? PixelCouleurs.nuit : PixelCouleurs.texteDoux)),
                   ),
-                  child: Text(
-                    dayLabel,
-                    style: TextStyle(
-                      color: _isToday
-                          ? AppColors.primaryTurquoise
-                          : AppColors.textMuted,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
+                  const SizedBox(width: 10),
+                  Text(dateLabel, style: PixelTextes.chiffres(9, PixelCouleurs.texteDoux)),
+                  if (_isToday) ...[
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Text("Aujourd'hui",
+                          overflow: TextOverflow.ellipsis,
+                          style: PixelTextes.corps(14, couleur: PixelCouleurs.orClair, poids: FontWeight.w700)),
                     ),
+                  ],
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: quests.isEmpty
+                        ? const SizedBox.shrink()
+                        : Text('${quests.length} quête${quests.length > 1 ? 's' : ''}',
+                            textAlign: TextAlign.end,
+                            overflow: TextOverflow.ellipsis,
+                            style: PixelTextes.corps(14, couleur: PixelCouleurs.texteDoux)),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  dateLabel,
-                  style: const TextStyle(
-                      color: AppColors.textMuted, fontSize: 11),
-                ),
-                const Spacer(),
-                if (quests.isNotEmpty)
-                  Text(
-                    '${quests.length} quête${quests.length > 1 ? 's' : ''}',
-                    style: const TextStyle(
-                        color: AppColors.textMuted, fontSize: 10),
-                  ),
-              ],
-            ),
-          ),
-
-          // Liste des quêtes ou vide
-          if (quests.isEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-              child: Text(
-                'Aucune quête',
-                style: TextStyle(
-                    color: AppColors.textMuted.withValues(alpha: 0.5),
-                    fontSize: 11,
-                    fontStyle: FontStyle.italic),
+                ],
               ),
-            )
-          else
-            ...quests.map((dq) => _QuestTile(dq: dq)),
-          const SizedBox(height: 4),
-        ],
+            ),
+            const SizedBox(height: 8),
+            if (quests.isEmpty)
+              Text('Aucune quête', style: PixelTextes.corps(14, couleur: PixelCouleurs.trait))
+            else
+              for (final dq in quests) _QuestTile(dq: dq),
+          ],
+        ),
       ),
     );
   }
@@ -226,80 +232,78 @@ class _QuestTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final q = dq.quest;
-    final color = _rarityColor(q.rarity);
     final isCompleted = dq.kind == _QuestKind.completed;
+    final couleur = isCompleted ? const Color(0xFF4ADE80) : _rarityColor(q.rarity);
+    final d = q.difficulty.clamp(1, 4);
 
-    return InkWell(
-      onTap: () => QuestDetailSheet.show(context, quest: q),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
-        child: Row(
-          children: [
-            Container(
-              width: 3,
-              height: 36,
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        child: GestureDetector(
+          onTap: () => QuestDetailSheet.show(context, quest: q),
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
               decoration: BoxDecoration(
-                color: isCompleted ? AppColors.success : color,
-                borderRadius: BorderRadius.circular(2),
+                color: PixelCouleurs.panneauProfond,
+                border: Border(left: BorderSide(color: couleur, width: 4)),
               ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Text(
-                    q.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: isCompleted
-                          ? AppColors.textMuted
-                          : AppColors.textPrimary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      decoration:
-                          isCompleted ? TextDecoration.lineThrough : null,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      if (isCompleted) ...[
-                        const Icon(Icons.check_circle,
-                            size: 10, color: AppColors.success),
-                        const SizedBox(width: 3),
-                        const Text('Terminée',
-                            style: TextStyle(
-                                color: AppColors.success, fontSize: 10)),
-                      ] else if (q.deadline != null) ...[
-                        const Icon(Icons.schedule,
-                            size: 10, color: AppColors.coralRare),
-                        const SizedBox(width: 3),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          _timeLabel(q.deadline!),
-                          style: const TextStyle(
-                              color: AppColors.coralRare, fontSize: 10),
+                          q.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: PixelTextes.corps(16,
+                                  couleur: isCompleted ? PixelCouleurs.texteDoux : PixelCouleurs.texte,
+                                  poids: FontWeight.w700)
+                              .copyWith(decoration: isCompleted ? TextDecoration.lineThrough : null),
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            if (isCompleted) ...[
+                              Icon(Icons.check, size: 14, color: couleur),
+                              const SizedBox(width: 4),
+                              Text('Terminée', style: PixelTextes.corps(14, couleur: couleur)),
+                            ] else if (q.deadline != null) ...[
+                              const Icon(Icons.schedule, size: 14, color: Color(0xFFFCA5A5)),
+                              const SizedBox(width: 4),
+                              Text('Avant ${_timeLabel(q.deadline!)}',
+                                  style: PixelTextes.corps(14, couleur: const Color(0xFFFCA5A5))),
+                            ],
+                          ],
                         ),
                       ],
-                    ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Semantics(
+                    label: 'Difficulté $d sur 4',
+                    excludeSemantics: true,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (var i = 0; i < 4; i++)
+                          Container(
+                            width: 8,
+                            height: 8,
+                            margin: const EdgeInsets.only(left: 2),
+                            color: i < d ? PixelCouleurs.or : PixelCouleurs.trait,
+                          ),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                'diff. ${q.difficulty}',
-                style: TextStyle(color: color, fontSize: 9),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

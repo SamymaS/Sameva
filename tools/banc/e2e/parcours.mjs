@@ -168,6 +168,91 @@ await parcours("photo sombre", async (page) => {
   r.verifier("photo ratée refusée", !(await voit(page, "Quête accomplie")));
 });
 
+await parcours("quête par thème", async (page) => {
+  await entrerCommeInvite(page);
+  await toucher(page, "Quêtes");
+  await attendre(page, "Terminées");
+  await pause(800);
+  await page.getByRole("button", { name: "Nouvelle quête" }).first().click({ timeout: 15000 });
+  await toucher(page, "Par thème");
+  await attendre(page, "Choisir un thème");
+  await pause(600);
+  await capture(page, "theme_choix");
+  await toucher(page, "Maison");
+  await attendre(page, "Ranger une pièce");
+  await pause(600);
+  await capture(page, "theme_liste");
+  await toucher(page, "Ranger une pièce");
+  // « Durée estimée » est fusionné dans le nœud du dialogue : on attend un choix.
+  await toucher(page, "10 min", { exact: true });
+  await pause(500);
+  await capture(page, "theme_duree");
+  await toucher(page, "Créer", { exact: true });
+  // Retour direct à la liste (les deux écrans intermédiaires sont dépilés).
+  r.verifier("quête par thème créée et visible", await attendre(page, "Ranger une pièce", 10000).catch(() => false));
+  r.verifier("retour à la liste des quêtes", await attendre(page, "Terminées", 10000).catch(() => false));
+  let quetes = null;
+  for (let i = 0; i < 10 && !quetes?.length; i++) {
+    quetes = (await api(page, "quests?select=title,estimated_duration_minutes")).data;
+    if (!quetes?.length) await pause(500);
+  }
+  const creee = quetes?.find?.((q) => q.title === "Ranger une pièce");
+  r.verifier("durée choisie enregistrée (10 min)", creee?.estimated_duration_minutes === 10, quetes);
+});
+
+await parcours("écrans pixel : calendrier, MougiBot, chat, profil, boutique", async (page) => {
+  await entrerCommeInvite(page);
+  await toucher(page, "Quêtes");
+  await attendre(page, "Terminées");
+  await pause(800);
+  await page.getByRole("button", { name: "Calendrier" }).first().click({ timeout: 15000 });
+  r.verifier("calendrier : semaine courante", await attendre(page, "Cette semaine", 10000).catch(() => false));
+  r.verifier("calendrier : jour courant signalé", await voit(page, "Aujourd'hui"));
+  await pause(600);
+  await capture(page, "calendrier");
+  await page.getByRole("button", { name: "Semaine suivante" }).first().click({ timeout: 15000 });
+  r.verifier("calendrier : semaine suivante", await attendre(page, " au ", 5000).catch(() => false));
+  await page.getByRole("button", { name: /Retour|Back/ }).first().click({ timeout: 15000 });
+  await attendre(page, "Terminées");
+  await pause(800);
+
+  await page.getByRole("button", { name: "Nouvelle quête" }).first().click({ timeout: 15000 });
+  await toucher(page, "Générer avec IA");
+  await attendre(page, "Générer 3 quêtes");
+  await pause(600);
+  await capture(page, "mougibot_repos");
+  await toucher(page, "Générer 3 quêtes");
+  // Banc : l'IA est simulée ; on attend des idées ou un message d'erreur clair.
+  const fini = await Promise.race([
+    attendre(page, "Voici mes idées", 30000).then(() => "idees"),
+    attendre(page, "rien trouvé", 30000).then(() => "erreur"),
+  ]).catch(() => null);
+  r.verifier("MougiBot répond (idées ou erreur lisible)", fini !== null, fini);
+  await pause(800);
+  await capture(page, "mougibot_resultat");
+
+  await toucher(page, "Chat");
+  r.verifier("page du chat affichée", await attendre(page, "Mon chat", 10000).catch(() => false));
+  r.verifier("emplacements cosmétiques lisibles", await voit(page, "Chapeau"));
+  await pause(800);
+  await capture(page, "chat");
+
+  await toucher(page, "Profil");
+  r.verifier("profil : bandeau invité", await attendre(page, "Mode invité", 10000).catch(() => false));
+  r.verifier("profil : niveau et XP lus", await voit(page, "Expérience 0 sur"));
+  await pause(800);
+  await capture(page, "profil");
+
+  await toucher(page, "Portail");
+  r.verifier("portail : soldes lus (or et Sceaux)", await attendre(page, "30 or", 10000).catch(() => false) && (await voit(page, "Sceaux")));
+  await toucher(page, "Boutique", { exact: true });
+  r.verifier("boutique : articles et prix", await attendre(page, "Acheter", 10000).catch(() => false) || (await voit(page, "Trop cher")));
+  await pause(800);
+  await capture(page, "boutique");
+  await toucher(page, "Vendre", { exact: true });
+  r.verifier("vente : inventaire vide expliqué", await attendre(page, "inventaire est vide", 10000).catch(() => false));
+});
+
 await parcours("lien profond vers une quête", async (page) => {
   await entrerCommeInvite(page);
   // Une quête créée ailleurs (notification, partage) s'ouvre par son lien.

@@ -7,9 +7,13 @@ export const libelles = (page) => page.$$eval("flt-semantics", (els) =>
   [...new Set(els.map((e) => (e.getAttribute("aria-label") || "").trim()
     || (e.childElementCount === 0 ? e.textContent.trim() : "")).filter(Boolean))]);
 
-/** Le texte est-il visible maintenant ? */
+/** Le texte est-il visible maintenant ? Cherche le texte affiché, puis les
+ * libellés `aria-label` (nœuds fusionnés, zones annoncées), que `getByText`
+ * ignore. */
 export async function voit(page, texte) {
-  return (await page.getByText(texte, { exact: false }).count()) > 0;
+  if ((await page.getByText(texte, { exact: false }).count()) > 0) return true;
+  return page.$$eval("flt-semantics[aria-label]", (els, t) =>
+    els.some((e) => (e.getAttribute("aria-label") || "").includes(t)), texte);
 }
 
 /** Attend un texte (sondage de l'arbre sémantique). */

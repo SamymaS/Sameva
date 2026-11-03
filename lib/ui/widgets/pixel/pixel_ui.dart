@@ -369,3 +369,68 @@ InputDecoration pixelChamp({required String exemple}) => InputDecoration(
       focusedErrorBorder: const OutlineInputBorder(borderRadius: BorderRadius.zero, borderSide: BorderSide(color: Color(0xFFFCA5A5), width: 3)),
       errorStyle: PixelTextes.corps(14, couleur: const Color(0xFFFCA5A5)),
     );
+
+/// Barre de titre pixel commune (fond nuit, titre PressStart2P à ombre violette).
+AppBar pixelBarre(String titre, {Widget? leading, List<Widget>? actions}) => AppBar(
+      backgroundColor: PixelCouleurs.nuit,
+      surfaceTintColor: Colors.transparent,
+      foregroundColor: PixelCouleurs.texte,
+      leading: leading,
+      actions: actions,
+      title: Text(
+        titre,
+        style: PixelTextes.chiffres(13, PixelCouleurs.texte).copyWith(
+          shadows: const [Shadow(color: PixelCouleurs.violet, offset: Offset(2, 2))],
+        ),
+      ),
+    );
+
+/// Boîte de dialogue pixel : panneau à bord épais, sans arrondi.
+class PixelDialogue extends StatelessWidget {
+  final String titre;
+  final Widget contenu;
+  final List<Widget> actions;
+  final Color bord;
+
+  const PixelDialogue({
+    super.key,
+    required this.titre,
+    required this.contenu,
+    this.actions = const [],
+    this.bord = PixelCouleurs.violet,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: PixelCouleurs.panneau,
+      shape: RoundedRectangleBorder(side: BorderSide(color: bord, width: 3)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Semantics(
+              header: true,
+              child: Text(titre, style: PixelTextes.chiffres(12, PixelCouleurs.orClair), textAlign: TextAlign.center),
+            ),
+            const SizedBox(height: 16),
+            contenu,
+            if (actions.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  for (var i = 0; i < actions.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 10),
+                    Expanded(child: actions[i]),
+                  ],
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}

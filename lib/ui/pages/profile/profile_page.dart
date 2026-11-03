@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/router/app_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../config/feature_flags.dart';
@@ -24,10 +23,18 @@ import '../../../presentation/view_models/quest_view_model.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/app_notification.dart';
 import '../../widgets/cat/cat_widget.dart';
-import '../../widgets/common/rarity_badge.dart';
+import '../../widgets/common/item_icon.dart';
+import '../../widgets/pixel/pixel_ui.dart';
 import 'delete_account_confirm_dialog.dart';
 
+/// Couleurs d'état propres au profil (lisibles sur fond nuit).
+abstract final class _Teintes {
+  static const vert = Color(0xFF4ADE80);
+  static const rouge = Color(0xFFFCA5A5);
+  static const rougeVif = Color(0xFFEF4444);
+}
 
+/// Page Profil (style pixel) : tête de profil, soldes, sections en cadres épais.
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
 
@@ -56,24 +63,16 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_vm == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
+    const chargement = Scaffold(
+      backgroundColor: PixelCouleurs.nuit,
+      body: Center(child: CircularProgressIndicator(color: PixelCouleurs.violetClair)),
+    );
+    if (_vm == null) return chargement;
 
     return ChangeNotifierProvider<ProfileViewModel>.value(
       value: _vm!,
       child: Consumer<ProfileViewModel>(
-        builder: (context, vm, _) {
-          if (vm.isLoading) {
-            return const Scaffold(
-              backgroundColor: AppColors.backgroundNightBlue,
-              body: Center(child: CircularProgressIndicator()),
-            );
-          }
-          return _ProfileContent(vm: vm);
-        },
+        builder: (context, vm, _) => vm.isLoading ? chargement : _ProfileContent(vm: vm),
       ),
     );
   }
@@ -96,123 +95,104 @@ class _ProfileContent extends StatelessWidget {
     final xpProgress = xpForNext > 0 ? (experience / xpForNext).clamp(0.0, 1.0) : 0.0;
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundNightBlue,
-      body: CustomScrollView(
-        slivers: [
-          // AppBar avec dégradé
-          SliverAppBar(
-            expandedHeight: 200,
-            pinned: true,
-            backgroundColor: AppColors.backgroundNightBlue,
-            actions: [
-              if (FeatureFlags.showLeaderboard)
-                IconButton(
-                  icon: const Icon(Icons.leaderboard_rounded,
-                      color: AppColors.primaryVioletLight, size: 20),
-                  tooltip: 'Classement',
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const LeaderboardPage()),
-                  ),
-                ),
-              IconButton(
-                icon: const Icon(Icons.emoji_events_outlined,
-                    color: AppColors.gold, size: 20),
-                tooltip: 'Succès',
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const AchievementsPage()),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.ios_share_outlined,
-                    color: AppColors.textSecondary, size: 20),
-                tooltip: 'Partager',
-                onPressed: () => _shareProfile(context, vm, stats),
-              ),
-              IconButton(
-                icon: const Icon(Icons.settings_outlined,
-                    color: AppColors.textSecondary, size: 20),
-                onPressed: () => context.push(Routes.parametres),
-              ),
-            ],
-            flexibleSpace: FlexibleSpaceBar(
-              background: _HeroHeader(
-                vm: vm,
-                level: level,
-                experience: experience,
-                xpForNext: xpForNext,
-                xpProgress: xpProgress,
-                stats: stats,
+      backgroundColor: PixelCouleurs.nuit,
+      appBar: pixelBarre(
+        'Profil',
+        actions: [
+          if (FeatureFlags.showLeaderboard)
+            IconButton(
+              icon: const Icon(Icons.leaderboard_outlined, color: PixelCouleurs.violetClair),
+              tooltip: 'Classement',
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const LeaderboardPage()),
               ),
             ),
-          ),
-
-          SliverPadding(
-            padding: const EdgeInsets.all(16),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                // Ligne de stats rapides
-                _QuickStatsRow(stats: stats, vm: vm),
-                const SizedBox(height: 16),
-
-                // Bandeau invité — visible uniquement pour les comptes anonymes
-                if (context.watch<AuthViewModel>().isGuest) ...[
-                  const _GuestBanner(),
-                  const SizedBox(height: 16),
-                ],
-
-                // Premium (CTA abonnement ou statut actif)
-                const _PremiumSection(),
-                const SizedBox(height: 16),
-
-                // Équipement résumé
-                _EquipmentSummary(equipment: equipment),
-                const SizedBox(height: 16),
-
-                // Inventaire
-                _InventorySummary(inventory: inventory),
-                const SizedBox(height: 16),
-
-                // Chat compagnon
-                const _CatSection(),
-                const SizedBox(height: 16),
-
-                // Statistiques
-                _StatisticsSection(vm: vm),
-                const SizedBox(height: 16),
-
-                // Achievements
-                _AchievementsSection(stats: stats),
-                const SizedBox(height: 16),
-
-                // Graphe XP sur 14 jours
-                const _ActivityChart(),
-                const SizedBox(height: 16),
-
-                // Historique d'activité
-                if (FeatureFlags.showHistory) ...[
-                  _ActivityLogButton(),
-                  const SizedBox(height: 16),
-                ],
-
-                // Déconnexion
-                _LogoutButton(vm: vm),
-                const SizedBox(height: 24),
-
-                // Zone dangereuse — suppression de compte (RGPD)
-                const _DangerZoneDivider(),
-                const SizedBox(height: 16),
-                _DeleteAccountButton(vm: vm),
-                const SizedBox(height: 32),
-              ]),
+          IconButton(
+            icon: const Icon(Icons.emoji_events_outlined, color: PixelCouleurs.or),
+            tooltip: 'Succès',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AchievementsPage()),
             ),
           ),
+          IconButton(
+            icon: const Icon(Icons.ios_share_outlined, color: PixelCouleurs.texteDoux),
+            tooltip: 'Partager',
+            onPressed: () => _shareProfile(context, vm, stats),
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined, color: PixelCouleurs.texteDoux),
+            tooltip: 'Réglages',
+            onPressed: () => context.push(Routes.parametres),
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+        children: [
+          _HeroHeader(
+            vm: vm,
+            level: level,
+            experience: experience,
+            xpForNext: xpForNext,
+            xpProgress: xpProgress,
+            stats: stats,
+          ),
+          const SizedBox(height: 14),
+          _QuickStatsRow(stats: stats, vm: vm),
+          const SizedBox(height: 16),
+
+          // Bandeau invité : visible uniquement pour les comptes anonymes
+          if (context.watch<AuthViewModel>().isGuest) ...[
+            const _GuestBanner(),
+            const SizedBox(height: 16),
+          ],
+
+          // Premium (appel à l'abonnement ou statut actif)
+          const _PremiumSection(),
+          const SizedBox(height: 16),
+
+          _EquipmentSummary(equipment: equipment),
+          const SizedBox(height: 16),
+
+          _InventorySummary(inventory: inventory),
+          const SizedBox(height: 16),
+
+          const _CatSection(),
+          const SizedBox(height: 16),
+
+          _StatisticsSection(vm: vm),
+          const SizedBox(height: 16),
+
+          _AchievementsSection(stats: stats),
+          const SizedBox(height: 16),
+
+          const _ActivityChart(),
+          const SizedBox(height: 16),
+
+          if (FeatureFlags.showHistory) ...[
+            PixelBouton(
+              libelle: 'Historique d\'activité',
+              principal: false,
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const ActivityLogPage()),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          _LogoutButton(vm: vm),
+          const SizedBox(height: 28),
+
+          // Zone sensible : suppression de compte (RGPD)
+          const _DangerZoneDivider(),
+          const SizedBox(height: 16),
+          _DeleteAccountButton(vm: vm),
         ],
       ),
     );
   }
 
-  void _shareProfile(
-      BuildContext context, ProfileViewModel vm, PlayerStats? stats) {
+  void _shareProfile(BuildContext context, ProfileViewModel vm, PlayerStats? stats) {
     final level = stats?.level ?? 1;
     final gold = stats?.gold ?? 0;
     final crystals = stats?.crystals ?? 0;
@@ -229,14 +209,14 @@ class _ProfileContent extends StatelessWidget {
       '🔥 Série : $streak jours',
       '💰 Or : $gold  |  💎 Cristaux : $crystals',
       '─────────────────',
-      'Rejoins-moi sur Sameva — l\'app RPG de productivité !',
+      'Rejoins-moi sur Sameva, l\'app RPG de productivité !',
     ];
 
     Share.share(lines.join('\n'));
   }
 }
 
-// ─── Hero header ─────────────────────────────────────────────────────────────
+// ─── Tête de profil ──────────────────────────────────────────────────────────
 
 class _HeroHeader extends StatelessWidget {
   final ProfileViewModel vm;
@@ -257,149 +237,95 @@ class _HeroHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [AppColors.backgroundDeepViolet, AppColors.backgroundNightBlue],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 48, 20, 16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Avatar — tap pour ouvrir la fiche personnage
-              GestureDetector(
-                onTap: () => context.push(Routes.avatar),
-                child: Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const LinearGradient(
-                      colors: [AppColors.primaryTurquoise, AppColors.secondaryViolet],
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primaryTurquoise.withValues(alpha: 0.4),
-                        blurRadius: 16,
-                        spreadRadius: 2,
-                      ),
-                    ],
+    final titre = _playerTitle(stats);
+    final serie = stats?.streak ?? 0;
+    return PixelCadre(
+      bord: PixelCouleurs.violet,
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Avatar : toucher pour ouvrir la fiche personnage
+          Semantics(
+            container: true,
+            button: true,
+            label: 'Fiche personnage',
+            excludeSemantics: true,
+            child: GestureDetector(
+              onTap: () => context.push(Routes.avatar),
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                width: 72,
+                height: 72,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(
+                  color: PixelCouleurs.violetSombre,
+                  border: Border(
+                    top: BorderSide(color: PixelCouleurs.violetClair, width: 3),
+                    left: BorderSide(color: PixelCouleurs.violetClair, width: 3),
+                    right: BorderSide(color: PixelCouleurs.violetClair, width: 3),
+                    bottom: BorderSide(color: PixelCouleurs.violet, width: 6),
                   ),
-                  child: const Icon(Icons.person, color: Colors.white, size: 36),
                 ),
+                child: const Icon(Icons.person, color: PixelCouleurs.texte, size: 40),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (vm.userEmail != null)
+                  Text(vm.userEmail!,
+                      overflow: TextOverflow.ellipsis, style: PixelTextes.corps(15, couleur: PixelCouleurs.texteDoux)),
+                if (titre != null)
+                  Text(titre, style: PixelTextes.corps(15, couleur: PixelCouleurs.orClair, poids: FontWeight.w700)),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    if (vm.userEmail != null)
-                      Text(
-                        vm.userEmail!,
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 12,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    if (_playerTitle(stats) != null) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        _playerTitle(stats)!,
-                        style: TextStyle(
-                          color: AppColors.gold.withValues(alpha: 0.9),
-                          fontSize: 11,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryTurquoise.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                                color: AppColors.primaryTurquoise, width: 1),
-                          ),
-                          child: Text(
-                            'Niv. $level',
-                            style: const TextStyle(
-                              color: AppColors.primaryTurquoise,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        if ((stats?.streak ?? 0) >= 7)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppColors.warning.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.warning, width: 1),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.local_fire_department,
-                                    color: AppColors.warning, size: 12),
-                                const SizedBox(width: 2),
-                                Text(
-                                  '${stats!.streak}j',
-                                  style: const TextStyle(
-                                      color: AppColors.warning,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      color: PixelCouleurs.oracle,
+                      child: Text('Niv. $level', style: PixelTextes.chiffres(9, PixelCouleurs.nuit)),
                     ),
-                    const SizedBox(height: 8),
-                    // Barre XP
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: LinearProgressIndicator(
-                              value: xpProgress,
-                              backgroundColor:
-                                  AppColors.backgroundNightBlue,
-                              valueColor: const AlwaysStoppedAnimation<Color>(
-                                  AppColors.primaryTurquoise),
-                              minHeight: 6,
-                            ),
-                          ),
+                    if (serie >= 7)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(border: Border.all(color: PixelCouleurs.or, width: 2)),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.local_fire_department, color: PixelCouleurs.or, size: 14),
+                            const SizedBox(width: 3),
+                            Text('$serie j',
+                                style: PixelTextes.corps(14, couleur: PixelCouleurs.orClair, poids: FontWeight.w700)),
+                          ],
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '$experience/$xpForNext',
-                          style: const TextStyle(
-                              color: AppColors.textMuted, fontSize: 10),
-                        ),
-                      ],
-                    ),
+                      ),
                   ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 10),
+                Semantics(
+                  container: true,
+                  label: 'Expérience $experience sur $xpForNext',
+                  excludeSemantics: true,
+                  child: Row(
+                    children: [
+                      Expanded(child: PixelJauge(valeur: xpProgress, couleur: PixelCouleurs.oracle, hauteur: 12)),
+                      const SizedBox(width: 8),
+                      Text('$experience / $xpForNext', style: PixelTextes.chiffres(8, PixelCouleurs.texteDoux)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -408,15 +334,25 @@ class _HeroHeader extends StatelessWidget {
   static String? _playerTitle(PlayerStats? stats) {
     if (stats == null || stats.achievements.isEmpty) return null;
     const priority = [
-      'quest_100', 'level_25', 'streak_30', 'rich_5000',
-      'quest_50',  'level_10', 'streak_7',  'rich_1000',
-      'quest_10',  'level_5',  'collector_25',
-      'zen_master', 'collector_10', 'streak_3', 'first_quest',
+      'quest_100',
+      'level_25',
+      'streak_30',
+      'rich_5000',
+      'quest_50',
+      'level_10',
+      'streak_7',
+      'rich_1000',
+      'quest_10',
+      'level_5',
+      'collector_25',
+      'zen_master',
+      'collector_10',
+      'streak_3',
+      'first_quest',
     ];
     for (final id in priority) {
       if (stats.achievements.containsKey(id)) {
-        final def = PlayerStats.achievementDefinitions
-            .firstWhere((d) => d['id'] == id, orElse: () => {});
+        final def = PlayerStats.achievementDefinitions.firstWhere((d) => d['id'] == id, orElse: () => {});
         if (def['name'] != null) return def['name'];
       }
     }
@@ -424,7 +360,7 @@ class _HeroHeader extends StatelessWidget {
   }
 }
 
-// ─── Stats rapides ────────────────────────────────────────────────────────────
+// ─── Soldes ──────────────────────────────────────────────────────────────────
 
 class _QuickStatsRow extends StatelessWidget {
   final PlayerStats? stats;
@@ -436,33 +372,17 @@ class _QuickStatsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _StatChip(
-          icon: Icons.monetization_on,
-          color: AppColors.gold,
-          label: '${stats?.gold ?? 0}',
-          sublabel: 'Or',
-        ),
+        _StatChip(icon: Icons.monetization_on, color: PixelCouleurs.or, label: '${stats?.gold ?? 0}', sublabel: 'Or'),
         const SizedBox(width: 8),
         _StatChip(
-          icon: Icons.diamond,
-          color: AppColors.secondaryVioletGlow,
-          label: '${stats?.crystals ?? 0}',
-          sublabel: 'Cristaux',
-        ),
+            icon: Icons.diamond,
+            color: PixelCouleurs.violetClair,
+            label: '${stats?.crystals ?? 0}',
+            sublabel: 'Cristaux'),
         const SizedBox(width: 8),
-        _StatChip(
-          icon: Icons.favorite,
-          color: AppColors.error,
-          label: '${stats?.healthPoints ?? 100}',
-          sublabel: 'HP',
-        ),
+        _StatChip(icon: Icons.favorite, color: _Teintes.rouge, label: '${stats?.healthPoints ?? 100}', sublabel: 'PV'),
         const SizedBox(width: 8),
-        _StatChip(
-          icon: Icons.check_circle_outline,
-          color: AppColors.success,
-          label: '${vm.completedCount}',
-          sublabel: 'Quêtes',
-        ),
+        _StatChip(icon: Icons.check, color: _Teintes.vert, label: '${vm.completedCount}', sublabel: 'Quêtes'),
       ],
     );
   }
@@ -474,120 +394,66 @@ class _StatChip extends StatelessWidget {
   final String label;
   final String sublabel;
 
-  const _StatChip({
-    required this.icon,
-    required this.color,
-    required this.label,
-    required this.sublabel,
-  });
+  const _StatChip({required this.icon, required this.color, required this.label, required this.sublabel});
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 18),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                  color: color, fontWeight: FontWeight.bold, fontSize: 14),
-            ),
-            Text(
-              sublabel,
-              style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
-            ),
-          ],
+      child: MergeSemantics(
+        child: PixelCadre(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+          child: Column(
+            children: [
+              Icon(icon, color: color, size: 18),
+              const SizedBox(height: 6),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(label, style: PixelTextes.chiffres(11, color)),
+              ),
+              const SizedBox(height: 2),
+              Text(sublabel, style: PixelTextes.corps(14, couleur: PixelCouleurs.texteDoux)),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-// ─── Bandeau invité ───────────────────────────────────────────────────────────
+// ─── Bandeau invité ──────────────────────────────────────────────────────────
 
 /// Bandeau affiché uniquement pour les comptes anonymes (isGuest == true).
-/// Invite l'utilisateur à sauvegarder sa progression en créant un compte email.
+/// Invite l'utilisateur à sauvegarder sa progression en créant un compte e-mail.
 class _GuestBanner extends StatelessWidget {
   const _GuestBanner();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.warning.withValues(alpha: 0.18),
-            AppColors.primaryTurquoise.withValues(alpha: 0.12),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.warning.withValues(alpha: 0.5)),
-      ),
+    return PixelCadre(
+      bord: PixelCouleurs.or,
+      padding: const EdgeInsets.all(14),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.person_outline, color: AppColors.warning, size: 22),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Mode invité',
-                  style: TextStyle(
-                    color: AppColors.warning,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                  ),
-                ),
-              ),
+              const Icon(Icons.person_outline, color: PixelCouleurs.or, size: 22),
+              const SizedBox(width: 10),
+              Expanded(child: Text('Mode invité', style: PixelTextes.chiffres(11, PixelCouleurs.orClair))),
             ],
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Votre progression n\'est pas synchronisée. '
-            'Sauvegardez votre compte pour ne rien perdre si vous '
-            'changez d\'appareil.',
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 13,
-              height: 1.5,
-            ),
+          Text(
+            'Ta progression n\'est liée qu\'à cet appareil. Sauvegarde ton compte pour ne rien perdre si tu '
+            'changes de téléphone.',
+            style: PixelTextes.corps(15, couleur: PixelCouleurs.texteDoux),
           ),
           const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              key: const Key('btn_sauvegarder_progression'),
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const SaveGuestAccountPage(),
-                ),
-              ),
-              icon: const Icon(Icons.save_outlined, size: 18),
-              label: const Text('Sauvegarder ma progression'),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.warning,
-                foregroundColor: Colors.black87,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                textStyle: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
+          PixelBouton(
+            key: const Key('btn_sauvegarder_progression'),
+            libelle: 'Sauvegarder ma progression',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const SaveGuestAccountPage()),
             ),
           ),
         ],
@@ -596,14 +462,14 @@ class _GuestBanner extends StatelessWidget {
   }
 }
 
-// ─── Premium ──────────────────────────────────────────────────────────────────
+// ─── Premium ─────────────────────────────────────────────────────────────────
 
 /// Section Premium de la page Profil.
 ///
-/// Point d'entrée permanent vers l'abonnement (le sheet « plus de jetons » ne
-/// s'affiche qu'au gating à 0 jeton). Affiche :
-/// - si premium actif → statut + date d'expiration ;
-/// - sinon → CTA « Passer à Premium » qui lance le checkout Stripe via
+/// Point d'entrée permanent vers l'abonnement (le panneau « plus de jetons » ne
+/// s'affiche qu'au blocage à 0 jeton). Affiche :
+/// - si premium actif : statut et date d'expiration ;
+/// - sinon : « Passer à Premium », qui lance le paiement Stripe via
 ///   [AiValidationCreditsService.startPremiumCheckout].
 class _PremiumSection extends StatelessWidget {
   const _PremiumSection();
@@ -616,9 +482,7 @@ class _PremiumSection extends StatelessWidget {
       return _PremiumActiveCard(until: credits.premiumUntil);
     }
     return _PremiumCtaCard(
-      onSubscribe: () => context
-          .read<AiValidationCreditsService>()
-          .startPremiumCheckout(),
+      onSubscribe: () => context.read<AiValidationCreditsService>().startPremiumCheckout(),
     );
   }
 }
@@ -631,46 +495,24 @@ class _PremiumActiveCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.gold.withValues(alpha: 0.18),
-            AppColors.primaryViolet.withValues(alpha: 0.18),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.gold.withValues(alpha: 0.5)),
-      ),
+    return PixelCadre(
+      bord: PixelCouleurs.or,
+      padding: const EdgeInsets.all(14),
       child: Row(
         children: [
-          const Icon(Icons.workspace_premium, color: AppColors.gold, size: 28),
+          const Icon(Icons.workspace_premium, color: PixelCouleurs.or, size: 28),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Premium actif',
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                  ),
-                ),
-                const SizedBox(height: 2),
+                Text('Premium actif', style: PixelTextes.chiffres(11, PixelCouleurs.orClair)),
+                const SizedBox(height: 4),
                 Text(
                   until != null
                       ? 'Validations IA illimitées · renouvellement le ${_formatDate(until!)}'
                       : 'Validations IA illimitées',
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                    height: 1.4,
-                  ),
+                  style: PixelTextes.corps(15, couleur: PixelCouleurs.texteDoux),
                 ),
               ],
             ),
@@ -688,7 +530,7 @@ class _PremiumActiveCard extends StatelessWidget {
   }
 }
 
-/// Carte d'appel à l'action vers l'abonnement Premium (non abonné).
+/// Carte d'appel à l'abonnement Premium (non abonné).
 class _PremiumCtaCard extends StatelessWidget {
   final VoidCallback onSubscribe;
 
@@ -696,72 +538,30 @@ class _PremiumCtaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.primaryViolet.withValues(alpha: 0.20),
-            AppColors.primaryTurquoise.withValues(alpha: 0.12),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(12),
-        border:
-            Border.all(color: AppColors.primaryViolet.withValues(alpha: 0.5)),
-      ),
+    return PixelCadre(
+      bord: PixelCouleurs.violet,
+      padding: const EdgeInsets.all(14),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.workspace_premium,
-                  color: AppColors.primaryVioletLight, size: 24),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Sameva Premium',
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-              ),
+              const Icon(Icons.workspace_premium, color: PixelCouleurs.violetClair, size: 24),
+              const SizedBox(width: 10),
+              Expanded(child: Text('Sameva Premium', style: PixelTextes.chiffres(11, PixelCouleurs.texte))),
             ],
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Validations MougiBot illimitées — débloque l\'analyse IA de '
-            'toutes tes preuves de quête, sans compter les jetons.',
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 13,
-              height: 1.5,
-            ),
+          Text(
+            'Validations MougiBot illimitées : l\'analyse IA de toutes tes preuves de quête, sans compter '
+            'l\'énergie.',
+            style: PixelTextes.corps(15, couleur: PixelCouleurs.texteDoux),
           ),
           const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              key: const Key('cta_premium_profil'),
-              onPressed: onSubscribe,
-              icon: const Icon(Icons.diamond_outlined, size: 18),
-              label: const Text('Passer à Premium'),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primaryViolet,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                textStyle: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                ),
-              ),
-            ),
+          PixelBouton(
+            key: const Key('cta_premium_profil'),
+            libelle: 'Passer à Premium',
+            onPressed: onSubscribe,
           ),
         ],
       ),
@@ -769,7 +569,7 @@ class _PremiumCtaCard extends StatelessWidget {
   }
 }
 
-// ─── Équipement ───────────────────────────────────────────────────────────────
+// ─── Équipement ──────────────────────────────────────────────────────────────
 
 class _EquipmentSummary extends StatelessWidget {
   final EquipmentViewModel equipment;
@@ -778,8 +578,7 @@ class _EquipmentSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final equipped =
-        equipment.equipped.values.where((i) => i != null).toList();
+    final equipped = equipment.equipped.values.where((i) => i != null).toList();
     final xp = equipment.xpBonusPercent;
     final gold = equipment.goldBonusPercent;
     final hp = equipment.hpBonus;
@@ -788,40 +587,27 @@ class _EquipmentSummary extends StatelessWidget {
       title: 'Équipement',
       icon: Icons.shield_outlined,
       child: equipped.isEmpty
-          ? const Text(
-              'Aucun équipement actif.',
-              style: TextStyle(color: AppColors.textMuted, fontSize: 13),
-            )
+          ? const _TexteVide('Aucun équipement actif.')
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: equipped.map((item) {
-                    final color =
-                        AppColors.getRarityColor(item!.rarity.name);
+                    final color = AppColors.getRarityColor(item!.rarity.name);
                     return Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.fromLTRB(4, 4, 10, 4),
                       decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                            color: color.withValues(alpha: 0.5)),
+                        color: PixelCouleurs.panneauProfond,
+                        border: Border.all(color: color, width: 2),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(item.getIcon(), color: color, size: 14),
-                          const SizedBox(width: 4),
-                          Text(
-                            item.name,
-                            style: TextStyle(
-                                color: color,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500),
-                          ),
+                          ItemIcon(item: item, size: 28, showBackground: false),
+                          const SizedBox(width: 6),
+                          Text(item.name, style: PixelTextes.corps(14, couleur: color, poids: FontWeight.w700)),
                         ],
                       ),
                     );
@@ -831,13 +617,11 @@ class _EquipmentSummary extends StatelessWidget {
                   const SizedBox(height: 10),
                   Wrap(
                     spacing: 8,
+                    runSpacing: 6,
                     children: [
-                      if (xp > 0)
-                        _BonusBadge('+$xp% XP', AppColors.primaryTurquoise),
-                      if (gold > 0)
-                        _BonusBadge('+$gold% Or', AppColors.gold),
-                      if (hp > 0)
-                        _BonusBadge('+$hp HP', AppColors.error),
+                      if (xp > 0) _BonusBadge('+$xp % XP', PixelCouleurs.oracle),
+                      if (gold > 0) _BonusBadge('+$gold % or', PixelCouleurs.or),
+                      if (hp > 0) _BonusBadge('+$hp PV', _Teintes.rouge),
                     ],
                   ),
                 ],
@@ -856,21 +640,14 @@ class _BonusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-            color: color, fontSize: 11, fontWeight: FontWeight.bold),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      color: PixelCouleurs.panneauProfond,
+      child: Text(text, style: PixelTextes.corps(14, couleur: color, poids: FontWeight.w700)),
     );
   }
 }
 
-// ─── Inventaire ───────────────────────────────────────────────────────────────
+// ─── Inventaire ──────────────────────────────────────────────────────────────
 
 class _InventorySummary extends StatelessWidget {
   final InventoryViewModel inventory;
@@ -890,42 +667,37 @@ class _InventorySummary extends StatelessWidget {
         .length;
     final potions = items.where((i) => i.type == ItemType.potion).length;
 
-    return GestureDetector(
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const InventoryPage()),
-      ),
-      child: _SectionCard(
-      title: 'Inventaire',
-      icon: Icons.inventory_2_outlined,
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            '${items.length}/50',
-            style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        child: GestureDetector(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const InventoryPage()),
           ),
-          const SizedBox(width: 4),
-          const Icon(Icons.chevron_right,
-              color: AppColors.textMuted, size: 16),
-        ],
-      ),
-      child: items.isEmpty
-          ? const Text(
-              'Inventaire vide.',
-              style: TextStyle(color: AppColors.textMuted, fontSize: 13),
-            )
-          : Row(
+          behavior: HitTestBehavior.opaque,
+          child: _SectionCard(
+            title: 'Inventaire',
+            icon: Icons.inventory_2_outlined,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                _InvTypeChip(Icons.auto_fix_high, '$weapons', 'Armes',
-                    AppColors.rarityLegendary),
-                const SizedBox(width: 8),
-                _InvTypeChip(Icons.shield_outlined, '$armors', 'Armures',
-                    AppColors.rarityRare),
-                const SizedBox(width: 8),
-                _InvTypeChip(Icons.local_pharmacy, '$potions', 'Potions',
-                    AppColors.success),
+                Text('${items.length} / 50', style: PixelTextes.chiffres(8, PixelCouleurs.texteDoux)),
+                const Icon(Icons.chevron_right, color: PixelCouleurs.texteDoux, size: 20),
               ],
             ),
+            child: items.isEmpty
+                ? const _TexteVide('Inventaire vide.')
+                : Row(
+                    children: [
+                      _InvTypeChip(Icons.auto_fix_high, '$weapons', 'Armes', AppColors.rarityLegendary),
+                      const SizedBox(width: 8),
+                      _InvTypeChip(Icons.shield_outlined, '$armors', 'Armures', AppColors.rarityRare),
+                      const SizedBox(width: 8),
+                      _InvTypeChip(Icons.local_pharmacy, '$potions', 'Potions', _Teintes.vert),
+                    ],
+                  ),
+          ),
+        ),
       ),
     );
   }
@@ -944,22 +716,13 @@ class _InvTypeChip extends StatelessWidget {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
+        color: PixelCouleurs.panneauProfond,
         child: Column(
           children: [
-            Icon(icon, color: color, size: 16),
-            const SizedBox(height: 2),
-            Text(count,
-                style: TextStyle(
-                    color: color,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14)),
-            Text(label,
-                style: const TextStyle(
-                    color: AppColors.textMuted, fontSize: 10)),
+            Icon(icon, color: color, size: 18),
+            const SizedBox(height: 4),
+            Text(count, style: PixelTextes.chiffres(11, color)),
+            Text(label, style: PixelTextes.corps(14, couleur: PixelCouleurs.texteDoux)),
           ],
         ),
       ),
@@ -967,7 +730,7 @@ class _InvTypeChip extends StatelessWidget {
   }
 }
 
-// ─── Achievements ─────────────────────────────────────────────────────────────
+// ─── Succès ──────────────────────────────────────────────────────────────────
 
 class _AchievementsSection extends StatelessWidget {
   final PlayerStats? stats;
@@ -983,10 +746,7 @@ class _AchievementsSection extends StatelessWidget {
     return _SectionCard(
       title: 'Succès',
       icon: Icons.emoji_events_outlined,
-      trailing: Text(
-        '$unlockedCount/${definitions.length}',
-        style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-      ),
+      trailing: Text('$unlockedCount / ${definitions.length}', style: PixelTextes.chiffres(8, PixelCouleurs.texteDoux)),
       child: GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
@@ -994,42 +754,31 @@ class _AchievementsSection extends StatelessWidget {
           crossAxisCount: 5,
           mainAxisSpacing: 8,
           crossAxisSpacing: 8,
-          childAspectRatio: 0.85,
         ),
         itemCount: definitions.length,
         itemBuilder: (context, i) {
           final def = definitions[i];
           final isUnlocked = unlocked.containsKey(def['id']);
-          return GestureDetector(
-            onTap: () => _showAchievementTooltip(context, def, isUnlocked),
-            child: Container(
-              decoration: BoxDecoration(
-                color: isUnlocked
-                    ? AppColors.gold.withValues(alpha: 0.15)
-                    : AppColors.backgroundDarkPanel,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: isUnlocked
-                      ? AppColors.gold.withValues(alpha: 0.6)
-                      : AppColors.inputBorder,
-                  width: isUnlocked ? 1.5 : 1,
+          return Semantics(
+            container: true,
+            button: true,
+            label: '${def['name'] ?? ''}, ${isUnlocked ? 'débloqué' : 'verrouillé'}',
+            excludeSemantics: true,
+            child: GestureDetector(
+              onTap: () => _showAchievementTooltip(context, def, isUnlocked),
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: isUnlocked ? PixelCouleurs.violetSombre : PixelCouleurs.panneauProfond,
+                  border:
+                      Border.all(color: isUnlocked ? PixelCouleurs.or : PixelCouleurs.trait, width: isUnlocked ? 3 : 2),
                 ),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    _iconForName(def['icon'] ?? 'star'),
-                    color: isUnlocked
-                        ? AppColors.gold
-                        : AppColors.textMuted.withValues(alpha: 0.4),
-                    size: 22,
-                  ),
-                  const SizedBox(height: 2),
-                  if (isUnlocked)
-                    const Icon(Icons.check,
-                        color: AppColors.gold, size: 10),
-                ],
+                child: Icon(
+                  _iconForName(def['icon'] ?? 'star'),
+                  color: isUnlocked ? PixelCouleurs.or : PixelCouleurs.trait,
+                  size: 24,
+                ),
               ),
             ),
           );
@@ -1038,17 +787,14 @@ class _AchievementsSection extends StatelessWidget {
     );
   }
 
-  void _showAchievementTooltip(
-      BuildContext context, Map<String, String> def, bool isUnlocked) {
+  void _showAchievementTooltip(BuildContext context, Map<String, String> def, bool isUnlocked) {
     AppNotification.show(
       context,
-      message: '${def['name'] ?? ''}${!isUnlocked ? ' 🔒' : ''}\n${def['description'] ?? ''}',
+      message: '${def['name'] ?? ''}${!isUnlocked ? ' (verrouillé)' : ''}\n${def['description'] ?? ''}',
       icon: _iconForName(def['icon'] ?? 'star'),
       iconColor: isUnlocked ? AppColors.gold : AppColors.textMuted,
       duration: const Duration(seconds: 2),
-      backgroundColor: isUnlocked
-          ? AppColors.gold.withValues(alpha: 0.2)
-          : AppColors.backgroundDarkPanel,
+      backgroundColor: isUnlocked ? AppColors.gold.withValues(alpha: 0.2) : AppColors.backgroundDarkPanel,
     );
   }
 
@@ -1074,7 +820,7 @@ class _AchievementsSection extends StatelessWidget {
   }
 }
 
-// ─── Chat compagnon ───────────────────────────────────────────────────────────
+// ─── Chat compagnon ──────────────────────────────────────────────────────────
 
 class _CatSection extends StatelessWidget {
   const _CatSection();
@@ -1085,77 +831,56 @@ class _CatSection extends StatelessWidget {
     if (cat == null) return const SizedBox.shrink();
 
     final slots = [
-      (label: 'Chapeau', id: cat.equippedHat, emoji: '🎩'),
-      (label: 'Tenue', id: cat.equippedOutfit, emoji: '👘'),
-      (label: 'Aura', id: cat.equippedAura, emoji: '✨'),
-      (label: 'Accessoire', id: cat.equippedAccessory, emoji: '💎'),
+      (label: 'Chapeau', id: cat.equippedHat, icon: Icons.dry_outlined),
+      (label: 'Tenue', id: cat.equippedOutfit, icon: Icons.checkroom_outlined),
+      (label: 'Aura', id: cat.equippedAura, icon: Icons.auto_awesome_outlined),
+      (label: 'Accessoire', id: cat.equippedAccessory, icon: Icons.diamond_outlined),
     ];
     final wornCount = slots.where((s) => s.id != null).length;
+    final rarete = AppColors.getRarityColor(cat.rarity);
 
     return _SectionCard(
       title: 'Mon chat',
       icon: Icons.pets,
-      trailing: RarityBadge(rarity: cat.rarity, compact: true),
+      trailing: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(border: Border.all(color: rarete, width: 2)),
+        child: Text(_rareteLabel(cat.rarity), style: PixelTextes.corps(13, couleur: rarete, poids: FontWeight.w700)),
+      ),
       child: Row(
         children: [
-          // Avatar du chat
           Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.primaryViolet.withValues(alpha: 0.12),
-              border: Border.all(
-                  color: AppColors.primaryViolet.withValues(alpha: 0.4)),
-            ),
-            child: Center(
-              child: CatWidget(race: cat.race, size: 56, mood: 'happy'),
-            ),
+            width: 76,
+            height: 76,
+            alignment: Alignment.bottomCenter,
+            color: PixelCouleurs.panneauProfond,
+            child: CatWidget(race: cat.race, equippedHat: cat.equippedHat, size: 72, mood: 'happy'),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  cat.name.isNotEmpty ? cat.name : cat.race,
-                  style: GoogleFonts.nunito(
-                    color: AppColors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                Text(
-                  _raceLabel(cat.race),
-                  style: const TextStyle(
-                      color: AppColors.textMuted, fontSize: 12),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Icon(Icons.checkroom_outlined,
-                        color: AppColors.primaryVioletLight, size: 13),
-                    const SizedBox(width: 4),
-                    Text(
-                      '$wornCount/4 cosmétiques équipés',
-                      style: const TextStyle(
-                          color: AppColors.textSecondary, fontSize: 11),
-                    ),
-                  ],
-                ),
+                Text(cat.name.isNotEmpty ? cat.name : cat.race, style: PixelTextes.chiffres(11, PixelCouleurs.texte)),
+                const SizedBox(height: 4),
+                Text(_raceLabel(cat.race), style: PixelTextes.corps(15, couleur: PixelCouleurs.texteDoux)),
                 const SizedBox(height: 6),
-                Wrap(
-                  spacing: 4,
-                  children: slots.map((s) {
-                    final worn = s.id != null;
-                    return Text(
-                      s.emoji,
-                      style: TextStyle(
-                        fontSize: 18,
-                        color: worn ? null : const Color(0x33FFFFFF),
-                      ),
-                    );
-                  }).toList(),
+                Semantics(
+                  container: true,
+                  label: '$wornCount cosmétiques équipés sur 4',
+                  excludeSemantics: true,
+                  child: Row(
+                    children: [
+                      for (final s in slots)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: Icon(s.icon,
+                              size: 20, color: s.id != null ? PixelCouleurs.violetClair : PixelCouleurs.trait),
+                        ),
+                      const SizedBox(width: 4),
+                      Text('$wornCount / 4', style: PixelTextes.chiffres(8, PixelCouleurs.texteDoux)),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -1165,18 +890,28 @@ class _CatSection extends StatelessWidget {
     );
   }
 
+  String _rareteLabel(String r) => switch (r.toLowerCase()) {
+        'common' => 'Commun',
+        'uncommon' => 'Peu commun',
+        'rare' => 'Rare',
+        'epic' => 'Épique',
+        'legendary' => 'Légendaire',
+        'mythic' => 'Mythique',
+        _ => r,
+      };
+
   String _raceLabel(String race) => switch (race) {
-        'michi' => 'Michi — Sage & calme',
-        'lune' => 'Lune — Mystérieux',
-        'braise' => 'Braise — Énergique',
-        'neige' => 'Neige — Doux & timide',
-        'cosmos' => 'Cosmos — Mystique',
-        'sakura' => 'Sakura — Joyeux',
+        'michi' => 'Michi · Sage et calme',
+        'lune' => 'Lune · Mystérieux',
+        'braise' => 'Braise · Énergique',
+        'neige' => 'Neige · Doux et timide',
+        'cosmos' => 'Cosmos · Mystique',
+        'sakura' => 'Sakura · Joyeux',
         _ => race,
       };
 }
 
-// ─── Graphe XP ────────────────────────────────────────────────────────────────
+// ─── Graphe XP ───────────────────────────────────────────────────────────────
 
 class _ActivityChart extends StatelessWidget {
   const _ActivityChart();
@@ -1187,12 +922,9 @@ class _ActivityChart extends StatelessWidget {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
-    // Calculer XP par jour sur les 14 derniers jours
+    // XP par jour sur les 14 derniers jours
     final days = List.generate(14, (i) => today.subtract(Duration(days: 13 - i)));
-    final xpByDay = <DateTime, int>{};
-    for (final day in days) {
-      xpByDay[day] = 0;
-    }
+    final xpByDay = <DateTime, int>{for (final day in days) day: 0};
     for (final entry in entries) {
       if (entry.type == ActivityType.quest && entry.subtitle != null) {
         final match = RegExp(r'\+(\d+) XP').firstMatch(entry.subtitle!);
@@ -1208,66 +940,35 @@ class _ActivityChart extends StatelessWidget {
 
     final values = days.map((d) => xpByDay[d]!.toDouble()).toList();
     final maxVal = values.reduce((a, b) => a > b ? a : b);
+    final total = values.reduce((a, b) => a + b).toInt();
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.backgroundDarkPanel,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color: AppColors.primaryTurquoise.withValues(alpha: 0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.bar_chart,
-                  color: AppColors.primaryTurquoise, size: 16),
-              const SizedBox(width: 8),
-              const Text(
-                'XP — 14 derniers jours',
-                style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13),
-              ),
-              const Spacer(),
-              Text(
-                '${values.reduce((a, b) => a + b).toInt()} XP total',
-                style: const TextStyle(
-                    color: AppColors.primaryTurquoise, fontSize: 11),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 80,
-            child: CustomPaint(
-              size: const Size(double.infinity, 80),
-              painter: _XpBarChartPainter(
-                values: values,
-                maxVal: maxVal <= 0 ? 1 : maxVal,
+    return _SectionCard(
+      title: 'XP sur 14 jours',
+      icon: Icons.bar_chart,
+      trailing: Text('$total XP', style: PixelTextes.chiffres(8, PixelCouleurs.oracle)),
+      child: Semantics(
+        container: true,
+        label: '$total XP gagnés sur les 14 derniers jours',
+        excludeSemantics: true,
+        child: Column(
+          children: [
+            SizedBox(
+              height: 80,
+              child: CustomPaint(
+                size: const Size(double.infinity, 80),
+                painter: _XpBarChartPainter(values: values, maxVal: maxVal <= 0 ? 1 : maxVal),
               ),
             ),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                _shortDate(days.first),
-                style: const TextStyle(
-                    color: AppColors.textMuted, fontSize: 9),
-              ),
-              const Text(
-                'Auj.',
-                style: TextStyle(
-                    color: AppColors.textMuted, fontSize: 9),
-              ),
-            ],
-          ),
-        ],
+            const SizedBox(height: 6),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(_shortDate(days.first), style: PixelTextes.corps(13, couleur: PixelCouleurs.texteDoux)),
+                Text('Aujourd\'hui', style: PixelTextes.corps(13, couleur: PixelCouleurs.texteDoux)),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1275,6 +976,7 @@ class _ActivityChart extends StatelessWidget {
   String _shortDate(DateTime d) => '${d.day}/${d.month}';
 }
 
+/// Histogramme pixel : barres pleines, sans arrondi, hauteur arrondie à 4 px.
 class _XpBarChartPainter extends CustomPainter {
   final List<double> values;
   final double maxVal;
@@ -1285,55 +987,29 @@ class _XpBarChartPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final barWidth = (size.width - (values.length - 1) * 4) / values.length;
     final paint = Paint()..style = PaintingStyle.fill;
+    final socle = Paint()..color = PixelCouleurs.trait;
+    canvas.drawRect(Rect.fromLTWH(0, size.height - 2, size.width, 2), socle);
 
     for (int i = 0; i < values.length; i++) {
       final fraction = values[i] / maxVal;
-      final barHeight = fraction * size.height;
+      if (fraction <= 0) continue;
+      // hauteur par paliers de 4 px : rendu « en blocs »
+      final barHeight = ((fraction * (size.height - 2)) / 4).ceil() * 4.0;
       final x = i * (barWidth + 4);
-      final y = size.height - barHeight;
-
+      final y = size.height - 2 - barHeight;
       final isToday = i == values.length - 1;
-      paint.color = isToday
-          ? AppColors.primaryTurquoise
-          : AppColors.primaryTurquoise.withValues(alpha: 0.35 + fraction * 0.5);
-
-      final rr = RRect.fromRectAndRadius(
-        Rect.fromLTWH(x, y, barWidth, barHeight.clamp(2, size.height)),
-        const Radius.circular(3),
-      );
-      canvas.drawRRect(rr, paint);
+      paint.color = isToday ? PixelCouleurs.or : PixelCouleurs.oracle;
+      canvas.drawRect(Rect.fromLTWH(x, y, barWidth, barHeight), paint);
+      // reflet clair sur le haut de la barre
+      canvas.drawRect(Rect.fromLTWH(x, y, barWidth, 2), Paint()..color = Colors.white.withValues(alpha: .45));
     }
   }
 
   @override
-  bool shouldRepaint(_XpBarChartPainter old) =>
-      old.values != values || old.maxVal != maxVal;
+  bool shouldRepaint(_XpBarChartPainter old) => old.values != values || old.maxVal != maxVal;
 }
 
-// ─── Historique ───────────────────────────────────────────────────────────────
-
-class _ActivityLogButton extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      onPressed: () => Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => const ActivityLogPage(),
-        ),
-      ),
-      icon: const Icon(Icons.history, size: 18),
-      label: const Text('Voir l\'historique d\'activité'),
-      style: OutlinedButton.styleFrom(
-        foregroundColor: AppColors.primaryVioletLight,
-        side: const BorderSide(color: AppColors.primaryVioletLight),
-        minimumSize: const Size.fromHeight(44),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
-  }
-}
-
-// ─── Séparateur zone dangereuse ───────────────────────────────────────────────
+// ─── Séparateur zone sensible ────────────────────────────────────────────────
 
 class _DangerZoneDivider extends StatelessWidget {
   const _DangerZoneDivider();
@@ -1342,36 +1018,69 @@ class _DangerZoneDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(
-          child: Divider(
-            color: AppColors.error.withValues(alpha: 0.35),
-            thickness: 1,
-          ),
-        ),
+        const Expanded(child: SizedBox(height: 3, child: ColoredBox(color: Color(0xFF7F1D1D)))),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(
-            'ZONE SENSIBLE',
-            style: TextStyle(
-              color: AppColors.error.withValues(alpha: 0.55),
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.4,
-            ),
-          ),
+          child: Text('Zone sensible', style: PixelTextes.chiffres(8, _Teintes.rouge)),
         ),
-        Expanded(
-          child: Divider(
-            color: AppColors.error.withValues(alpha: 0.35),
-            thickness: 1,
-          ),
-        ),
+        const Expanded(child: SizedBox(height: 3, child: ColoredBox(color: Color(0xFF7F1D1D)))),
       ],
     );
   }
 }
 
-// ─── Suppression de compte (RGPD) ─────────────────────────────────────────────
+/// Bouton pixel rouge, pour les actions à conséquence (déconnexion, suppression).
+class _BoutonDanger extends StatelessWidget {
+  final String libelle;
+  final IconData icone;
+  final VoidCallback onPressed;
+  final bool plein;
+
+  const _BoutonDanger(
+      {super.key, required this.libelle, required this.icone, required this.onPressed, this.plein = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      container: true,
+      button: true,
+      label: libelle,
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: onPressed,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          height: 52,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: plein ? const Color(0xFF7F1D1D) : PixelCouleurs.panneau,
+            border: const Border(
+              top: BorderSide(color: _Teintes.rougeVif, width: 3),
+              left: BorderSide(color: _Teintes.rougeVif, width: 3),
+              right: BorderSide(color: _Teintes.rougeVif, width: 3),
+              bottom: BorderSide(color: Color(0xFF7F1D1D), width: 6),
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          // rétrécit plutôt que déborder dans une demi-largeur de dialogue
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icone, color: _Teintes.rouge, size: 20),
+                const SizedBox(width: 8),
+                Text(libelle, style: PixelTextes.corps(17, couleur: _Teintes.rouge, poids: FontWeight.w700)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Suppression de compte (RGPD) ────────────────────────────────────────────
 
 class _DeleteAccountButton extends StatelessWidget {
   final ProfileViewModel vm;
@@ -1380,33 +1089,20 @@ class _DeleteAccountButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return OutlinedButton.icon(
+    return _BoutonDanger(
       key: const Key('btn_delete_account'),
-      style: OutlinedButton.styleFrom(
-        foregroundColor: AppColors.error,
-        side: BorderSide(color: AppColors.error.withValues(alpha: 0.7)),
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      libelle: 'Supprimer mon compte',
+      icone: Icons.delete_forever_outlined,
+      onPressed: () => showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => DeleteAccountConfirmDialog(vm: vm),
       ),
-      onPressed: () => _openConfirmDialog(context),
-      icon: const Icon(Icons.delete_forever_outlined, size: 20),
-      label: const Text(
-        'Supprimer mon compte',
-        style: TextStyle(fontWeight: FontWeight.w600),
-      ),
-    );
-  }
-
-  void _openConfirmDialog(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => DeleteAccountConfirmDialog(vm: vm),
     );
   }
 }
 
-// ─── Déconnexion ──────────────────────────────────────────────────────────────
+// ─── Déconnexion ─────────────────────────────────────────────────────────────
 
 class _LogoutButton extends StatelessWidget {
   final ProfileViewModel vm;
@@ -1415,38 +1111,27 @@ class _LogoutButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      style: OutlinedButton.styleFrom(
-        foregroundColor: AppColors.error,
-        side: const BorderSide(color: AppColors.error),
-        padding: const EdgeInsets.symmetric(vertical: 14),
-      ),
+    return _BoutonDanger(
+      libelle: 'Se déconnecter',
+      icone: Icons.logout,
       onPressed: () async {
         // Capture des ViewModels avant tout await (règle use_build_context_synchronously)
-        final playerVm    = context.read<PlayerViewModel>();
+        final playerVm = context.read<PlayerViewModel>();
         final inventoryVm = context.read<InventoryViewModel>();
         final equipmentVm = context.read<EquipmentViewModel>();
-        final catVm       = context.read<CatViewModel>();
+        final catVm = context.read<CatViewModel>();
 
         final confirmed = await showDialog<bool>(
           context: context,
-          builder: (_) => AlertDialog(
-            backgroundColor: AppColors.backgroundDarkPanel,
-            title: const Text('Déconnexion',
-                style: TextStyle(color: AppColors.textPrimary)),
-            content: const Text('Voulez-vous vraiment vous déconnecter ?',
-                style: TextStyle(color: AppColors.textSecondary)),
+          builder: (ctx) => PixelDialogue(
+            titre: 'Déconnexion',
+            bord: _Teintes.rougeVif,
+            contenu: Text('Veux-tu vraiment te déconnecter ?',
+                textAlign: TextAlign.center, style: PixelTextes.corps(16, couleur: PixelCouleurs.texteDoux)),
             actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Annuler'),
-              ),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.error),
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Déconnecter'),
-              ),
+              PixelBouton(libelle: 'Annuler', principal: false, onPressed: () => Navigator.pop(ctx, false)),
+              _BoutonDanger(
+                  libelle: 'Quitter', icone: Icons.logout, plein: true, onPressed: () => Navigator.pop(ctx, true)),
             ],
           ),
         );
@@ -1460,13 +1145,11 @@ class _LogoutButton extends StatelessWidget {
           catVm.reset();
         }
       },
-      icon: const Icon(Icons.logout),
-      label: const Text('Se déconnecter'),
     );
   }
 }
 
-// ─── Statistiques ─────────────────────────────────────────────────────────────
+// ─── Statistiques ────────────────────────────────────────────────────────────
 
 class _StatisticsSection extends StatelessWidget {
   final ProfileViewModel vm;
@@ -1482,8 +1165,7 @@ class _StatisticsSection extends StatelessWidget {
     for (final q in completed) {
       byCategory[q.category] = (byCategory[q.category] ?? 0) + 1;
     }
-    final sortedCategories = byCategory.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
+    final sortedCategories = byCategory.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
     final maxCat = sortedCategories.isEmpty ? 1 : sortedCategories.first.value;
 
     // 7 derniers jours
@@ -1499,144 +1181,94 @@ class _StatisticsSection extends StatelessWidget {
       if (byDay.containsKey(d)) byDay[d] = byDay[d]! + 1;
     }
     final maxDay = byDay.values.isEmpty ? 1 : byDay.values.reduce((a, b) => a > b ? a : b);
+    final semaine = byDay.values.fold<int>(0, (a, b) => a + b);
 
     return _SectionCard(
       title: 'Statistiques',
-      icon: Icons.bar_chart,
+      icon: Icons.insights,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 7 derniers jours
-          const Text(
-            '7 derniers jours',
-            style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 12,
-                fontWeight: FontWeight.w500),
-          ),
+          Text('7 derniers jours', style: PixelTextes.corps(15, couleur: PixelCouleurs.texteDoux)),
           const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: days.map((d) {
-              final count = byDay[d] ?? 0;
-              final ratio = maxDay > 0 ? count / maxDay : 0.0;
-              final isToday = d == DateTime(now.year, now.month, now.day);
-              return Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 2),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (count > 0)
-                        Text(
-                          '$count',
-                          style: const TextStyle(
-                              color: AppColors.primaryTurquoise,
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold),
+          Semantics(
+            container: true,
+            label: '$semaine quêtes terminées ces 7 derniers jours',
+            excludeSemantics: true,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: days.map((d) {
+                final count = byDay[d] ?? 0;
+                final ratio = maxDay > 0 ? count / maxDay : 0.0;
+                final isToday = d == DateTime(now.year, now.month, now.day);
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 3),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (count > 0) Text('$count', style: PixelTextes.chiffres(8, PixelCouleurs.oracle)),
+                        const SizedBox(height: 2),
+                        Container(
+                          height: 4 + (ratio * 12).round() * 4.0,
+                          color:
+                              isToday ? PixelCouleurs.or : PixelCouleurs.oracle.withValues(alpha: count > 0 ? 1 : .3),
                         ),
-                      const SizedBox(height: 2),
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 500),
-                        height: 4 + ratio * 48,
-                        decoration: BoxDecoration(
-                          color: isToday
-                              ? AppColors.primaryTurquoise
-                              : AppColors.primaryTurquoise.withValues(alpha: 0.4),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _dayLabel(d),
-                        style: TextStyle(
-                          color: isToday
-                              ? AppColors.primaryTurquoise
-                              : AppColors.textMuted,
-                          fontSize: 9,
-                          fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
-                        ),
-                      ),
-                    ],
+                        const SizedBox(height: 4),
+                        Text(_dayLabel(d),
+                            style: PixelTextes.corps(13,
+                                couleur: isToday ? PixelCouleurs.orClair : PixelCouleurs.texteDoux,
+                                poids: isToday ? FontWeight.w700 : FontWeight.w400)),
+                      ],
+                    ),
                   ),
-                ),
-              );
-            }).toList(),
-          ),
-
-          if (sortedCategories.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            const Text(
-              'Par catégorie',
-              style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500),
+                );
+              }).toList(),
             ),
+          ),
+          if (sortedCategories.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            Text('Par catégorie', style: PixelTextes.corps(15, couleur: PixelCouleurs.texteDoux)),
             const SizedBox(height: 8),
             ...sortedCategories.take(5).map((entry) {
               final ratio = maxCat > 0 ? entry.value / maxCat : 0.0;
               return Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 72,
-                      child: Text(
-                        entry.key,
-                        style: const TextStyle(
-                            color: AppColors.textSecondary, fontSize: 11),
-                        overflow: TextOverflow.ellipsis,
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Semantics(
+                  label: '${entry.key} : ${entry.value}',
+                  excludeSemantics: true,
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 84,
+                        child: Text(entry.key,
+                            overflow: TextOverflow.ellipsis,
+                            style: PixelTextes.corps(14, couleur: PixelCouleurs.texte)),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(3),
-                        child: LinearProgressIndicator(
-                          value: ratio,
-                          backgroundColor:
-                              AppColors.backgroundNightBlue,
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                              AppColors.secondaryViolet),
-                          minHeight: 8,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${entry.value}',
-                      style: const TextStyle(
-                          color: AppColors.secondaryVioletGlow,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold),
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                      Expanded(child: PixelJauge(valeur: ratio, couleur: PixelCouleurs.violet, hauteur: 12)),
+                      const SizedBox(width: 8),
+                      Text('${entry.value}', style: PixelTextes.chiffres(9, PixelCouleurs.violetClair)),
+                    ],
+                  ),
                 ),
               );
             }),
           ],
-
-          // Taux de réussite
           if (vm.quests.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Builder(builder: (context) {
               final total = vm.quests.length;
               final rate = completed.length / total;
-              return Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Taux de réussite',
-                      style: TextStyle(
-                          color: AppColors.textSecondary, fontSize: 12)),
-                  Text(
-                    '${(rate * 100).round()}%  (${completed.length}/$total)',
-                    style: const TextStyle(
-                        color: AppColors.success,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12),
-                  ),
-                ],
+              return MergeSemantics(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Taux de réussite', style: PixelTextes.corps(15, couleur: PixelCouleurs.texteDoux)),
+                    Text('${(rate * 100).round()} % (${completed.length} / $total)',
+                        style: PixelTextes.corps(15, couleur: _Teintes.vert, poids: FontWeight.w700)),
+                  ],
+                ),
               );
             }),
           ],
@@ -1651,7 +1283,15 @@ class _StatisticsSection extends StatelessWidget {
   }
 }
 
-// ─── Carte section réutilisable ───────────────────────────────────────────────
+// ─── Briques réutilisables ───────────────────────────────────────────────────
+
+class _TexteVide extends StatelessWidget {
+  final String texte;
+  const _TexteVide(this.texte);
+
+  @override
+  Widget build(BuildContext context) => Text(texte, style: PixelTextes.corps(15, couleur: PixelCouleurs.texteDoux));
+}
 
 class _SectionCard extends StatelessWidget {
   final String title;
@@ -1659,39 +1299,25 @@ class _SectionCard extends StatelessWidget {
   final Widget child;
   final Widget? trailing;
 
-  const _SectionCard({
-    required this.title,
-    required this.icon,
-    required this.child,
-    this.trailing,
-  });
+  const _SectionCard({required this.title, required this.icon, required this.child, this.trailing});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.backgroundDarkPanel,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color: AppColors.inputBorder.withValues(alpha: 0.5)),
-      ),
+    return PixelCadre(
+      padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, color: AppColors.primaryTurquoise, size: 16),
-              const SizedBox(width: 6),
-              Text(
-                title,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
+              Icon(icon, color: PixelCouleurs.violetClair, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Semantics(
+                  header: true,
+                  child: Text(title, style: PixelTextes.chiffres(10, PixelCouleurs.texte)),
                 ),
               ),
-              const Spacer(),
               if (trailing != null) trailing!,
             ],
           ),

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import '../../../data/repositories/game_api.dart';
@@ -12,9 +11,11 @@ import '../../../presentation/view_models/player_view_model.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/app_notification.dart';
 import '../../widgets/cat/cat_widget.dart';
+import '../../widgets/common/item_icon.dart';
+import '../../widgets/pixel/pixel_ui.dart';
 
-/// Page principale du chat compagnon.
-/// Affiche le chat avec ses cosmétiques équipés et permet de les gérer.
+/// Page principale du chat compagnon (style pixel).
+/// Affiche le chat sur son socle avec ses cosmétiques équipés et permet de les gérer.
 class CatPage extends StatelessWidget {
   const CatPage({super.key});
 
@@ -25,7 +26,7 @@ class CatPage extends StatelessWidget {
         final cat = catProvider.mainCat;
 
         if (cat == null) {
-          return _EmptyCatState();
+          return const _EmptyCatState();
         }
 
         return _CatPageContent(cat: cat, catProvider: catProvider);
@@ -33,6 +34,16 @@ class CatPage extends StatelessWidget {
     );
   }
 }
+
+String _rarityLabel(String r) => switch (r.toLowerCase()) {
+      'common' => 'Commun',
+      'uncommon' => 'Peu commun',
+      'rare' => 'Rare',
+      'epic' => 'Épique',
+      'legendary' => 'Légendaire',
+      'mythic' => 'Mythique',
+      _ => r,
+    };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Contenu principal
@@ -106,107 +117,61 @@ class _CatPageContentState extends State<_CatPageContent> {
     final canPet = _canPet;
     final remaining = canPet ? null : _cooldownRemaining;
     final cooldownLabel = remaining != null
-        ? '${remaining.inHours}h ${remaining.inMinutes.remainder(60)}min'
+        ? '${remaining.inHours} h ${remaining.inMinutes.remainder(60)} min'
         : null;
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundNightCosmos,
-      body: CustomScrollView(
-        slivers: [
-          // AppBar avec fond transparent
-          SliverAppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            floating: true,
-            title: Text(
-              'Mon Chat',
-              style: GoogleFonts.nunito(fontWeight: FontWeight.w800,
-                color: AppColors.textPrimary,
-                fontSize: 22,
+      backgroundColor: PixelCouleurs.nuit,
+      appBar: pixelBarre(
+        'Mon chat',
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit_outlined, color: PixelCouleurs.texteDoux),
+            onPressed: () => _showRenameDialog(context),
+            tooltip: 'Renommer',
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+        children: [
+          // ── Le chat sur son socle ────────────────────────────────────────
+          _CatHeroSection(cat: widget.cat),
+          const SizedBox(height: 20),
+
+          // ── Caresser ─────────────────────────────────────────────────────
+          PixelBouton(
+            libelle: canPet ? 'Caresser (+5 % de moral)' : 'Disponible dans $cooldownLabel',
+            onPressed: canPet ? _petCat : null,
+          ),
+          const SizedBox(height: 28),
+
+          // ── Cosmétiques ──────────────────────────────────────────────────
+          Row(
+            children: [
+              Expanded(
+                child: Semantics(
+                  header: true,
+                  child: Text('Cosmétiques', style: PixelTextes.chiffres(11, PixelCouleurs.violetClair)),
+                ),
               ),
-            ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.edit_outlined, color: AppColors.textSecondary),
-                onPressed: () => _showRenameDialog(context),
-                tooltip: 'Renommer',
+              _MiniActionBtn(
+                icon: Icons.shuffle,
+                label: 'Aléatoire',
+                color: PixelCouleurs.violetClair,
+                onTap: () => _randomizeOutfit(context),
+              ),
+              const SizedBox(width: 8),
+              _MiniActionBtn(
+                icon: Icons.layers_clear_outlined,
+                label: 'Retirer',
+                color: PixelCouleurs.texteDoux,
+                onTap: () => _clearAll(context),
               ),
             ],
           ),
-
-          SliverToBoxAdapter(
-            child: Column(
-              children: [
-                const SizedBox(height: 24),
-
-                // ── Zone hero du chat ─────────────────────────────────────
-                _CatHeroSection(cat: widget.cat),
-
-                const SizedBox(height: 16),
-
-                // ── Bouton Caresser ───────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 40),
-                  child: FilledButton.icon(
-                    onPressed: canPet ? _petCat : null,
-                    icon: const Icon(Icons.favorite_border, size: 18),
-                    label: Text(
-                      canPet
-                          ? 'Caresser (+5% moral)'
-                          : 'Disponible dans $cooldownLabel',
-                    ),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: canPet
-                          ? AppColors.rosePastel
-                          : AppColors.backgroundDarkPanel,
-                      foregroundColor: canPet
-                          ? Colors.white
-                          : AppColors.textMuted,
-                      minimumSize: const Size.fromHeight(44),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 32),
-
-                // ── Slots cosmétiques ─────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    children: [
-                      Text(
-                        'Cosmétiques',
-                        style: GoogleFonts.nunito(
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
-                          fontSize: 18,
-                        ),
-                      ),
-                      const Spacer(),
-                      _MiniActionBtn(
-                        icon: Icons.shuffle,
-                        label: 'Aléatoire',
-                        color: AppColors.primaryVioletLight,
-                        onTap: () => _randomizeOutfit(context),
-                      ),
-                      const SizedBox(width: 8),
-                      _MiniActionBtn(
-                        icon: Icons.layers_clear_outlined,
-                        label: 'Retirer',
-                        color: AppColors.textMuted,
-                        onTap: () => _clearAll(context),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                _CosmeticSlots(cat: widget.cat, catProvider: widget.catProvider),
-
-                const SizedBox(height: 40),
-              ],
-            ),
-          ),
+          const SizedBox(height: 14),
+          _CosmeticSlots(cat: widget.cat, catProvider: widget.catProvider),
         ],
       ),
     );
@@ -215,27 +180,16 @@ class _CatPageContentState extends State<_CatPageContent> {
   Future<void> _clearAll(BuildContext context) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.backgroundDarkPanel,
-        title: Text('Tout retirer',
-            style: GoogleFonts.nunito(
-                color: AppColors.textPrimary, fontWeight: FontWeight.w800)),
-        content: Text(
+      builder: (ctx) => PixelDialogue(
+        titre: 'Tout retirer',
+        contenu: Text(
           'Retirer tous les cosmétiques équipés de ${widget.cat.name} ?',
-          style: const TextStyle(color: AppColors.textMuted),
+          textAlign: TextAlign.center,
+          style: PixelTextes.corps(16, couleur: PixelCouleurs.texteDoux),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Annuler',
-                style: TextStyle(color: AppColors.textMuted)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Retirer',
-                style: TextStyle(
-                    color: AppColors.coralRare, fontWeight: FontWeight.bold)),
-          ),
+          PixelBouton(libelle: 'Annuler', principal: false, onPressed: () => Navigator.pop(ctx, false)),
+          PixelBouton(libelle: 'Retirer', onPressed: () => Navigator.pop(ctx, true)),
         ],
       ),
     );
@@ -268,34 +222,19 @@ class _CatPageContentState extends State<_CatPageContent> {
     final ctrl = TextEditingController(text: widget.cat.name);
     showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.backgroundDarkPanel,
-        title: Text(
-          'Renommer',
-          style: GoogleFonts.nunito(fontWeight: FontWeight.w800,color: AppColors.textPrimary),
-        ),
-        content: TextField(
+      builder: (ctx) => PixelDialogue(
+        titre: 'Renommer',
+        contenu: TextField(
           controller: ctrl,
           autofocus: true,
-          style: const TextStyle(color: AppColors.textPrimary),
-          decoration: InputDecoration(
-            hintText: 'Nom du chat',
-            hintStyle: const TextStyle(color: AppColors.textMuted),
-            filled: true,
-            fillColor: AppColors.backgroundNightCosmos,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.primaryVioletLight),
-            ),
-          ),
+          maxLength: 20,
+          style: PixelTextes.corps(17),
+          decoration: pixelChamp(exemple: 'Nom du chat').copyWith(labelText: 'Nom du chat'),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Annuler',
-                style: TextStyle(color: AppColors.textMuted)),
-          ),
-          TextButton(
+          PixelBouton(libelle: 'Annuler', principal: false, onPressed: () => Navigator.pop(ctx)),
+          PixelBouton(
+            libelle: 'Renommer',
             onPressed: () async {
               final name = ctrl.text.trim();
               if (name.isNotEmpty) {
@@ -303,8 +242,6 @@ class _CatPageContentState extends State<_CatPageContent> {
               }
               if (ctx.mounted) Navigator.pop(ctx);
             },
-            child: const Text('Renommer',
-                style: TextStyle(color: AppColors.primaryVioletLight)),
           ),
         ],
       ),
@@ -313,7 +250,7 @@ class _CatPageContentState extends State<_CatPageContent> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Section hero
+// Section hero : le chat posé sur un socle, aura en anneau pixel
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _CatHeroSection extends StatelessWidget {
@@ -347,107 +284,117 @@ class _CatHeroSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final outfitColor    = _resolveColor(context, cat.equippedOutfit);
-    final pantsColor     = _resolveColor(context, cat.equippedPants);
-    final shoesColor     = _resolveColor(context, cat.equippedShoes);
+    final outfitColor = _resolveColor(context, cat.equippedOutfit);
+    final pantsColor = _resolveColor(context, cat.equippedPants);
+    final shoesColor = _resolveColor(context, cat.equippedShoes);
     final accessoryColor = _resolveColor(context, cat.equippedAccessory);
-    final auraColor      = _resolveColor(context, cat.equippedAura);
-    final titleName      = _resolveName(context, cat.equippedTitle);
+    final auraColor = _resolveColor(context, cat.equippedAura);
+    final titleName = _resolveName(context, cat.equippedTitle);
+    final rarete = AppColors.getRarityColor(cat.rarity);
 
-    return Column(
-      children: [
-        // Glow derrière le chat (couleur de la race ou de l'aura)
-        Container(
-          width: 220,
-          height: 220,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: (auraColor ?? catBodyColor(cat.race)).withValues(alpha: 0.30),
-                blurRadius: 60,
-                spreadRadius: 20,
+    return PixelCadre(
+      padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
+      child: Column(
+        children: [
+          SizedBox(
+            width: 230,
+            height: 210,
+            child: Stack(
+              alignment: Alignment.bottomCenter,
+              clipBehavior: Clip.none,
+              children: [
+                // Aura équipée : anneau pixel derrière le chat.
+                if (auraColor != null)
+                  Positioned(bottom: 22, child: PixelAnneau(cote: 190, couleur: auraColor)),
+                // Socle et ombre.
+                const Positioned(
+                  bottom: 0,
+                  child: SizedBox(
+                    width: 190,
+                    height: 20,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: PixelCouleurs.panneauProfond,
+                        border: Border(top: BorderSide(color: PixelCouleurs.trait, width: 3)),
+                      ),
+                    ),
+                  ),
+                ),
+                const Positioned(
+                  bottom: 20,
+                  child: SizedBox(width: 120, height: 8, child: ColoredBox(color: PixelCouleurs.abysse)),
+                ),
+                // Marge transparente sous les pattes du sprite : on le descend
+                // d'autant pour qu'il repose sur l'ombre (comme au sanctuaire).
+                Positioned(
+                  bottom: -11,
+                  child: CatWidget(
+                    race: cat.race,
+                    equippedHat: cat.equippedHat,
+                    outfitColor: outfitColor,
+                    pantsColor: pantsColor,
+                    shoesColor: shoesColor,
+                    accessoryColor: accessoryColor,
+                    auraColor: auraColor,
+                    size: 192,
+                    mood: 'happy',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            cat.name,
+            textAlign: TextAlign.center,
+            style: PixelTextes.chiffres(16, PixelCouleurs.texte).copyWith(
+              shadows: const [Shadow(color: PixelCouleurs.violet, offset: Offset(2, 2))],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 10,
+            runSpacing: 6,
+            children: [
+              Text(_raceLabel(cat.race), style: PixelTextes.corps(16, couleur: PixelCouleurs.texteDoux)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(border: Border.all(color: rarete, width: 2)),
+                child: Text(_rarityLabel(cat.rarity),
+                    style: PixelTextes.corps(14, couleur: rarete, poids: FontWeight.w700)),
               ),
             ],
           ),
-          child: Center(
-            child: CatWidget(
-              race: cat.race,
-              equippedHat: cat.equippedHat,
-              outfitColor: outfitColor,
-              pantsColor: pantsColor,
-              shoesColor: shoesColor,
-              accessoryColor: accessoryColor,
-              auraColor: auraColor,
-              size: 200,
-              mood: 'happy',
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 20),
-
-        // Nom du chat
-        Text(
-          cat.name,
-          style: GoogleFonts.nunito(
-            fontWeight: FontWeight.w800,
-            color: AppColors.textPrimary,
-            fontSize: 26,
-            letterSpacing: 0.5,
-          ),
-        ),
-
-        const SizedBox(height: 8),
-
-        // Race + badge rareté
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              _raceLabel(cat.race),
-              style: GoogleFonts.nunito(
-                color: AppColors.textSecondary,
-                fontSize: 15,
+          if (titleName != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              color: PixelCouleurs.panneauProfond,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.star, size: 14, color: PixelCouleurs.or),
+                  const SizedBox(width: 6),
+                  Text(titleName, style: PixelTextes.corps(15, couleur: PixelCouleurs.orClair, poids: FontWeight.w700)),
+                ],
               ),
             ),
-            const SizedBox(width: 10),
-            _RarityBadge(rarity: cat.rarity),
           ],
-        ),
-
-        // Titre équipé (si présent)
-        if (titleName != null) ...[
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.gold.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppColors.gold.withValues(alpha: 0.4)),
-            ),
-            child: Text(
-              '✨ $titleName',
-              style: GoogleFonts.nunito(
-                color: AppColors.gold,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
         ],
-      ],
+      ),
     );
   }
 
   String _raceLabel(String race) => switch (race) {
-        'michi'  => 'Michi · Sage',
-        'lune'   => 'Lune · Mystérieux',
+        'michi' => 'Michi · Sage',
+        'lune' => 'Lune · Mystérieux',
         'braise' => 'Braise · Énergique',
-        'neige'  => 'Neige · Doux',
+        'neige' => 'Neige · Doux',
         'cosmos' => 'Cosmos · Mystique',
         'sakura' => 'Sakura · Joyeux',
-        _        => race,
+        _ => race,
       };
 }
 
@@ -464,16 +411,16 @@ class _CosmeticSlots extends StatelessWidget {
   // Slots de base toujours visibles + slots extra masqués pour le MVP
   // (showExtraCosmeticSlots) : Pantalon, Chaussures, Accessoire, Titre.
   static const _baseSlots = [
-    (slot: 'hat',    label: 'Chapeau', icon: Icons.dry_outlined),
-    (slot: 'outfit', label: 'Tenue',   icon: Icons.checkroom_outlined),
-    (slot: 'aura',   label: 'Aura',    icon: Icons.auto_awesome_outlined),
+    (slot: 'hat', label: 'Chapeau', icon: Icons.dry_outlined),
+    (slot: 'outfit', label: 'Tenue', icon: Icons.checkroom_outlined),
+    (slot: 'aura', label: 'Aura', icon: Icons.auto_awesome_outlined),
   ];
 
   static const _extraSlots = [
-    (slot: 'pants',     label: 'Pantalon',   icon: Icons.accessibility_outlined),
-    (slot: 'shoes',     label: 'Chaussures', icon: Icons.directions_walk_outlined),
+    (slot: 'pants', label: 'Pantalon', icon: Icons.accessibility_outlined),
+    (slot: 'shoes', label: 'Chaussures', icon: Icons.directions_walk_outlined),
     (slot: 'accessory', label: 'Accessoire', icon: Icons.diamond_outlined),
-    (slot: 'title',     label: 'Titre',      icon: Icons.workspace_premium_outlined),
+    (slot: 'title', label: 'Titre', icon: Icons.workspace_premium_outlined),
   ];
 
   @override
@@ -482,50 +429,53 @@ class _CosmeticSlots extends StatelessWidget {
       ..._baseSlots,
       if (FeatureFlags.showExtraCosmeticSlots) ..._extraSlots,
     ];
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 14,
-        alignment: WrapAlignment.center,
-        children: slots.map((s) {
-          final equipped = _equippedForSlot(s.slot);
-          return _SlotButton(
-            label: s.label,
-            icon: s.icon,
-            equipped: equipped,
-            onTap: () => _showCosmeticSheet(context, s.slot, s.label),
-          );
-        }).toList(),
-      ),
+    final items = context.watch<InventoryViewModel>().items;
+    return Wrap(
+      spacing: 12,
+      runSpacing: 14,
+      alignment: WrapAlignment.center,
+      children: slots.map((s) {
+        final equippedId = _equippedForSlot(s.slot);
+        Item? equipped;
+        if (equippedId != null) {
+          for (final i in items) {
+            if (i.id == equippedId) equipped = i;
+          }
+        }
+        return _SlotButton(
+          label: s.label,
+          icon: s.icon,
+          equipped: equipped,
+          isEquipped: equippedId != null,
+          onTap: () => _showCosmeticSheet(context, s.slot, s.label),
+        );
+      }).toList(),
     );
   }
 
   String? _equippedForSlot(String slot) => switch (slot) {
-        'hat'       => cat.equippedHat,
-        'outfit'    => cat.equippedOutfit,
-        'pants'     => cat.equippedPants,
-        'shoes'     => cat.equippedShoes,
-        'aura'      => cat.equippedAura,
+        'hat' => cat.equippedHat,
+        'outfit' => cat.equippedOutfit,
+        'pants' => cat.equippedPants,
+        'shoes' => cat.equippedShoes,
+        'aura' => cat.equippedAura,
         'accessory' => cat.equippedAccessory,
-        'title'     => cat.equippedTitle,
-        _           => null,
+        'title' => cat.equippedTitle,
+        _ => null,
       };
 
-  void _showCosmeticSheet(
-      BuildContext context, String slot, String label) {
+  void _showCosmeticSheet(BuildContext context, String slot, String label) {
     final inventory = context.read<InventoryViewModel>();
     // Filtrer les items cosmétiques correspondant au slot
-    final cosmetics = inventory.items
-        .where((item) => item.cosmeticSlot == slot)
-        .toList();
+    final cosmetics = inventory.items.where((item) => item.cosmeticSlot == slot).toList();
 
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppColors.backgroundDarkPanel,
+      backgroundColor: PixelCouleurs.panneau,
       useSafeArea: true,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        side: BorderSide(color: PixelCouleurs.violet, width: 3),
       ),
       builder: (ctx) => _CosmeticSheet(
         label: label,
@@ -541,63 +491,64 @@ class _CosmeticSlots extends StatelessWidget {
 class _SlotButton extends StatelessWidget {
   final String label;
   final IconData icon;
-  final String? equipped;
+  final Item? equipped;
+  final bool isEquipped;
   final VoidCallback onTap;
 
   const _SlotButton({
     required this.label,
     required this.icon,
     required this.equipped,
+    required this.isEquipped,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isEquipped = equipped != null;
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: 54,
-            height: 54,
-            decoration: BoxDecoration(
-              color: isEquipped
-                  ? AppColors.primaryViolet.withValues(alpha: 0.20)
-                  : AppColors.backgroundDarkPanel,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: isEquipped
-                    ? AppColors.primaryVioletLight
-                    : AppColors.inputBorder,
-                width: isEquipped ? 1.5 : 1.0,
+    final bord = isEquipped ? PixelCouleurs.violetClair : PixelCouleurs.trait;
+    return Semantics(
+      container: true,
+      button: true,
+      label: isEquipped && equipped != null ? '$label : ${equipped!.name}' : '$label : vide',
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          width: 84,
+          child: Column(
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: isEquipped ? PixelCouleurs.violetSombre : PixelCouleurs.panneau,
+                  border: Border(
+                    top: BorderSide(color: bord, width: 3),
+                    left: BorderSide(color: bord, width: 3),
+                    right: BorderSide(color: bord, width: 3),
+                    bottom: BorderSide(color: bord, width: 6),
+                  ),
+                ),
+                child: equipped != null
+                    ? ItemIcon(item: equipped!, size: 40, showBackground: false)
+                    : Icon(icon, color: isEquipped ? PixelCouleurs.violetClair : PixelCouleurs.texteDoux, size: 26),
               ),
-            ),
-            child: Icon(
-              icon,
-              color: isEquipped
-                  ? AppColors.primaryVioletLight
-                  : AppColors.textMuted,
-              size: 24,
-            ),
+              const SizedBox(height: 6),
+              Text(label,
+                  textAlign: TextAlign.center,
+                  style: PixelTextes.corps(14, couleur: isEquipped ? PixelCouleurs.texte : PixelCouleurs.texteDoux)),
+            ],
           ),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            style: GoogleFonts.nunito(
-              color: AppColors.textMuted,
-              fontSize: 10,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// BottomSheet — liste des cosmétiques disponibles
+// Feuille du bas : liste des cosmétiques disponibles
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _CosmeticSheet extends StatelessWidget {
@@ -615,145 +566,105 @@ class _CosmeticSheet extends StatelessWidget {
     required this.catProvider,
   });
 
-  static String _rarityLabelShort(String r) => switch (r.toLowerCase()) {
-        'common'    => 'Commun',
-        'uncommon'  => 'Peu commun',
-        'rare'      => 'Rare',
-        'epic'      => 'Épique',
-        'legendary' => 'Légendaire',
-        'mythic'    => 'Mythique',
-        _           => r,
-      };
-
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.7),
+      child: ListView(
+        shrinkWrap: true,
+        padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
         children: [
-          // Poignée
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.inputBorder,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
+          Semantics(
+            header: true,
+            child: Text(label, style: PixelTextes.chiffres(12, PixelCouleurs.orClair)),
           ),
-          const SizedBox(height: 16),
-
-          Text(
-            label,
-            style: GoogleFonts.nunito(fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
-              fontSize: 18,
-            ),
-          ),
-          const SizedBox(height: 16),
-
+          const SizedBox(height: 14),
           if (cosmetics.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),
-              child: Center(
-                child: Text(
-                  'Aucun cosmétique disponible.\nObtiens-en via le Marché ou les invocations !',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.nunito(
-                    color: AppColors.textMuted,
-                    fontSize: 14,
-                  ),
-                ),
+              child: Text(
+                'Aucun cosmétique disponible.\nObtiens-en au Marché ou au Portail !',
+                textAlign: TextAlign.center,
+                style: PixelTextes.corps(16, couleur: PixelCouleurs.texteDoux),
               ),
             )
           else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: cosmetics.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (ctx, i) {
-                final item = cosmetics[i];
-                final equippedId = switch (slot) {
-                  'hat'       => catProvider.mainCat?.equippedHat,
-                  'outfit'    => catProvider.mainCat?.equippedOutfit,
-                  'pants'     => catProvider.mainCat?.equippedPants,
-                  'shoes'     => catProvider.mainCat?.equippedShoes,
-                  'aura'      => catProvider.mainCat?.equippedAura,
-                  'accessory' => catProvider.mainCat?.equippedAccessory,
-                  'title'     => catProvider.mainCat?.equippedTitle,
-                  _           => null,
-                };
-                final isEquipped = equippedId == item.id;
-                final rarityColor =
-                    AppColors.getRarityColor(item.rarity.name);
-                final colorVal = item.stats['colorValue'];
-                final swatch = colorVal != null
-                    ? Color(colorVal | 0xFF000000)
-                    : null;
+            for (final item in cosmetics) ...[
+              _LigneCosmetique(
+                item: item,
+                isEquipped: _equippedId() == item.id,
+                onTap: () async {
+                  final isEquipped = _equippedId() == item.id;
+                  await catProvider.equipCosmetic(cat.id, slot, isEquipped ? null : item.id);
+                  if (context.mounted) Navigator.pop(context);
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+        ],
+      ),
+    );
+  }
 
-                return ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                  tileColor: isEquipped
-                      ? AppColors.primaryViolet.withValues(alpha: 0.15)
-                      : Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(
-                      color: isEquipped
-                          ? AppColors.primaryVioletLight
-                          : AppColors.inputBorder,
-                    ),
-                  ),
-                  leading: Stack(
-                    clipBehavior: Clip.none,
+  String? _equippedId() => switch (slot) {
+        'hat' => catProvider.mainCat?.equippedHat,
+        'outfit' => catProvider.mainCat?.equippedOutfit,
+        'pants' => catProvider.mainCat?.equippedPants,
+        'shoes' => catProvider.mainCat?.equippedShoes,
+        'aura' => catProvider.mainCat?.equippedAura,
+        'accessory' => catProvider.mainCat?.equippedAccessory,
+        'title' => catProvider.mainCat?.equippedTitle,
+        _ => null,
+      };
+}
+
+class _LigneCosmetique extends StatelessWidget {
+  final Item item;
+  final bool isEquipped;
+  final VoidCallback onTap;
+
+  const _LigneCosmetique({required this.item, required this.isEquipped, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final rarityColor = AppColors.getRarityColor(item.rarity.name);
+    final colorVal = item.stats['colorValue'];
+    final swatch = colorVal != null ? Color(colorVal | 0xFF000000) : null;
+
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        selected: isEquipped,
+        child: GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: PixelCadre(
+            fond: isEquipped ? PixelCouleurs.violetSombre : PixelCouleurs.panneauProfond,
+            bord: isEquipped ? PixelCouleurs.violetClair : rarityColor,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                ItemIcon(item: item, size: 36, showBackground: false),
+                if (swatch != null) ...[
+                  const SizedBox(width: 8),
+                  Container(width: 12, height: 12, color: swatch),
+                ],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        IconData(item.iconCodePoint,
-                            fontFamily: 'MaterialIcons'),
-                        color: rarityColor,
-                      ),
-                      if (swatch != null)
-                        Positioned(
-                          right: -4,
-                          bottom: -2,
-                          child: Container(
-                            width: 12,
-                            height: 12,
-                            decoration: BoxDecoration(
-                              color: swatch,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                  color: AppColors.backgroundDarkPanel,
-                                  width: 1.5),
-                            ),
-                          ),
-                        ),
+                      Text(item.name, style: PixelTextes.corps(16, poids: FontWeight.w700)),
+                      Text(_rarityLabel(item.rarity.name), style: PixelTextes.corps(14, couleur: rarityColor)),
                     ],
                   ),
-                  title: Text(item.name,
-                      style: GoogleFonts.nunito(
-                          color: AppColors.textPrimary, fontSize: 14)),
-                  subtitle: Text(
-                    _rarityLabelShort(item.rarity.name),
-                    style: TextStyle(color: rarityColor, fontSize: 11),
-                  ),
-                  trailing: isEquipped
-                      ? const Icon(Icons.check_circle,
-                          color: AppColors.mintMagic, size: 20)
-                      : null,
-                  onTap: () async {
-                    await catProvider.equipCosmetic(
-                        cat.id, slot, isEquipped ? null : item.id);
-                    if (ctx.mounted) Navigator.pop(ctx);
-                  },
-                );
-              },
+                ),
+                if (isEquipped)
+                  Text('Équipé', style: PixelTextes.corps(14, couleur: const Color(0xFF4ADE80), poids: FontWeight.w700)),
+              ],
             ),
-        ],
+          ),
+        ),
       ),
     );
   }
@@ -764,34 +675,30 @@ class _CosmeticSheet extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _EmptyCatState extends StatelessWidget {
+  const _EmptyCatState();
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.backgroundNightCosmos,
+      backgroundColor: PixelCouleurs.nuit,
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text('🐱', style: TextStyle(fontSize: 64)),
+              const CatWidget(race: 'michi', size: 128, mood: 'sleepy'),
               const SizedBox(height: 24),
               Text(
                 'Pas encore de chat compagnon',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.nunito(fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
-                  fontSize: 22,
-                ),
+                style: PixelTextes.chiffres(12, PixelCouleurs.texte),
               ),
               const SizedBox(height: 12),
               Text(
-                'Complète l\'onboarding pour créer ton chat.',
+                'Termine l\'accueil pour choisir ton chat.',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.nunito(
-                  color: AppColors.textMuted,
-                  fontSize: 15,
-                ),
+                style: PixelTextes.corps(17, couleur: PixelCouleurs.texteDoux),
               ),
             ],
           ),
@@ -802,7 +709,7 @@ class _EmptyCatState extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Mini bouton d'action (Randomize / Clear)
+// Mini bouton d'action (Aléatoire / Retirer)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _MiniActionBtn extends StatelessWidget {
@@ -820,70 +727,29 @@ class _MiniActionBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withValues(alpha: 0.4)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: color, size: 14),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Badge rareté (interne à cat_page pour l'instant)
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _RarityBadge extends StatelessWidget {
-  final String rarity;
-
-  const _RarityBadge({required this.rarity});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = AppColors.getRarityColor(rarity);
-    final label = switch (rarity.toLowerCase()) {
-      'common'    => 'Commun',
-      'uncommon'  => 'Peu commun',
-      'rare'      => 'Rare',
-      'epic'      => 'Épique',
-      'legendary' => 'Légendaire',
-      'mythic'    => 'Mythique',
-      _           => rarity,
-    };
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.6)),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.nunito(
-          color: color,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
+    return Semantics(
+      container: true,
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 44),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: PixelCouleurs.panneau,
+            border: Border.all(color: color, width: 2),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: color, size: 16),
+              const SizedBox(width: 6),
+              Text(label, style: PixelTextes.corps(15, couleur: color, poids: FontWeight.w700)),
+            ],
+          ),
         ),
       ),
     );

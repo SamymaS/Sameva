@@ -37,10 +37,11 @@ AuthViewModel _makeAuthVm() {
 PlayerViewModel _makePlayerVm() {
   final repo = _MockPlayerRepository();
   when(() => repo.loadLocalStats())
-      .thenReturn(PlayerStats(gold: 120, crystals: 50));
+      .thenReturn(PlayerStats(gold: 120, crystals: 50, seals: 7));
   when(() => repo.fetchServerState()).thenAnswer((_) async => throw Exception('hors-ligne'));
   when(() => repo.saveLocalStats(any())).thenAnswer((_) async {});
-  return PlayerViewModel(repo);
+  // Lit le cache local (le serveur, simulé hors ligne, échoue ensuite).
+  return PlayerViewModel(repo)..loadPlayerStats('u1');
 }
 
 Widget _buildPortail() {
@@ -95,6 +96,31 @@ void main() {
       expect(find.textContaining('Objets'), findsOneWidget);
       expect(find.textContaining('Chats'), findsOneWidget);
 
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('barre : énergie, or et Sceaux (pas de cristaux sans Premium)', (tester) async {
+      await tester.pumpWidget(_buildPortail());
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.bySemanticsLabel('120 or'), findsOneWidget);
+      expect(find.bySemanticsLabel('7 Sceaux'), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('cristaux')), findsNothing);
+      expect(find.bySemanticsLabel(RegExp("de l'Oracle|illimitée")), findsOneWidget);
+    });
+
+    testWidgets('boutique : filtres pixel et boutons d\'achat', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 1600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(_buildPortail());
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tap(find.text('Boutique'));
+      await tester.pumpAndSettle();
+
+      expect(find.bySemanticsLabel('Tout'), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp(r'^(Acheter|Trop cher) .+, \d+ or$')), findsWidgets);
+      await tester.tap(find.bySemanticsLabel('Potions'));
+      await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });
   });

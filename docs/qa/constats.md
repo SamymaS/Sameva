@@ -37,3 +37,9 @@ reste listé avec sa date, pour l'historique.
 | Q30 | Portail : les jauges de garantie lisaient un ancien compteur local (`stats.pityCount`), pas l'état gacha du serveur | Moyenne (exactitude) | Corrigé le 2026-11-03 (`gacha.objets.since_epic` / `since_legendary`, test) |
 | Q31 | Taux d'invocation affichés « 60.0% » sur mobile (double brut) | Faible | Corrigé le 2026-11-03 (« 60 % », virgule décimale) |
 | Q32 | `PixelBouton` dans une boîte de dialogue : sa sémantique fusionnait avec le texte voisin (« Titre Récupérer »), bouton introuvable par son nom | Moyenne (accessibilité) | Corrigé le 2026-11-03 (nœud sémantique propre, test de non-régression) |
+| Q33 | Calendrier : le bandeau d'un jour débordait de quelques pixels sur un écran étroit (« Aujourd'hui » plus le nombre de quêtes) | Faible (visuel) | Corrigé le 2026-11-03 (textes flexibles, test sur 412 px) |
+| Q34 | Création par thème : le retour système depuis la liste des tâches fermait tout l'écran au lieu de revenir aux thèmes | Faible (UX) | Corrigé le 2026-11-03 (`PopScope`) |
+| Q35 | Génération par MougiBot : rien n'indiquait qu'une quête proposée avait déjà été ajoutée (double ajout possible) | Faible (UX) | Corrigé le 2026-11-03 (bouton « Ajoutée » désactivé) |
+| Q36 | Banc e2e : `voit` ignorait les textes portés par `aria-label` (dialogues, zones annoncées), d'où de faux échecs (« Durée estimée », bulle de MougiBot) | Moyenne (outillage) | Corrigé le 2026-11-03 (`voit` lit aussi les `aria-label`) |
+| Q37 | Portail : la barre affichait les cristaux (boutique Premium masquée) mais pas les Sceaux, seule monnaie d'invocation | Faible (UX) | Corrigé le 2026-11-03 (énergie, or, Sceaux ; cristaux si Premium visible) |
+| Q38 | Aperçu d'un cosmétique : après « Acheter », la feuille se fermait avant la fin de l'achat et la confirmation n'apparaissait jamais | Faible (UX) | Corrigé le 2026-11-03 (achat mené depuis le contexte de la page) |
