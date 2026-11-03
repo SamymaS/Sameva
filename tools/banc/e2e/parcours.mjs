@@ -131,6 +131,9 @@ await parcours("oracle et défi de capture", async (page) => {
   r.verifier("ancienne photo refusée malgré un bon score", await voit(page, "90/100"));
   r.verifier("la quête n'est pas validée", !(await voit(page, "Quête accomplie")));
   await capture(page, "oracle_refus");
+  await page.mouse.wheel(0, 900);
+  await pause(800);
+  await capture(page, "oracle_verdict_refus");
 
   // Vraie preuve avec le nouveau défi.
   r.verifier("refus expliqué par le défi (pas par la netteté)", await voit(page, "Défi non visible"));

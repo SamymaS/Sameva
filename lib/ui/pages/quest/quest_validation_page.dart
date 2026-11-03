@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../../core/audio/sons.dart';
 import '../../widgets/pixel/mougibot_sprite.dart';
+import '../../widgets/pixel/pixel_ui.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/router/app_router.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -891,143 +892,72 @@ class _ProofSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasProof = proofImage != null;
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.backgroundDarkPanel,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color: AppColors.textMuted.withValues(alpha: 0.15)),
-      ),
+    // Style pixel (maquette « Oracle · MougiBot observe ») : cadre épais, ombre
+    // franche ; le turquoise est réservé à l'Oracle.
+    return PixelCadre(
+      padding: EdgeInsets.zero,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           InkWell(
             onTap: onToggle,
-            borderRadius: BorderRadius.circular(12),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               child: Row(
                 children: [
-                  const Icon(Icons.camera_alt_outlined,
-                      color: AppColors.textMuted, size: 18),
+                  const Icon(Icons.camera_alt_outlined, color: PixelCouleurs.oracle, size: 20),
                   const SizedBox(width: 10),
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Preuve photo',
-                        style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500),
-                      ),
-                      Text(
-                        'Requise : MougiBot décide de la validation',
-                        style: TextStyle(
-                            color: AppColors.textMuted, fontSize: 11),
-                      ),
-                    ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Preuve photo', style: PixelTextes.corps(17, poids: FontWeight.w700)),
+                        Text('Requise : MougiBot décide de la validation',
+                            style: PixelTextes.corps(14, couleur: PixelCouleurs.texteDoux)),
+                      ],
+                    ),
                   ),
-                  const Spacer(),
-                  Icon(
-                    expanded
-                        ? Icons.keyboard_arrow_up
-                        : Icons.keyboard_arrow_down,
-                    color: AppColors.textMuted,
-                    size: 20,
-                  ),
+                  Icon(expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                      color: PixelCouleurs.texteDoux, size: 22),
                 ],
               ),
             ),
           ),
           if (expanded) ...[
-            Divider(
-                height: 1,
-                color: AppColors.textMuted.withValues(alpha: 0.1)),
+            const Divider(height: 3, thickness: 3, color: PixelCouleurs.trait),
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(14),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   if (!hasProof)
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: onPickImage,
-                        icon: const Icon(Icons.camera_alt),
-                        label: const Text('Prendre une photo'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.primaryTurquoise,
-                          side: const BorderSide(
-                              color: AppColors.primaryTurquoise, width: 1),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10)),
-                        ),
-                      ),
-                    )
+                    PixelBouton(libelle: 'Prendre une photo', principal: false, onPressed: onPickImage)
                   else ...[
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          Image.memory(
-                            proofImage!,
-                            height: 180,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                          ),
-                          // L'Oracle observe : MougiBot scanne la photo.
-                          if (isAnalyzing)
-                            Positioned.fill(
-                              child: ColoredBox(
-                                color: AppColors.backgroundNightBlue.withValues(alpha: 0.72),
-                                child: const Center(
-                                  child: MougiBotSprite(etat: EtatMougiBot.observe, cote: 128),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
+                    _CadrePhoto(image: proofImage!, analyse: isAnalyzing),
                     const SizedBox(height: 12),
+                    if (isAnalyzing) ...[
+                      const _OracleObserve(),
+                      const SizedBox(height: 12),
+                    ],
                     if (verdict != null) ...[
                       _AnalysisResult(verdict: verdict!),
                       const SizedBox(height: 12),
                     ],
-                    Row(
-                      children: [
-                        TextButton(
-                          // Ouvre directement la caméra (la nouvelle photo
-                          // remplace l'ancienne).
-                          onPressed: isAnalyzing ? null : onPickImage,
-                          style: TextButton.styleFrom(
-                              foregroundColor: AppColors.textMuted),
-                          child: const Text('Reprendre une photo'),
-                        ),
-                        const Spacer(),
-                        if (verdict == null)
-                          FilledButton.icon(
-                            onPressed: isAnalyzing ? null : onAnalyze,
-                            icon: isAnalyzing
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2, color: Colors.white),
-                                  )
-                                : const Icon(Icons.psychology, size: 18),
-                            label: Text(isAnalyzing
-                                ? 'L\'Oracle observe…'
-                                : 'Soumettre à l\'Oracle'),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: AppColors.secondaryViolet,
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 10),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10)),
-                            ),
-                          ),
-                      ],
+                    if (verdict == null)
+                      PixelBouton(
+                        libelle: isAnalyzing ? 'L\'Oracle observe…' : 'Soumettre à l\'Oracle',
+                        onPressed: isAnalyzing ? null : onAnalyze,
+                      ),
+                    const SizedBox(height: 4),
+                    TextButton(
+                      // Ouvre directement la caméra (la nouvelle photo remplace l'ancienne).
+                      onPressed: isAnalyzing ? null : onPickImage,
+                      style: TextButton.styleFrom(
+                        foregroundColor: PixelCouleurs.texteDoux,
+                        minimumSize: const Size.fromHeight(48),
+                        textStyle: PixelTextes.corps(16, poids: FontWeight.w600),
+                      ),
+                      child: const Text('Reprendre une photo'),
                     ),
                   ],
                 ],
@@ -1036,6 +966,127 @@ class _ProofSection extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// Photo de preuve dans un cadre turquoise ; pendant l'analyse, une ligne de
+/// balayage la parcourt en 12 paliers (1,8 s) entre quatre coins de visée.
+class _CadrePhoto extends StatefulWidget {
+  final Uint8List image;
+  final bool analyse;
+  const _CadrePhoto({required this.image, required this.analyse});
+
+  @override
+  State<_CadrePhoto> createState() => _CadrePhotoState();
+}
+
+class _CadrePhotoState extends State<_CadrePhoto> with SingleTickerProviderStateMixin {
+  late final AnimationController _balayage =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 1800));
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.analyse) _balayage.repeat();
+  }
+
+  @override
+  void didUpdateWidget(_CadrePhoto old) {
+    super.didUpdateWidget(old);
+    if (widget.analyse && !_balayage.isAnimating) _balayage.repeat();
+    if (!widget.analyse && _balayage.isAnimating) _balayage.stop();
+  }
+
+  @override
+  void dispose() {
+    _balayage.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const hauteur = 220.0;
+    return Container(
+      height: hauteur,
+      decoration: const BoxDecoration(
+        border: Border.fromBorderSide(BorderSide(color: PixelCouleurs.oracle, width: 3)),
+        boxShadow: [BoxShadow(color: Colors.black, offset: Offset(0, 4))],
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.memory(widget.image, fit: BoxFit.cover, gaplessPlayback: true),
+          if (widget.analyse) ...[
+            const ColoredBox(color: Color(0x660A0620)),
+            AnimatedBuilder(
+              animation: _balayage,
+              builder: (_, __) => Align(
+                alignment: Alignment(0, -1 + 2 * parPaliers(_balayage.value, 12)),
+                child: Container(
+                  height: 6,
+                  decoration: const BoxDecoration(
+                    color: PixelCouleurs.oracle,
+                    border: Border.symmetric(horizontal: BorderSide(color: AppColors.crystalBlue, width: 2)),
+                  ),
+                ),
+              ),
+            ),
+            for (final coin in const [Alignment.topLeft, Alignment.topRight, Alignment.bottomLeft, Alignment.bottomRight])
+              Align(alignment: coin, child: _CoinVisee(coin: coin)),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CoinVisee extends StatelessWidget {
+  final Alignment coin;
+  const _CoinVisee({required this.coin});
+
+  @override
+  Widget build(BuildContext context) {
+    const trait = BorderSide(color: AppColors.crystalBlue, width: 4);
+    return Padding(
+      padding: const EdgeInsets.all(8),
+      child: Container(
+        width: 16,
+        height: 16,
+        decoration: BoxDecoration(
+          border: Border(
+            top: coin.y < 0 ? trait : BorderSide.none,
+            bottom: coin.y > 0 ? trait : BorderSide.none,
+            left: coin.x < 0 ? trait : BorderSide.none,
+            right: coin.x > 0 ? trait : BorderSide.none,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// MougiBot qui observe, avec sa bulle « L'Oracle observe… ».
+class _OracleObserve extends StatelessWidget {
+  const _OracleObserve();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const MougiBotSprite(etat: EtatMougiBot.observe, cote: 112),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            boxShadow: [BoxShadow(color: PixelCouleurs.oracle, offset: Offset(4, 4))],
+          ),
+          child: Text('L\'Oracle observe…',
+              style: PixelTextes.corps(16, couleur: PixelCouleurs.nuit, poids: FontWeight.w700)),
+        ),
+      ],
     );
   }
 }
@@ -1067,42 +1118,41 @@ class _AnalysisResult extends StatelessWidget {
                 ? 'Presque ! Reprends une photo plus nette'
                 : 'Preuve insuffisante';
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
+    // Style pixel (maquette « Oracle · Verdict accepté ») : MougiBot qui réagit,
+    // tampon du verdict, barre de confiance avec le seuil du serveur.
+    return PixelCadre(
+      bord: color,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              MougiBotSprite(
-                etat: isValid ? EtatMougiBot.accepte : EtatMougiBot.refuse,
-                cote: 64,
-              ),
-              const SizedBox(width: 8),
+              MougiBotSprite(etat: isValid ? EtatMougiBot.accepte : EtatMougiBot.refuse, cote: 96),
+              const SizedBox(width: 10),
               Expanded(
-                child: Text(label,
-                    style: TextStyle(
-                        color: color,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label, style: PixelTextes.corps(17, couleur: color, poids: FontWeight.w700)),
+                    const SizedBox(height: 6),
+                    Text('$score/100', style: PixelTextes.chiffres(14, color)),
+                  ],
+                ),
               ),
-              Text('$score/100 (seuil ${verdict.threshold})',
-                  style: TextStyle(
-                      color: color.withValues(alpha: 0.7), fontSize: 12)),
             ],
           ),
+          const SizedBox(height: 10),
+          Semantics(
+            label: 'Confiance $score sur 100, seuil ${verdict.threshold}',
+            excludeSemantics: true,
+            child: PixelBarreSeuil(valeur: score / 100, seuil: verdict.threshold / 100, couleur: color),
+          ),
+          const SizedBox(height: 6),
+          Text('Seuil de l\'Oracle : ${verdict.threshold}',
+              style: PixelTextes.corps(13, couleur: PixelCouleurs.texteDoux)),
           if (verdict.explanation.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(
-              verdict.explanation,
-              style: const TextStyle(
-                  color: AppColors.textMuted, fontSize: 12, height: 1.4),
-            ),
+            const SizedBox(height: 8),
+            Text('«\u00A0${verdict.explanation}\u00A0»', style: PixelTextes.corps(15)),
           ],
         ],
       ),

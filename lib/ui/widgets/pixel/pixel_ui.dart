@@ -182,3 +182,52 @@ class _AnneauPainter extends CustomPainter {
   @override
   bool shouldRepaint(_AnneauPainter old) => old.couleur != couleur;
 }
+
+/// Barre de progression pixel avec un repère de seuil (confiance de l'Oracle).
+/// [valeur] et [seuil] entre 0 et 1. Le remplissage est positionné : dans une
+/// Stack, une boîte sans enfant recevrait sinon une hauteur nulle.
+class PixelBarreSeuil extends StatelessWidget {
+  final double valeur;
+  final double seuil;
+  final Color couleur;
+  final double hauteur;
+
+  const PixelBarreSeuil({
+    super.key,
+    required this.valeur,
+    required this.seuil,
+    required this.couleur,
+    this.hauteur = 12,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: hauteur,
+      child: LayoutBuilder(
+        builder: (_, c) => Stack(
+          clipBehavior: Clip.none,
+          children: [
+            const Positioned.fill(child: ColoredBox(color: PixelCouleurs.violetSombre)),
+            Positioned(
+              key: const ValueKey('remplissage'),
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: c.maxWidth * valeur.clamp(0.0, 1.0),
+              child: ColoredBox(color: couleur),
+            ),
+            Positioned(
+              key: const ValueKey('seuil'),
+              left: c.maxWidth * seuil.clamp(0.0, 1.0) - 1.5,
+              top: -4,
+              bottom: -4,
+              width: 3,
+              child: const ColoredBox(color: Colors.white),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
