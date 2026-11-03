@@ -43,3 +43,4 @@ reste listé avec sa date, pour l'historique.
 | Q36 | Banc e2e : `voit` ignorait les textes portés par `aria-label` (dialogues, zones annoncées), d'où de faux échecs (« Durée estimée », bulle de MougiBot) | Moyenne (outillage) | Corrigé le 2026-11-03 (`voit` lit aussi les `aria-label`) |
 | Q37 | Portail : la barre affichait les cristaux (boutique Premium masquée) mais pas les Sceaux, seule monnaie d'invocation | Faible (UX) | Corrigé le 2026-11-03 (énergie, or, Sceaux ; cristaux si Premium visible) |
 | Q38 | Aperçu d'un cosmétique : après « Acheter », la feuille se fermait avant la fin de l'achat et la confirmation n'apparaissait jamais | Faible (UX) | Corrigé le 2026-11-03 (achat mené depuis le contexte de la page) |
+| Q39 | Titres en Press Start 2P : le « É » majuscule s'affiche en minuscule (« équipement ») | Faible (visuel) | Ouvert : vérifier la couverture de la police, sinon titres sans capitale accentuée |

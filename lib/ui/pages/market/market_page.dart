@@ -81,7 +81,7 @@ class PortailPage extends StatelessWidget {
                         icone: Icons.auto_awesome,
                         couleur: PixelCouleurs.violetClair,
                         valeur: player.stats?.seals ?? 0,
-                        nom: 'Sceaux',
+                        nom: (player.stats?.seals ?? 0) > 1 ? 'Sceaux' : 'Sceau',
                       ),
                   ],
                 ),

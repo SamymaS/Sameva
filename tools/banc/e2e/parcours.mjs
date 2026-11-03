@@ -244,12 +244,20 @@ await parcours("écrans pixel : calendrier, MougiBot, chat, profil, boutique", a
   await capture(page, "profil");
 
   await toucher(page, "Portail");
-  r.verifier("portail : soldes lus (or et Sceaux)", await attendre(page, "30 or", 10000).catch(() => false) && (await voit(page, "Sceaux")));
-  await toucher(page, "Boutique", { exact: true });
+  r.verifier("portail : solde d'or lu", await attendre(page, "30 or", 10000).catch(() => false));
+  let sceaux = [];
+  for (let i = 0; i < 20 && !sceaux.length; i++) {
+    sceaux = await page.$$eval("flt-semantics", (els) =>
+      els.map((e) => (e.innerText || "").trim()).filter((t) => t.includes("Sceau") && t.length < 20));
+    if (!sceaux.length) await pause(500);
+  }
+  r.verifier("portail : Sceaux lus", sceaux.some((t) => /^\d+ Sceaux?$/.test(t)), sceaux);
+  // Les onglets portent leur nom en aria-label : on les touche par leur rôle.
+  await page.getByRole("tab", { name: "Boutique" }).click({ timeout: 15000 });
   r.verifier("boutique : articles et prix", await attendre(page, "Acheter", 10000).catch(() => false) || (await voit(page, "Trop cher")));
   await pause(800);
   await capture(page, "boutique");
-  await toucher(page, "Vendre", { exact: true });
+  await page.getByRole("tab", { name: "Vendre" }).click({ timeout: 15000 });
   r.verifier("vente : inventaire vide expliqué", await attendre(page, "inventaire est vide", 10000).catch(() => false));
 });
 
