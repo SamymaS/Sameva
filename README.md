@@ -15,9 +15,9 @@ Tout le reste (avatar, loot, compagnons, animations, gacha) existe pour servir c
 ```bash
 git clone https://github.com/SamymaS/Sameva.git
 cd Sameva
-cp .env.example .env          # Renseigner SUPABASE_URL et SUPABASE_ANON_KEY
+cp config/exemple.json config/dev.json   # Renseigner SUPABASE_URL, SUPABASE_ANON_KEY, GOOGLE_WEB_CLIENT_ID
 flutter pub get
-flutter run
+flutter run --dart-define-from-file=config/dev.json
 ```
 
 > **Prérequis** : Flutter (canal stable, testé sur 3.41 / Dart 3.11) · Dart >= 3.3 · un projet [Supabase](https://supabase.com) configuré (voir plus bas).

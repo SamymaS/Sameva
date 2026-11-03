@@ -38,9 +38,8 @@ PlayerViewModel _makePlayerVm() {
   final repo = _MockPlayerRepository();
   when(() => repo.loadLocalStats())
       .thenReturn(PlayerStats(gold: 120, crystals: 50));
-  when(() => repo.fetchRemoteStats(any())).thenAnswer((_) async => null);
+  when(() => repo.fetchServerState()).thenAnswer((_) async => throw Exception('hors-ligne'));
   when(() => repo.saveLocalStats(any())).thenAnswer((_) async {});
-  when(() => repo.syncToSupabase(any(), any())).thenAnswer((_) async {});
   return PlayerViewModel(repo);
 }
 

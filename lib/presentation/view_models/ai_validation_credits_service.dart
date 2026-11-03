@@ -7,41 +7,24 @@ import '../../data/models/ai_validation_state_model.dart';
 import '../../data/repositories/ai_credits_repository.dart';
 import '../../data/repositories/premium_subscription_repository.dart';
 
-/// Service gérant le portefeuille de crédits IA (validation freemium).
+/// Portefeuille d'énergie de l'Oracle, en LECTURE SEULE (Sprint 1).
 ///
-/// Ce service est la SOURCE DE VÉRITÉ UNIQUE pour l'état du portefeuille.
-/// Toute lecture et mutation passe par lui ; jamais directement depuis l'UI.
+/// Le serveur est l'unique autorité : l'énergie est accordée par
+/// `claim_daily` (recharge quotidienne, onboarding) et consommée ou rendue
+/// par l'Edge Function `analyze-quest-proof`. Ce service se contente de lire
+/// `ai_validation_credits` (cache Hive pour l'affichage hors-ligne) et le
+/// statut premium. Il n'écrit plus jamais vers Supabase.
 ///
 /// Stockage local : boîte Hive 'aiValidation', clé 'ai_validation_<userId>'.
-/// Sync serveur : [AiCreditsRepository] (Supabase), best-effort, jamais bloquant.
-/// Pattern identique à la boîte 'cats' de [CatViewModel].
-///
-/// Réconciliation last-write-wins (LWW) au [load] :
-///   Si remote.updatedAt > local.updatedAt → adopte remote + écrit Hive.
-///   Sinon → garde local + upsert Supabase best-effort.
-///   Si pas de remote → upsert local (crée la ligne côté serveur).
-///   Si fetch échoue (hors-ligne) → garde local, aucun crash.
-///
-/// Les libellés d'affichage (nom du jeton, etc.) sont définis par la couche UI,
-/// PAS ici. Ce service ne contient aucun texte destiné à l'utilisateur.
+/// Les libellés d'affichage sont définis par la couche UI, PAS ici.
 class AiValidationCreditsService extends ChangeNotifier {
-  // ---- Constantes métier ----
+  // ---- Constantes métier (affichage ; les vraies valeurs sont serveur) ----
 
-  /// Crédits accordés à l'onboarding (une seule fois par compte).
+  /// Énergie rechargée chaque jour (plancher, `oracle.daily_energy`).
+  static const int kDailyEnergyFloor = 3;
+
+  /// Énergie offerte à la première connexion (`oracle.onboarding_energy`).
   static const int kOnboardingGrant = 5;
-
-  /// Plafond du portefeuille freemium.
-  /// Les sources gratuites (onboarding, daily, streak) ne dépassent jamais ce cap.
-  static const int kFreeWalletCap = 10;
-
-  /// Crédits accordés par octroi quotidien.
-  static const int kDailyGrant = 1;
-
-  /// Crédits accordés à chaque palier de série atteint.
-  static const int kStreakMilestoneGrant = 2;
-
-  /// Intervalle (en jours) entre deux paliers de série récompensés.
-  static const int kStreakMilestoneInterval = 7;
 
   // ---- État interne ----
 
@@ -92,7 +75,7 @@ class AiValidationCreditsService extends ChangeNotifier {
       _signedOutSub = onSignedOut.listen((_) => reset());
     }
     if (onSignedIn != null) {
-      // Recharge les crédits après connexion, puis accorde les bonus de démarrage.
+      // Relit le solde serveur après connexion.
       _signedInSub = onSignedIn.listen((_) => _onSignedIn());
     }
   }
@@ -149,96 +132,52 @@ class AiValidationCreditsService extends ChangeNotifier {
     return 'ai_validation_$uid';
   }
 
-  // ---- Chargement et réconciliation ----
+  // ---- Chargement ----
 
-  /// Charge et réconcilie l'état pour l'utilisateur [userId].
-  ///
-  /// Ordre d'exécution :
-  /// a. Hydrater depuis Hive (instantané) → notifyListeners.
-  /// b. Fetch Supabase best-effort (peut échouer hors-ligne).
-  /// c. Réconciliation LWW par [updatedAt] :
-  ///    - remote.updatedAt > local.updatedAt → adopte remote + écrit Hive.
-  ///    - sinon → garde local + upsert Supabase best-effort.
-  ///    - pas de remote → upsert local (crée la ligne).
-  ///    - fetch échoue → garde local, aucun crash.
+  /// Charge l'état pour [userId] : cache Hive immédiat, puis lecture serveur
+  /// qui fait toujours autorité (plus de réconciliation last-write-wins :
+  /// le client n'écrit plus). Hors-ligne, le cache reste affiché.
   Future<void> load(String userId) async {
     _userId = userId;
     final key = _hiveKey;
     if (key == null) return;
 
-    // Étape a : hydratation Hive immédiate.
-    // hadLocal distingue « une vraie entrée Hive existe » d'un placeholder vide.
-    // C'est crucial : AiValidationState.empty() porte updatedAt = now(), donc un
-    // état vide (réinstallation) gagnerait à tort le LWW face à une ligne serveur
-    // plus ancienne et écraserait les données distantes. Un local absent ne doit
-    // jamais l'emporter.
-    AiValidationState localState;
-    bool hadLocal = false;
     try {
       final raw = _box.get(key);
-      if (raw != null) {
-        localState = AiValidationState.fromJson(
-          Map<String, dynamic>.from(raw as Map),
-        );
-        hadLocal = true;
-      } else {
-        localState = AiValidationState.empty();
-      }
+      _state = raw != null
+          ? AiValidationState.fromJson(Map<String, dynamic>.from(raw as Map))
+          : AiValidationState.empty();
     } catch (e) {
       debugPrint('AiValidationCreditsService: erreur lecture Hive: $e');
-      localState = AiValidationState.empty();
+      _state = AiValidationState.empty();
     }
-    _state = localState;
     notifyListeners();
 
-    // Étapes b + c : crédits (best-effort). Encapsulées dans un bloc pour que
-    // leurs sorties anticipées (repo absent, fetch hors-ligne) ne sautent PAS
-    // l'étape d : l'entitlement premium vit dans une table séparée et doit être
-    // lu indépendamment du résultat du fetch crédits.
     final repo = _repo;
     if (repo != null) {
-      AiValidationState? remoteState;
-      bool fetchEchoue = false;
-
       try {
-        remoteState = await repo.fetchForUser(userId);
-      } catch (e) {
-        // Erreur réseau : garde local, aucun crash.
-        debugPrint('AiValidationCreditsService: fetch hors-ligne, fallback Hive: $e');
-        fetchEchoue = true;
-      }
-
-      if (!fetchEchoue) {
-        // Étape c : réconciliation LWW.
-        if (remoteState != null) {
-          // Adopter remote si aucun local réel (réinstallation) OU si remote est
-          // plus récent. Sans le garde hadLocal, un état vide (updatedAt = now())
-          // l'emporterait et écraserait la ligne serveur.
-          if (!hadLocal || remoteState.updatedAt.isAfter(localState.updatedAt)) {
-            // Remote fait autorité → adopter remote.
-            _state = remoteState;
-            try {
-              await _box.put(key, remoteState.toJson());
-            } catch (e) {
-              debugPrint('AiValidationCreditsService: erreur écriture Hive après réconciliation: $e');
-            }
-            notifyListeners();
-          } else {
-            // Local plus récent (ou même timestamp) → upsert local vers Supabase.
-            _upsertFireAndForget(userId, localState);
-          }
-        } else {
-          // Aucune ligne en base → upsert local pour créer la ligne.
-          _upsertFireAndForget(userId, localState);
+        final remote = await repo.fetchForUser(userId);
+        if (remote != null) {
+          _state = remote.copyWith(
+            isPremium: _state.isPremium,
+            premiumUntil: _state.premiumUntil,
+          );
+          await _persist();
+          notifyListeners();
         }
+      } catch (e) {
+        debugPrint('AiValidationCreditsService: lecture hors-ligne, cache conservé: $e');
       }
     }
 
-    // Étape d : fetch entitlement premium serveur-autoritaire (best-effort),
-    // INDÉPENDANT du résultat du fetch crédits ci-dessus. L'entitlement premium
-    // vit dans une table séparée (premium_subscriptions) pilotée par le webhook
-    // Stripe — un échec du fetch crédits ne doit pas empêcher sa lecture.
     await _fetchAndApplyPremiumEntitlement(userId);
+  }
+
+  /// Relit le solde serveur (après une analyse Oracle ou `claim_daily`).
+  Future<void> refresh() async {
+    final uid = _userId ?? _currentUserId;
+    if (uid == null || uid.isEmpty) return;
+    await load(uid);
   }
 
   /// Vide le state en mémoire au logout (sans purger Hive).
@@ -255,161 +194,11 @@ class AiValidationCreditsService extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ---- Mutations ----
+  // ---- Lecture pour l'UI ----
 
-  /// Accorde le bonus d'onboarding (5 crédits, une seule fois).
-  ///
-  /// No-op si [onboardingGranted] est déjà true.
-  /// Plafond [kFreeWalletCap] respecté.
-  Future<void> grantOnboarding() async {
-    if (_state.onboardingGranted) return;
-
-    final ajout = _creditsDisponibles(kOnboardingGrant);
-    _state = _state.copyWith(
-      balance: _state.balance + ajout,
-      onboardingGranted: true,
-      updatedAt: DateTime.now().toUtc(),
-    );
-    await _persist();
-    notifyListeners();
-    _upsertFireAndForgetCurrentState();
-  }
-
-  /// Accorde le crédit quotidien si dû à la date [now].
-  ///
-  /// Idempotent : sans effet si un octroi a déjà eu lieu aujourd'hui
-  /// (comparaison sur la DATE LOCALE, pas l'heure).
-  /// Sans effet si [balance] >= [kFreeWalletCap].
-  Future<void> grantDailyIfDue(DateTime now) async {
-    if (_state.balance >= kFreeWalletCap) return;
-
-    final dernierOctroi = _state.lastDailyGrant;
-    final dateNow = _dateLocale(now);
-
-    // Si un octroi a déjà eu lieu aujourd'hui (ou dans le futur) → idempotent.
-    if (dernierOctroi != null &&
-        !_dateLocale(dernierOctroi).isBefore(dateNow)) {
-      return;
-    }
-
-    final ajout = _creditsDisponibles(kDailyGrant);
-    _state = _state.copyWith(
-      balance: _state.balance + ajout,
-      lastDailyGrant: now,
-      updatedAt: DateTime.now().toUtc(),
-    );
-    await _persist();
-    notifyListeners();
-    _upsertFireAndForgetCurrentState();
-  }
-
-  /// Récompense un palier de série si [streakDays] est un multiple de
-  /// [kStreakMilestoneInterval] non encore récompensé.
-  ///
-  /// Un palier donné n'est récompensé qu'une seule fois.
-  /// Plafond [kFreeWalletCap] respecté.
-  Future<void> earnFromStreak(int streakDays) async {
-    if (streakDays <= 0) return;
-    if (streakDays % kStreakMilestoneInterval != 0) return;
-    if (streakDays <= _state.lastRewardedStreakMilestone) return;
-
-    final ajout = _creditsDisponibles(kStreakMilestoneGrant);
-    _state = _state.copyWith(
-      balance: _state.balance + ajout,
-      lastRewardedStreakMilestone: streakDays,
-      updatedAt: DateTime.now().toUtc(),
-    );
-    await _persist();
-    notifyListeners();
-    _upsertFireAndForgetCurrentState();
-  }
-
-  /// Indique si l'utilisateur peut lancer une validation IA.
-  ///
-  /// Retourne true si premium (balance ignorée) OU si balance > 0.
+  /// Indique si une analyse Oracle peut être lancée (indication d'interface :
+  /// le serveur reste juge et peut refuser avec `energie_insuffisante`).
   bool canValidateWithAI() => _state.isPremium || _state.balance > 0;
-
-  /// Consomme un crédit pour une validation IA.
-  ///
-  /// - Si premium : retourne true SANS décrémenter le solde.
-  /// - Si balance > 0 : décrémente de 1 et retourne true.
-  /// - Si balance == 0 et non premium : retourne false.
-  Future<bool> consumeForValidation() async {
-    if (_state.isPremium) return true;
-
-    if (_state.balance <= 0) return false;
-
-    _state = _state.copyWith(
-      balance: _state.balance - 1,
-      updatedAt: DateTime.now().toUtc(),
-    );
-    await _persist();
-    notifyListeners();
-    _upsertFireAndForgetCurrentState();
-    return true;
-  }
-
-  /// Rembourse un crédit consommé suite à une erreur TECHNIQUE de l'IA.
-  ///
-  /// À appeler UNIQUEMENT quand l'appel IA a échoué pour une raison technique
-  /// (réseau, timeout, code HTTP 5xx, 529 Anthropic) — PAS quand le score est
-  /// simplement inférieur au seuil (dans ce cas, le crédit est consommé car
-  /// l'IA a bien travaillé).
-  ///
-  /// - Si premium : no-op (le premium ne consomme jamais de crédit).
-  /// - Plafond [kFreeWalletCap] respecté (ne dépasse jamais le cap).
-  Future<void> refundValidation() async {
-    // Le premium ne consomme pas → pas de remboursement à effectuer.
-    if (_state.isPremium) return;
-
-    final ajout = _creditsDisponibles(1);
-    if (ajout == 0) return; // déjà au cap ou au-delà.
-
-    _state = _state.copyWith(
-      balance: _state.balance + ajout,
-      updatedAt: DateTime.now().toUtc(),
-    );
-    await _persist();
-    notifyListeners();
-    _upsertFireAndForgetCurrentState();
-  }
-
-  /// Exécute un appel de validation IA [aiCall] sous gating de crédits.
-  ///
-  /// C'est le point d'entrée unique du gating, appelé par la page de
-  /// validation pour TOUT type de preuve (photo, vidéo, texte).
-  ///
-  /// Décision AVANT l'appel :
-  /// - 0 jeton et non premium → retourne null SANS appeler l'IA (route manuelle).
-  /// - Premium → appelle l'IA sans rien consommer.
-  /// - Non premium avec solde → consomme 1 crédit AVANT l'appel.
-  ///
-  /// Après l'appel :
-  /// - Succès (même si le score est sous le seuil) → retourne le résultat ;
-  ///   le crédit reste consommé (l'IA a travaillé, le jeton paie l'analyse).
-  /// - Erreur TECHNIQUE (l'appel lève : réseau, timeout, 5xx, 529) → rembourse
-  ///   le crédit (si non premium) et retourne null.
-  ///
-  /// Retour null = « IA non effectuée → basculer en validation manuelle ».
-  /// L'utilisateur n'est jamais bloqué : la validation directe reste possible.
-  Future<T?> runGatedValidation<T>(Future<T> Function() aiCall) async {
-    if (!canValidateWithAI()) return null;
-
-    final premium = isPremium;
-    if (!premium) {
-      await consumeForValidation();
-    }
-    try {
-      return await aiCall();
-    } catch (e) {
-      debugPrint(
-          'AiValidationCreditsService: erreur technique IA, remboursement: $e');
-      if (!premium) {
-        await refundValidation();
-      }
-      return null;
-    }
-  }
 
   /// Re-lit l'entitlement premium depuis le serveur à la demande.
   ///
@@ -538,10 +327,6 @@ class AiValidationCreditsService extends ChangeNotifier {
     );
     await _persist();
     notifyListeners();
-    // Note : isPremium / premiumUntil ne sont PAS envoyés vers Supabase (Phase 2).
-    // L'upsert ci-dessous synchronise uniquement les champs serveur (balance, etc.)
-    // depuis l'état courant, via toSupabaseMap qui exclut ces champs.
-    _upsertFireAndForgetCurrentState();
   }
 
   // ---- Helpers privés ----
@@ -553,7 +338,7 @@ class AiValidationCreditsService extends ChangeNotifier {
   /// perturber la logique last-write-wins (tables distinctes, workflows distincts).
   ///
   /// IMPORTANT : cet appel met à jour [isPremium] et [premiumUntil] via [_setPremiumFromEntitlement]
-  /// qui appelle [_persist] + [notifyListeners] mais PAS [_upsertFireAndForget] pour éviter
+  /// qui appelle [_persist] + [notifyListeners] ; aucune écriture serveur n'a lieu, pour éviter
   /// de ré-envoyer les crédits vers Supabase à chaque refresh d'entitlement.
   Future<void> _fetchAndApplyPremiumEntitlement(String userId) async {
     final premiumRepo = _premiumRepo;
@@ -576,7 +361,7 @@ class AiValidationCreditsService extends ChangeNotifier {
   /// Met à jour [isPremium] et [premiumUntil] dans l'état local et Hive,
   /// SANS déclencher d'upsert vers la table `ai_validation_credits`.
   ///
-  /// Contrairement à [setPremium] (qui appelle [_upsertFireAndForgetCurrentState]),
+  /// Comme [setPremium],
   /// cette méthode ne provoque PAS d'écriture réseau vers la table des crédits.
   /// L'entitlement est lecture-seule côté client (piloté par le webhook Stripe).
   Future<void> _setPremiumFromEntitlement(
@@ -599,16 +384,6 @@ class AiValidationCreditsService extends ChangeNotifier {
     // Pas d'upsert vers ai_validation_credits : isPremium n'y est pas stocké.
   }
 
-  /// Calcule combien de crédits peuvent être ajoutés sans dépasser le cap.
-  int _creditsDisponibles(int demande) {
-    final place = kFreeWalletCap - _state.balance;
-    if (place <= 0) return 0;
-    return demande < place ? demande : place;
-  }
-
-  /// Réduit un DateTime à sa date locale (sans heure) pour les comparaisons.
-  DateTime _dateLocale(DateTime dt) => DateTime(dt.year, dt.month, dt.day);
-
   /// Persiste l'état courant dans Hive. No-op si userId inconnu.
   Future<void> _persist() async {
     final key = _hiveKey;
@@ -616,37 +391,12 @@ class AiValidationCreditsService extends ChangeNotifier {
     await _box.put(key, _state.toJson());
   }
 
-  /// Upsert fire-and-forget de l'état courant vers Supabase.
-  /// N'attend pas le résultat, ne bloque pas l'UI.
-  void _upsertFireAndForgetCurrentState() {
-    final uid = _userId;
-    if (uid == null || uid.isEmpty) return;
-    _upsertFireAndForget(uid, _state);
-  }
-
-  /// Upsert fire-and-forget d'un état [state] vers Supabase.
-  /// Encadré dans un try/catch : une erreur ne crashe jamais l'UI.
-  void _upsertFireAndForget(String userId, AiValidationState state) {
-    final repo = _repo;
-    if (repo == null) return;
-    // upsertForUser est déjà best-effort avec try/catch interne.
-    unawaited(repo.upsertForUser(userId, state));
-  }
-
-  /// Appelé lors d'un signIn détecté via le stream [onSignedIn].
-  /// L'ordre CRITIQUE est : load → grantOnboarding → grantDailyIfDue.
-  /// Ce tri garantit qu'un [onboardingGranted=true] récupéré du serveur
-  /// empêche le re-don des 5 jetons après réinstallation.
-  ///
-  /// Le uid est résolu via [_currentUserId] : le stream onSignedIn est un
-  /// `Stream<void>` (pas de payload), et [_userId] n'est pas encore positionné
-  /// au premier signIn (il l'est par [load], appelé juste après).
+  /// Appelé lors d'un signIn : simple lecture (l'énergie quotidienne et
+  /// l'onboarding sont accordés par `claim_daily` côté serveur).
   Future<void> _onSignedIn() async {
     final uid = _currentUserId;
     if (uid == null || uid.isEmpty) return;
     await load(uid);
-    await grantOnboarding();
-    await grantDailyIfDue(DateTime.now());
   }
 
   // ---- Helpers de test ----

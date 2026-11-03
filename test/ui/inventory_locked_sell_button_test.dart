@@ -35,9 +35,8 @@ Widget _buildInventoryPage({required Item item}) {
 
   final playerRepo = _MockPlayerRepository();
   when(() => playerRepo.loadLocalStats()).thenReturn(PlayerStats());
-  when(() => playerRepo.fetchRemoteStats(any())).thenAnswer((_) async => null);
+  when(() => playerRepo.fetchServerState()).thenAnswer((_) async => throw Exception('hors-ligne'));
   when(() => playerRepo.saveLocalStats(any())).thenAnswer((_) async {});
-  when(() => playerRepo.syncToSupabase(any(), any())).thenAnswer((_) async {});
   final playerVm = PlayerViewModel(playerRepo);
 
   final invBox = _MockBox();

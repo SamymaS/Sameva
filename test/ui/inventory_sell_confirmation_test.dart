@@ -15,6 +15,7 @@ import 'package:provider/provider.dart';
 import 'package:sameva/data/models/item_model.dart';
 import 'package:sameva/data/models/quest_model.dart';
 import 'package:sameva/data/repositories/auth_repository.dart';
+import 'package:sameva/data/repositories/game_api.dart';
 import 'package:sameva/data/repositories/player_repository.dart';
 import 'package:sameva/presentation/view_models/auth_view_model.dart';
 import 'package:sameva/presentation/view_models/cat_view_model.dart';
@@ -28,6 +29,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class _MockAuthRepository extends Mock implements AuthRepository {}
 class _MockPlayerRepository extends Mock implements PlayerRepository {}
+
+class _MockGameApi extends Mock implements GameApi {}
 class _MockBox extends Mock implements Box<dynamic> {}
 class _MockUser extends Mock implements User {}
 
@@ -74,6 +77,8 @@ Widget _buildPage({
   EquipmentViewModel eqVm,
   CatViewModel catVm,
   AuthViewModel authVm,
+  _MockPlayerRepository playerRepo,
+  _MockGameApi api,
 }) _makeVms() {
   // Auth
   final authRepo = _MockAuthRepository();
@@ -88,9 +93,10 @@ Widget _buildPage({
   // Player
   final playerRepo = _MockPlayerRepository();
   when(() => playerRepo.loadLocalStats()).thenReturn(PlayerStats(gold: 0));
-  when(() => playerRepo.fetchRemoteStats(any())).thenAnswer((_) async => null);
+  when(() => playerRepo.fetchServerState()).thenAnswer((_) async => throw Exception('hors-ligne'));
   when(() => playerRepo.saveLocalStats(any())).thenAnswer((_) async {});
-  when(() => playerRepo.syncToSupabase(any(), any())).thenAnswer((_) async {});
+  final api = _MockGameApi();
+  when(() => playerRepo.api).thenReturn(api);
   final playerVm = PlayerViewModel(playerRepo);
 
   // Inventory — box mockée : les puts sont fire-and-forget, pas de vrai I/O Hive
@@ -118,6 +124,8 @@ Widget _buildPage({
     eqVm: eqVm,
     catVm: catVm,
     authVm: authVm,
+    playerRepo: playerRepo,
+    api: api,
   );
 }
 
@@ -234,6 +242,12 @@ void main() {
       await tester.runAsync(() => vms.playerVm.loadPlayerStats('u1'));
       expect(vms.playerVm.stats?.gold, 0); // précondition
 
+      // Sprint 1 : le serveur crédite la vente (plafonnée) puis l'état est relu.
+      when(() => vms.api.claimTransitionalReward('vente_objet', 50, ref: any(named: 'ref')))
+          .thenAnswer((_) async => const TransitionalReward(resource: 'gold', granted: 50, capped: false));
+      when(() => vms.playerRepo.fetchServerState()).thenAnswer((_) async => PlayerServerState(
+          stats: PlayerStats(gold: 50), xpForNextLevel: 150, energy: 0, premium: false, gacha: const {}));
+
       await tester.pumpWidget(_buildPage(
         invVm: vms.invVm,
         playerVm: vms.playerVm,
@@ -259,17 +273,18 @@ void main() {
         of: find.byType(AlertDialog),
         matching: find.text('Vendre'),
       ));
-      // pump x2 : frame 1 = le dialog ferme ; frame 2 = la continuation async
-      // s'exécute (removeItem, addGold, Navigator.pop, AppNotification.show)
-      await tester.pump();
-      await tester.pump();
+      // Frames : le dialog ferme, la réponse serveur arrive, puis removeItem,
+      // Navigator.pop et AppNotification.show s'exécutent.
+      for (var i = 0; i < 5; i++) {
+        await tester.pump();
+      }
 
       // removeItem a été appelé : inventaire vide
       expect(vms.invVm.items.isEmpty, isTrue);
 
-      // addGold a été appelé : les 50 premiers synchrones sont déjà appliqués
-      // (addGold modifie _stats synchronement avant le premier await interne)
+      // L'or vient du serveur (crédit puis relecture de l'état).
       expect(vms.playerVm.stats?.gold, 50);
+      verify(() => vms.api.claimTransitionalReward('vente_objet', 50, ref: any(named: 'ref'))).called(1);
 
       // Avance l'horloge pour consommer le timer de la notification (3 s)
       // et laisser l'animation de sortie se terminer (300 ms).

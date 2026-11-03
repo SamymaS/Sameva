@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../../core/router/app_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -129,7 +131,7 @@ class _ProfileContent extends StatelessWidget {
               IconButton(
                 icon: const Icon(Icons.settings_outlined,
                     color: AppColors.textSecondary, size: 20),
-                onPressed: () => Navigator.of(context).pushNamed('/settings'),
+                onPressed: () => context.push(Routes.parametres),
               ),
             ],
             flexibleSpace: FlexibleSpaceBar(
@@ -272,7 +274,7 @@ class _HeroHeader extends StatelessWidget {
             children: [
               // Avatar — tap pour ouvrir la fiche personnage
               GestureDetector(
-                onTap: () => Navigator.of(context).pushNamed('/avatar'),
+                onTap: () => context.push(Routes.avatar),
                 child: Container(
                   width: 72,
                   height: 72,

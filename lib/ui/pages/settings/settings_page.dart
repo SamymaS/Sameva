@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/audio/sons.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../domain/services/achievement_service.dart';
@@ -62,13 +63,13 @@ class _SettingsPageState extends State<SettingsPage> {
             _NotificationTimeTile(),
             _StreakNotifTile(),
             _DeadlineNotifTile(),
+            const _SonsTile(),
             const Divider(height: 1, indent: 16, endIndent: 16),
             const _SectionHeader('Progression'),
             _AchievementsTile(),
             _ExportActivityTile(),
-            const Divider(height: 1, indent: 16, endIndent: 16),
-            const _SectionHeader('Joueur'),
-            _ResetPlayerTile(),
+            // Sprint 1 : la progression appartient au serveur, elle ne peut
+            // plus être réinitialisée depuis l'app.
             const Divider(height: 1, indent: 16, endIndent: 16),
             const _SectionHeader('Application'),
             _AboutTile(),
@@ -145,57 +146,6 @@ class _NotificationTimeTile extends StatelessWidget {
           context,
           message: 'Rappel mis à jour : ${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}',
         );
-      },
-    );
-  }
-}
-
-class _ResetPlayerTile extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      tileColor: AppColors.backgroundDarkPanel,
-      leading: const Icon(Icons.restart_alt, color: AppColors.error),
-      title: const Text('Réinitialiser le joueur',
-          style: TextStyle(color: AppColors.error)),
-      subtitle: const Text(
-        'Remet le niveau à 1 et réduit l\'or de moitié.',
-        style: TextStyle(color: AppColors.textMuted, fontSize: 12),
-      ),
-      onTap: () async {
-        final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: AppColors.backgroundDarkPanel,
-            title: const Text('Confirmer la réinitialisation',
-                style: TextStyle(color: AppColors.textPrimary)),
-            content: const Text(
-              'Votre niveau, XP et HP seront réinitialisés. '
-              'Votre or sera réduit de moitié. Les achievements et '
-              'le meilleur streak sont conservés.',
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Annuler',
-                    style: TextStyle(color: AppColors.textMuted)),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.error),
-                child: const Text('Réinitialiser',
-                    style: TextStyle(color: Colors.white)),
-              ),
-            ],
-          ),
-        );
-        if (confirmed != true) return;
-        if (!context.mounted) return;
-        await context.read<SettingsViewModel>().resetPlayer();
-        if (!context.mounted) return;
-        AppNotification.show(context, message: 'Joueur réinitialisé.');
       },
     );
   }
@@ -321,6 +271,40 @@ class _AboutTile extends StatelessWidget {
             color: AppColors.primaryTurquoise, size: 40),
         applicationLegalese:
             '© 2026 Sameva · Gamifiez votre quotidien.\nValidation de quêtes par preuve visuelle.',
+      ),
+    );
+  }
+}
+
+/// Effets sonores chiptune (activés par défaut).
+class _SonsTile extends StatefulWidget {
+  const _SonsTile();
+
+  @override
+  State<_SonsTile> createState() => _SonsTileState();
+}
+
+class _SonsTileState extends State<_SonsTile> {
+  bool _actifs = Sons.actifs;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      tileColor: AppColors.backgroundDarkPanel,
+      leading: const Icon(Icons.volume_up_outlined, color: AppColors.primaryTurquoise),
+      title: const Text('Effets sonores', style: TextStyle(color: AppColors.textPrimary)),
+      subtitle: const Text(
+        'Sons de quête, de l\'Oracle et des invocations.',
+        style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+      ),
+      trailing: Switch(
+        value: _actifs,
+        activeThumbColor: AppColors.primaryTurquoise,
+        onChanged: (v) async {
+          setState(() => _actifs = v);
+          await Sons.definirActifs(v);
+          if (v) await Sons.jouer(Son.toucher);
+        },
       ),
     );
   }

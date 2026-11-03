@@ -3,21 +3,21 @@ import 'package:hive/hive.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sameva/data/models/player_stats_model.dart';
 import 'package:sameva/data/repositories/player_repository.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:sameva/data/repositories/game_api.dart';
 
 class _MockBox extends Mock implements Box<dynamic> {}
 
-class _MockSupabaseClient extends Mock implements SupabaseClient {}
+class _MockGameApi extends Mock implements GameApi {}
 
 void main() {
   late _MockBox box;
-  late _MockSupabaseClient supabase;
+  late _MockGameApi api;
   late PlayerRepository repo;
 
   setUp(() {
     box = _MockBox();
-    supabase = _MockSupabaseClient();
-    repo = PlayerRepository(box, supabase);
+    api = _MockGameApi();
+    repo = PlayerRepository(box, api);
   });
 
   group('PlayerRepository', () {
@@ -85,14 +85,27 @@ void main() {
       });
     });
 
-    group('syncToSupabase', () {
-      test('avale les exceptions réseau sans propager', () async {
-        when(() => supabase.from(any())).thenThrow(Exception('offline'));
-
-        await expectLater(
-          () async => repo.syncToSupabase('u1', PlayerStats()),
-          returnsNormally,
+    group('fetchServerState', () {
+      test('délègue à GameApi.getPlayerState (le serveur fait autorité)', () async {
+        final state = PlayerServerState(
+          stats: PlayerStats(level: 3, seals: 4),
+          xpForNextLevel: 450,
+          energy: 2,
+          premium: false,
+          gacha: const {},
         );
+        when(() => api.getPlayerState()).thenAnswer((_) async => state);
+
+        final result = await repo.fetchServerState();
+
+        expect(result.stats.level, 3);
+        expect(result.stats.seals, 4);
+        verify(() => api.getPlayerState()).called(1);
+      });
+
+      test('propage les erreurs (l\'appelant garde le cache)', () async {
+        when(() => api.getPlayerState()).thenThrow(const GameApiException('erreur_reseau'));
+        expect(() => repo.fetchServerState(), throwsA(isA<GameApiException>()));
       });
     });
   });

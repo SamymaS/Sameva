@@ -76,3 +76,6 @@ supabase/backups/
 # Node modules
 node_modules/
 package-lock.json
+# Configuration de l'app par environnement (dart-define), sauf l'exemple
+/config/*.json
+!/config/exemple.json

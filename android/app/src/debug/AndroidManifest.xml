@@ -4,4 +4,7 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Debug uniquement : autorise le HTTP en clair vers le Supabase local
+         (supabase start, http://127.0.0.1:54321 via adb reverse). Jamais en release. -->
+    <application android:usesCleartextTraffic="true"/>
 </manifest>

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../config/supabase_config.dart';
 import '../../../data/models/quest_model.dart';
 import '../../../domain/services/api_quest_suggestion_service.dart';
 import '../../../domain/services/quest_suggestion_service.dart';
@@ -25,16 +24,7 @@ class _GenerateQuestsPageState extends State<GenerateQuestsPage> {
   String? _error;
   final Set<int> _addingIndices = {};
 
-  QuestSuggestionService _buildService() {
-    final url = SupabaseConfig.suggestQuestsUrl;
-    if (url != null && url.isNotEmpty) {
-      return ApiQuestSuggestionService(
-        baseUrl: url,
-        authToken: SupabaseConfig.supabaseAnonKey,
-      );
-    }
-    return MockQuestSuggestionService();
-  }
+  QuestSuggestionService _buildService() => ApiQuestSuggestionService();
 
   Future<void> _generate() async {
     final player = context.read<PlayerViewModel>().stats;
@@ -63,7 +53,9 @@ class _GenerateQuestsPageState extends State<GenerateQuestsPage> {
       if (mounted) setState(() => _quests = quests);
     } catch (e) {
       if (mounted) {
-        setState(() => _error = 'Mougi n\'a pas pu générer de quêtes. Vérifie ta connexion et réessaie.');
+        setState(() => _error = e is QuestSuggestionException
+            ? e.userMessage
+            : 'Mougi n\'a pas pu générer de quêtes. Vérifie ta connexion et réessaie.');
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

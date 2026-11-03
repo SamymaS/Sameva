@@ -15,6 +15,8 @@ dependencies:
 
   # Supabase (Auth + Base de données)
   supabase_flutter: ^2.5.4
+  # Session Supabase chiffrée sur mobile (Keystore / Keychain), ADR 0007.
+  flutter_secure_storage: ^9.2.2
 
   # Connexion Google (API 7.x — GoogleSignIn.instance, singleton)
   google_sign_in: ^7.2.0
@@ -30,7 +32,6 @@ dependencies:
 
   # UI
   google_fonts: ^8.1.0
-  flutter_svg: ^2.0.10+1
 
   # Preuve visuelle (validation de quête)
   image_picker: ^1.0.7
@@ -41,13 +42,15 @@ dependencies:
   # Utils
   uuid: ^4.2.2
   intl: ^0.19.0
-  flutter_dotenv: ^5.1.0
   flutter_local_notifications: ^17.2.4
   timezone: ^0.9.4
   share_plus: ^10.1.4
 
   # Navigation externe (checkout Stripe)
   url_launcher: ^6.3.0
+  go_router: ^17.5.0
+  flutter_riverpod: ^2.6.1
+  audioplayers: ^6.7.1
 
 dev_dependencies:
   flutter_test:
@@ -63,8 +66,9 @@ flutter:
 
   assets:
     - assets/fonts/
-    - assets/items/
-    - .env
+    - assets/sprites/
+    - assets/sprites/objets/
+    - assets/sfx/
 
   fonts:
     - family: MedievalSharp

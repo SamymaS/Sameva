@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../../core/router/app_router.dart';
 import 'package:provider/provider.dart';
 import '../../../data/models/quest_model.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
@@ -123,7 +125,7 @@ class _QuestsListPageState extends State<QuestsListPage> {
               IconButton(
                 icon: const Icon(Icons.settings_outlined,
                     color: AppColors.textMuted, size: 20),
-                onPressed: () => Navigator.of(context).pushNamed('/settings'),
+                onPressed: () => context.push(Routes.parametres),
               ),
             ],
           ],
@@ -201,7 +203,8 @@ class _QuestsListPageState extends State<QuestsListPage> {
             );
             await _load();
           },
-          child: const Icon(Icons.add, size: 28),
+          tooltip: 'Nouvelle quête',
+          child: const Icon(Icons.add, size: 28, semanticLabel: 'Nouvelle quête'),
         ),
       ),
     );
@@ -681,8 +684,8 @@ class _QuestCard extends StatelessWidget {
         onValidate: completed
             ? null
             : () {
-                Navigator.of(context)
-                    .pushNamed('/quest/validate', arguments: quest)
+                context
+                    .push(Routes.validerQuete(quest.id ?? ''), extra: quest)
                     .then((_) => onReload?.call());
               },
         onDelete: completed ? null : () => _delete(context),
@@ -898,11 +901,6 @@ class _ValidationBadge extends StatelessWidget {
           Icons.check_outlined,
           'Manuel',
           AppColors.textMuted
-        ),
-      ValidationType.ai => (
-          Icons.psychology_outlined,
-          'IA',
-          AppColors.secondaryViolet
         ),
     };
 

@@ -19,47 +19,56 @@ class AiCreditCounter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Selector<AiValidationCreditsService, ({int balance, bool isPremium})>(
+    return Selector<AiValidationCreditsService,
+        ({int balance, bool isPremium})>(
       selector: (_, svc) => (balance: svc.balance, isPremium: svc.isPremium),
       builder: (context, data, _) {
         final isPremium = data.isPremium;
         final balance = data.balance;
 
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: AppColors.primaryTurquoise.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: AppColors.primaryTurquoise.withValues(alpha: 0.35),
+        return Semantics(
+          label: isPremium
+              ? "$kAiCreditName illimitée"
+              : "$balance ${balance > 1 ? kAiCreditLabelPlural : kAiCreditLabel} de l'Oracle",
+          excludeSemantics: true,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.primaryTurquoise.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: AppColors.primaryTurquoise.withValues(alpha: 0.35),
+              ),
             ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.auto_awesome,
-                color: AppColors.primaryTurquoise,
-                size: 14,
-              ),
-              const SizedBox(width: 5),
-              Text(
-                isPremium ? '∞' : '$balance',
-                style: const TextStyle(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.bolt,
                   color: AppColors.primaryTurquoise,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
+                  size: 14,
                 ),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                isPremium ? 'Premium' : kAiCreditLabel,
-                style: const TextStyle(
-                  color: AppColors.primaryTurquoise,
-                  fontSize: 11,
+                const SizedBox(width: 5),
+                Text(
+                  isPremium ? '∞' : '$balance',
+                  style: const TextStyle(
+                    color: AppColors.primaryTurquoise,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 4),
+                Text(
+                  isPremium
+                      ? 'Premium'
+                      : (balance > 1 ? kAiCreditLabelPlural : kAiCreditLabel),
+                  style: const TextStyle(
+                    color: AppColors.primaryTurquoise,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },

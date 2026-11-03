@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
+import '../../../data/repositories/game_api.dart';
 import '../../../config/feature_flags.dart';
 import '../../../data/models/cat_model.dart';
 import '../../../data/models/item_model.dart';
-import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/view_models/cat_view_model.dart';
 import '../../../presentation/view_models/inventory_view_model.dart';
 import '../../../presentation/view_models/player_view_model.dart';
@@ -78,15 +78,24 @@ class _CatPageContentState extends State<_CatPageContent> {
     await settings.put(_cooldownKey, DateTime.now().toIso8601String());
     if (!mounted) return;
 
-    final userId = context.read<AuthViewModel>().userId;
-    if (userId != null) {
-      await context.read<PlayerViewModel>().updateMoral(userId, 0.05);
+    // Gain de moral accordé par le serveur, plafonné par jour
+    // (TRANSITOIRE jusqu'au Sprint 3).
+    var message = 'Ronron... ton chat est ravi !';
+    try {
+      final reward = await context
+          .read<PlayerViewModel>()
+          .claimTransitionalReward('caresse_chat', 0.05);
+      if (reward.granted > 0) {
+        message = 'Ronron... +${(reward.granted * 100).round()} % de moral !';
+      }
+    } on GameApiException catch (e) {
+      debugPrint('CatPage: caresse non créditée: $e');
     }
     if (!mounted) return;
     setState(() {});
     AppNotification.show(
       context,
-      message: 'Ronron... +5% moral !',
+      message: message,
       backgroundColor: AppColors.mintMagic,
       duration: const Duration(seconds: 2),
     );

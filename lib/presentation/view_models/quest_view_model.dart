@@ -6,7 +6,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/models/quest_model.dart';
 import '../../data/repositories/quest_repository.dart';
 import '../../domain/services/notification_service.dart';
-import '../../domain/services/quest_rewards_calculator.dart';
 
 /// ViewModel pour les quêtes (état global partagé entre pages).
 /// Délègue la persistance à QuestRepository.
@@ -170,35 +169,23 @@ class QuestViewModel with ChangeNotifier {
     }
   }
 
-  Future<void> completeQuest(Quest quest) async {
-    try {
-      final updated = await _repo.completeQuest(quest);
-      final index = _quests.indexWhere((q) => q.id == quest.id);
-      if (index != -1) {
-        _quests[index] = updated;
-      } else {
-        // La quête n'est pas dans la liste : cas limite (complétion d'une quête
-        // non chargée). On l'insère pour rester cohérent. Depuis la refonte
-        // source de vérité unique, la création passe par ce VM : la désync
-        // inter-VM qui motivait l'ancien patch n'existe plus.
-        _quests.insert(0, updated);
-      }
+  /// Reflète localement une complétion déjà appliquée par le serveur
+  /// (`complete_quest` ou verdict de l'Oracle). Le client ne change plus
+  /// jamais le statut d'une quête en base lui-même (Sprint 1).
+  Future<void> markCompletedFromServer(String questId, {DateTime? completedAt}) async {
+    final index = _quests.indexWhere((q) => q.id == questId);
+    if (index != -1) {
+      _quests[index] = _quests[index].copyWith(
+        status: QuestStatus.completed,
+        completedAt: completedAt ?? DateTime.now(),
+      );
       notifyListeners();
-      if (quest.id != null) {
-        await NotificationService.cancelQuestDeadlineReminder(quest.id!);
-      }
-    } catch (e) {
-      debugPrint('QuestViewModel: erreur complétion: $e');
-      rethrow;
     }
-  }
-
-  QuestRewards calculateRewards(Quest quest, DateTime completedAt, {bool hasStreakBonus = false}) {
-    return QuestRewardsCalculator.calculateRewardsWithTiming(
-      quest,
-      completedAt,
-      hasStreakBonus: hasStreakBonus,
-    );
+    try {
+      await NotificationService.cancelQuestDeadlineReminder(questId);
+    } catch (e) {
+      debugPrint('QuestViewModel: annulation du rappel impossible: $e');
+    }
   }
 
   List<Quest> getCompletedQuestsToday() {

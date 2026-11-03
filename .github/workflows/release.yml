@@ -86,7 +86,7 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Générer le fichier d'environnement
+      - name: Générer la configuration compilée (config/prod.json)
         # Les valeurs proviennent des secrets du dépôt : aucune clé n'est versionnée.
         # Seule la clé anon est embarquée dans l'APK ; elle est publique par
         # conception et protégée par la RLS côté Supabase.
@@ -98,16 +98,13 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
         run: |
-          base="${SUPABASE_URL%/}"
-          {
-            echo "SUPABASE_URL=${base}"
-            echo "SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}"
-            echo "GOOGLE_WEB_CLIENT_ID=${GOOGLE_WEB_CLIENT_ID}"
-            echo "VALIDATION_AI_URL=${base}/functions/v1/analyze-quest-proof"
-            echo "SUGGEST_QUESTS_URL=${base}/functions/v1/suggest-quests"
-          } > .env
-          echo "Fichier .env genere (valeurs masquees) :"
-          sed -E 's/=(.*)/=***/' .env
+          # Sprint 2 : configuration compilée (dart-define), plus de .env embarqué
+          # comme asset dans l'APK.
+          mkdir -p config
+          jq -n --arg url "${SUPABASE_URL%/}" --arg anon "$SUPABASE_ANON_KEY" --arg gid "$GOOGLE_WEB_CLIENT_ID" \
+            '{SAMEVA_ENV: "prod", SUPABASE_URL: $url, SUPABASE_ANON_KEY: $anon, GOOGLE_WEB_CLIENT_ID: $gid}' \
+            > config/prod.json
+          echo "config/prod.json genere (cles : $(jq -r 'keys | join(", ")' config/prod.json))"
 
       - name: Préparer le keystore de release
         # Le keystore et key.properties n'existent que sur le runner, le temps du
@@ -153,7 +150,7 @@ jobs:
         run: flutter test
 
       - name: Compiler l'APK de production
-        run: flutter build apk --release --no-tree-shake-icons
+        run: flutter build apk --release --no-tree-shake-icons --dart-define-from-file=config/prod.json
 
       - name: Nommer l'artefact avec la version
         run: mv build/app/outputs/flutter-apk/app-release.apk sameva-${{ steps.version.outputs.value }}.apk
@@ -200,10 +197,10 @@ jobs:
 
       - name: Effacer les secrets de signature du runner
         # Execute meme en cas d'echec des etapes precedentes. Garantit que ni le
-        # keystore, ni key.properties, ni le .env ne subsistent au moment ou
+        # keystore, ni key.properties, ni config/prod.json ne subsistent au moment ou
         # l'action de publication choisit les fichiers a joindre.
         if: always()
-        run: rm -f android/app/sameva-release.jks android/key.properties .env
+        run: rm -f android/app/sameva-release.jks android/key.properties config/prod.json
 
       - name: Publier la Release et y attacher l'APK
         # Le tag est créé automatiquement s'il n'existe pas encore.

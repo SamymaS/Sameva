@@ -1,13 +1,10 @@
-import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/ai_validation_state_model.dart';
 
-/// Accès aux crédits IA du joueur dans Supabase (table `ai_validation_credits`).
+/// Lecture de l'énergie de l'Oracle (table `ai_validation_credits`).
 ///
-/// Ce repository ne touche PAS Hive : la persistance locale reste dans
-/// [AiValidationCreditsService]. Toutes les opérations Supabase sont
-/// best-effort (sauf [fetchForUser] qui propage les exceptions réseau pour
-/// permettre à l'appelant de distinguer « pas de ligne » vs « hors-ligne »).
+/// Sprint 1 : lecture seule. L'énergie est accordée par `claim_daily` et
+/// consommée par l'Edge Function Oracle ; le client ne l'écrit plus jamais.
 ///
 /// MAPPING CRITIQUE — colonnes réelles de la table `ai_validation_credits` :
 ///   user_id (uuid PK), balance (int), last_daily_grant (timestamptz nullable),
@@ -20,25 +17,7 @@ class AiCreditsRepository {
 
   AiCreditsRepository(this._supabase);
 
-  // ---- Sérialisation Supabase ----
-
-  /// Construit la map à envoyer à Supabase depuis un [AiValidationState].
-  ///
-  /// N'inclut que les colonnes existantes côté serveur.
-  /// Les champs [isPremium] et [premiumUntil] sont intentionnellement absents.
-  static Map<String, dynamic> toSupabaseMap(
-    AiValidationState state,
-    String userId,
-  ) {
-    return {
-      'user_id': userId,
-      'balance': state.balance,
-      'last_daily_grant': state.lastDailyGrant?.toUtc().toIso8601String(),
-      'onboarding_granted': state.onboardingGranted,
-      'last_rewarded_streak_milestone': state.lastRewardedStreakMilestone,
-      'updated_at': state.updatedAt.toUtc().toIso8601String(),
-    };
-  }
+  // ---- Lecture Supabase ----
 
   /// Construit un [AiValidationState] depuis une ligne Supabase.
   ///
@@ -83,24 +62,5 @@ class AiCreditsRepository {
     // null = requête réussie mais aucune ligne → nouvel utilisateur.
     if (response == null) return null;
     return fromSupabaseMap(Map<String, dynamic>.from(response as Map));
-  }
-
-  // ---- Écriture ----
-
-  /// Crée ou met à jour la ligne de crédits IA dans Supabase (best-effort).
-  ///
-  /// En cas d'erreur réseau : log via debugPrint, ne propage pas.
-  /// L'appelant continue avec l'état local Hive comme source de vérité.
-  Future<void> upsertForUser(String userId, AiValidationState state) async {
-    try {
-      await _supabase
-          .from('ai_validation_credits')
-          .upsert(
-            toSupabaseMap(state, userId),
-            onConflict: 'user_id',
-          );
-    } catch (e) {
-      debugPrint('AiCreditsRepository: erreur upsertForUser $userId: $e');
-    }
   }
 }

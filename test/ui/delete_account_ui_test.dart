@@ -122,7 +122,7 @@ Future<void> _checkConfirmBox(WidgetTester tester) async {
 
   final playerRepo = _MockPlayerRepository();
   when(() => playerRepo.loadLocalStats()).thenReturn(PlayerStats());
-  when(() => playerRepo.fetchRemoteStats(any())).thenAnswer((_) async => null);
+  when(() => playerRepo.fetchServerState()).thenAnswer((_) async => throw Exception('hors-ligne'));
 
   final profileVm = ProfileViewModel(authVm, playerRepo, questVm);
 
@@ -272,8 +272,7 @@ void main() {
 
       final playerRepo = _MockPlayerRepository();
       when(() => playerRepo.loadLocalStats()).thenReturn(PlayerStats());
-      when(() => playerRepo.fetchRemoteStats(any()))
-          .thenAnswer((_) async => null);
+      when(() => playerRepo.fetchServerState()).thenAnswer((_) async => throw Exception('hors-ligne'));
       final profileVm = ProfileViewModel(authVm, playerRepo, questVm);
 
       await tester.pumpWidget(_buildTest(

@@ -3,6 +3,14 @@ name: sameva-domain
 description: Applique la logique métier Sameva (quêtes, récompenses, items, équipement, Hive, Supabase). Utiliser lors de l'implémentation ou modification de règles de jeu, de récompenses, d'inventaire, d'équipement, ou d'accès données.
 ---
 
+> **Mise à jour Sprint 1 (2026-10-21, ADR 0005) : prioritaire sur tout ce qui suit.**
+> Les récompenses, l'XP, l'or, les cristaux, les Sceaux, la flamme, les PV et le gacha sont calculés
+> **par le serveur** (`private.complete_quest`, `claim_daily`, `invoke`). Le client ne fait plus jamais
+> `addGold`, `addExperience`, `addCrystals` ni aucun calcul via `QuestRewardsCalculator` : il appelle
+> `GameApi` puis affiche la réponse. Les valeurs d'équilibrage sont dans la table `game_config`.
+> Les sections ci-dessous décrivant un calcul côté client sont historiques.
+
+
 # Domaine et données Sameva
 
 ## Récompenses de quêtes (QuestRewardsCalculator)

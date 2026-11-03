@@ -1,64 +1,47 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-
-/// Configuration Supabase
-/// 
-/// Les clés sont chargées depuis le fichier .env
-/// Pour obtenir vos clés :
-/// 1. Allez sur https://supabase.com
-/// 2. Créez un projet
-/// 3. Allez dans Settings > API
-/// 4. Copiez l'URL du projet et la clé anon (anon key)
-/// 5. Ajoutez-les dans le fichier .env
+/// Configuration de l'application, injectée à la compilation (Sprint 2, ADR 0007).
+///
+/// Les valeurs viennent de `--dart-define-from-file=config/<env>.json`
+/// (voir `config/exemple.json`). Il n'y a plus de fichier `.env` embarqué comme
+/// asset dans l'APK : seules ces constantes compilées existent, et ce ne sont
+/// que des valeurs publiques par conception (URL, clé anon protégée par la RLS,
+/// ID client Web Google). Aucun secret serveur ne doit jamais arriver ici.
+///
+///   flutter run --dart-define-from-file=config/dev.json
+///   flutter build apk --release --dart-define-from-file=config/prod.json
 class SupabaseConfig {
-  /// URL du projet Supabase
-  static String get supabaseUrl {
-    final url = dotenv.env['SUPABASE_URL'];
-    if (url == null || url.isEmpty) {
-      throw Exception(
-        'SUPABASE_URL n\'est pas défini dans le fichier .env\n'
-        'Veuillez créer un fichier .env à la racine du projet avec vos clés Supabase.\n'
-        'Voir .env.example pour un exemple.',
+  static const String _url = String.fromEnvironment('SUPABASE_URL');
+  static const String _anonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+  static const String _googleWebClientId =
+      String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
+
+  /// Nom de l'environnement (dev, banc, staging, prod), pour les journaux.
+  static const String environment =
+      String.fromEnvironment('SAMEVA_ENV', defaultValue: 'dev');
+
+  /// Clés requises absentes de la configuration compilée.
+  static List<String> get missingKeys => [
+        if (_url.isEmpty) 'SUPABASE_URL',
+        if (_anonKey.isEmpty) 'SUPABASE_ANON_KEY',
+        if (_googleWebClientId.isEmpty) 'GOOGLE_WEB_CLIENT_ID',
+      ];
+
+  static String _require(String value, String key) {
+    if (value.isEmpty) {
+      throw StateError(
+        '$key absent de la configuration. Lancer avec '
+        '--dart-define-from-file=config/<env>.json (voir config/exemple.json).',
       );
     }
-    return url;
+    return value;
   }
 
-  /// Clé API anonyme Supabase
-  static String get supabaseAnonKey {
-    final key = dotenv.env['SUPABASE_ANON_KEY'];
-    if (key == null || key.isEmpty) {
-      throw Exception(
-        'SUPABASE_ANON_KEY n\'est pas défini dans le fichier .env\n'
-        'Veuillez créer un fichier .env à la racine du projet avec vos clés Supabase.\n'
-        'Voir .env.example pour un exemple.',
-      );
-    }
-    return key;
-  }
+  /// URL du projet Supabase.
+  static String get supabaseUrl => _require(_url, 'SUPABASE_URL');
 
-  /// ID client Web Google (Google Cloud Console > Identifiants).
-  /// Public par conception, transmis au SDK Google Sign-In au démarrage
-  /// du flux d'authentification.
-  static String get googleWebClientId {
-    final id = dotenv.env['GOOGLE_WEB_CLIENT_ID'];
-    if (id == null || id.isEmpty) {
-      throw Exception(
-        'GOOGLE_WEB_CLIENT_ID n\'est pas défini dans le fichier .env\n'
-        'Veuillez l\'ajouter à la racine du projet.\n'
-        'Voir .env.example pour un exemple.',
-      );
-    }
-    return id;
-  }
+  /// Clé API anonyme Supabase (publique, protégée par la RLS).
+  static String get supabaseAnonKey => _require(_anonKey, 'SUPABASE_ANON_KEY');
 
-  /// URL de l'Edge Function d'analyse de preuve (optionnel).
-  /// Si défini, l'app utilisera l'IA réelle au lieu du mock.
-  /// Ex. https://VOTRE_PROJECT_REF.supabase.co/functions/v1/analyze-quest-proof
-  static String? get validationAiUrl => dotenv.env['VALIDATION_AI_URL'];
-
-  /// URL de l'Edge Function de suggestion de quêtes (optionnel).
-  /// Si défini, l'app utilisera MougiBot en production au lieu du mock.
-  /// Ex. https://VOTRE_PROJECT_REF.supabase.co/functions/v1/suggest-quests
-  static String? get suggestQuestsUrl => dotenv.env['SUGGEST_QUESTS_URL'];
+  /// ID client Web Google, transmis au SDK Google Sign-In.
+  static String get googleWebClientId =>
+      _require(_googleWebClientId, 'GOOGLE_WEB_CLIENT_ID');
 }
-

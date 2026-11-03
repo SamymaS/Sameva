@@ -71,13 +71,6 @@ class SettingsViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Joueur ─────────────────────────────────────────────────────────────────
-
-  Future<void> resetPlayer() {
-    final userId = _authVM.userId ?? '';
-    return _playerVM.resetPlayer(userId);
-  }
-
   @override
   void dispose() {
     _themeVM.removeListener(_onChange);

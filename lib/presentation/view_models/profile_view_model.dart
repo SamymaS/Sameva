@@ -29,7 +29,7 @@ class ProfileViewModel extends ChangeNotifier {
   int get streak => _stats?.streak ?? 0;
   int get completedCount => completedQuests.length;
 
-  int experienceForLevel(int level) => (100 * (level * 1.5)).round();
+  int experienceForLevel(int level) => 150 * level;
 
   Future<void> load(String userId) async {
     _isLoading = true;
@@ -40,13 +40,11 @@ class ProfileViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Sync distante (best-effort)
-      final remote = await _playerRepo.fetchRemoteStats(userId);
-      if (remote != null) {
-        _stats = remote;
-        await _playerRepo.saveLocalStats(remote);
-        notifyListeners();
-      }
+      // Lecture serveur (source de vérité), cache mis à jour.
+      final remote = (await _playerRepo.fetchServerState()).stats;
+      _stats = remote;
+      await _playerRepo.saveLocalStats(remote);
+      notifyListeners();
     } catch (e) {
       debugPrint('ProfileViewModel: erreur sync stats: $e');
     }

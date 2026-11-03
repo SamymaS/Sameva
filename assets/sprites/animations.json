@@ -1,0 +1,99 @@
+{
+ "chat": {
+  "taille": 96,
+  "repos": {
+   "images": [
+    0,
+    1,
+    0,
+    1,
+    0
+   ],
+   "durees_ms": [
+    2600,
+    140,
+    180,
+    140,
+    1800
+   ]
+  },
+  "content": {
+   "images": [
+    2
+   ],
+   "durees_ms": [
+    1000
+   ]
+  },
+  "excite": {
+   "images": [
+    5,
+    2
+   ],
+   "durees_ms": [
+    320,
+    320
+   ]
+  },
+  "triste": {
+   "images": [
+    4
+   ],
+   "durees_ms": [
+    1000
+   ]
+  },
+  "endormi": {
+   "images": [
+    3
+   ],
+   "durees_ms": [
+    1000
+   ]
+  }
+ },
+ "mougibot": {
+  "taille": 96,
+  "repos": {
+   "images": [
+    0
+   ],
+   "durees_ms": [
+    1000
+   ]
+  },
+  "observe": {
+   "images": [
+    1
+   ],
+   "durees_ms": [
+    1000
+   ]
+  },
+  "accepte": {
+   "images": [
+    2,
+    3
+   ],
+   "durees_ms": [
+    380,
+    380
+   ]
+  },
+  "refuse": {
+   "images": [
+    4
+   ],
+   "durees_ms": [
+    1000
+   ]
+  }
+ },
+ "chapeaux": {
+  "wizard_hat": "helmet_hat",
+  "crown": "hat_crown_gold",
+  "party_hat": "hat_cone_blue",
+  "santa_hat": "hat_beanie_red",
+  "bow": "hat_bandana_teal"
+ }
+}

@@ -1,0 +1,17 @@
+# Supervision Sameva sur le NAS : Uptime Kuma (http://<ip-du-nas>:3001).
+# Sondes à créer dans l'interface :
+#   - API REST     : https://mgddxrysvjlpfejbmfly.supabase.co/rest/v1/  (code 200 ou 401 attendu)
+#   - Oracle       : POST https://mgddxrysvjlpfejbmfly.supabase.co/functions/v1/analyze-quest-proof
+#                    corps {} → 401 attendu (la fonction répond et exige un JWT)
+#   - Sauvegarde   : sonde « Push » appelée en fin de sauvegarde_supabase.sh
+#                    (ajouter : curl -fsS "<url push>" à la dernière ligne)
+# Notifications : Telegram ou e-mail, au choix dans l'interface.
+services:
+  uptime-kuma:
+    image: louislam/uptime-kuma:1.23.16
+    container_name: uptime-kuma
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    volumes:
+      - /volume1/sameva/uptime-kuma:/app/data

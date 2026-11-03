@@ -81,40 +81,33 @@ void main() {
       expect(s.totalQuestsCompleted, 99);
     });
 
-    test('toSupabaseMap expose clés snake_case et valeurs alignées', () {
-      final s = PlayerStats(
-        level: 4,
-        experience: 0,
-        gold: 1,
-        crystals: 0,
-        healthPoints: 100,
-        maxHealthPoints: 100,
-        credibilityScore: 1.0,
-        moral: 1.0,
-        streak: 0,
-        maxStreak: 0,
-        lastActiveDate: DateTime.utc(2025, 3, 10),
-        achievements: const {},
-        totalQuestsCompleted: 0,
-        pityCount: 0,
-      );
+    test('fromSupabaseMap lit les champs serveur du Sprint 1', () {
+      final s = PlayerStats.fromSupabaseMap({
+        'level': 3,
+        'experience': 20,
+        'gold': 120,
+        'crystals': 4,
+        'seals': 7,
+        'stardust': 2,
+        'total_experience': 470,
+        'is_exhausted': true,
+        'moral': 0.9,
+        'credibility_score': 0.8,
+      });
+      expect(s.seals, 7);
+      expect(s.stardust, 2);
+      expect(s.totalExperience, 470);
+      expect(s.isExhausted, isTrue);
+      expect(s.moral, closeTo(0.9, 1e-9));
+    });
 
-      final m = s.toSupabaseMap();
-      expect(m['level'], 4);
-      expect(m['experience'], 0);
-      expect(m['gold'], 1);
-      expect(m['crystals'], 0);
-      expect(m['health_points'], 100);
-      expect(m['max_health_points'], 100);
-      expect(m['credibility_score'], 1.0);
-      expect(m['moral'], 1.0);
-      expect(m['streak'], 0);
-      expect(m['max_streak'], 0);
-      expect(m['last_active_date'], '2025-03-10T00:00:00.000Z');
-      expect(m['achievements'], isEmpty);
-      expect(m['total_quests_completed'], 0);
-      expect(m['updated_at'], isA<String>());
-      expect(m.containsKey('pity_count'), isFalse);
+    test('toJson / fromJson conserve les champs serveur (cache Hive)', () {
+      final s = PlayerStats(seals: 3, totalExperience: 99, isExhausted: true, stardust: 1);
+      final back = PlayerStats.fromJson(s.toJson());
+      expect(back.seals, 3);
+      expect(back.totalExperience, 99);
+      expect(back.isExhausted, isTrue);
+      expect(back.stardust, 1);
     });
   });
 }

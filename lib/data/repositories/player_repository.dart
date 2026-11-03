@@ -1,17 +1,22 @@
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/player_stats_model.dart';
+import 'game_api.dart';
 
-/// Accès aux statistiques du joueur : lecture/écriture Hive + sync Supabase.
-/// Pas d'état UI — retourne des objets ou lance des exceptions.
+/// Accès aux statistiques du joueur.
+///
+/// Sprint 1 : le serveur est l'unique autorité. Hive n'est plus qu'un cache
+/// de lecture (affichage immédiat, hors-ligne) ; aucune écriture n'est jamais
+/// envoyée vers `player_stats`.
 class PlayerRepository {
   final Box _statsBox;
-  final SupabaseClient _supabase;
+  final GameApi _api;
 
-  PlayerRepository(this._statsBox, this._supabase);
+  PlayerRepository(this._statsBox, this._api);
 
-  /// Charge les stats depuis Hive (rapide, offline-first).
+  GameApi get api => _api;
+
+  /// Charge le dernier état connu depuis le cache Hive.
   PlayerStats loadLocalStats() {
     try {
       final json = _statsBox.get('stats');
@@ -24,7 +29,7 @@ class PlayerRepository {
     return PlayerStats();
   }
 
-  /// Sauvegarde les stats dans Hive.
+  /// Met à jour le cache Hive.
   Future<void> saveLocalStats(PlayerStats stats) async {
     try {
       await _statsBox.put('stats', stats.toJson());
@@ -33,37 +38,7 @@ class PlayerRepository {
     }
   }
 
-  /// Récupère les stats depuis Supabase.
-  ///
-  /// Trois comportements distincts :
-  /// - Succès + ligne trouvée → retourne [PlayerStats]
-  /// - Succès + aucune ligne (vrai nouveau user) → retourne null EXPLICITEMENT
-  /// - Erreur réseau / exception Supabase → RELANCE l'exception (ne retourne jamais null dans ce cas)
-  ///
-  /// L'appelant doit attraper les exceptions pour distinguer l'absence de données
-  /// d'une erreur réseau. Ne jamais appeler syncToSupabase si cette méthode a lancé.
-  Future<PlayerStats?> fetchRemoteStats(String userId) async {
-    // Pas de try/catch ici : on laisse remonter toute exception réseau.
-    final response = await _supabase
-        .from('player_stats')
-        .select()
-        .eq('user_id', userId)
-        .maybeSingle();
-
-    // null = requête réussie mais aucune ligne → nouveau utilisateur
-    if (response == null) return null;
-    return PlayerStats.fromSupabaseMap(Map<String, dynamic>.from(response));
-  }
-
-  /// Synchronise les stats vers Supabase (best-effort, ne bloque pas l'UI).
-  Future<void> syncToSupabase(String userId, PlayerStats stats) async {
-    try {
-      await _supabase.from('player_stats').upsert({
-        'user_id': userId,
-        ...stats.toSupabaseMap(),
-      });
-    } catch (e) {
-      debugPrint('PlayerRepository: erreur sync Supabase: $e');
-    }
-  }
+  /// Lit l'état faisant autorité (crée la ligne côté serveur si besoin).
+  /// Propage les erreurs : l'appelant garde alors le cache.
+  Future<PlayerServerState> fetchServerState() => _api.getPlayerState();
 }

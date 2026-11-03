@@ -1,0 +1,9 @@
+{
+  "name": "sameva-banc-e2e",
+  "private": true,
+  "type": "module",
+  "description": "Pilotage de l'app Flutter web par Playwright (banc d'essai local)",
+  "dependencies": {
+    "playwright-core": "1.56.1"
+  }
+}

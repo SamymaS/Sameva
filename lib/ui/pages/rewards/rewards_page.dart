@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../../../core/audio/sons.dart';
+import '../../../core/router/app_router.dart';
 import 'package:provider/provider.dart';
 import '../../../data/models/item_model.dart';
 import '../../../data/models/quest_model.dart';
@@ -13,17 +16,23 @@ import '../../theme/app_colors.dart';
 /// 1. Depuis la navigation principale (sans arguments) → résumé global.
 /// 2. Après completion d'une quête (arguments [RewardsArgs]) → célébration.
 class RewardsPage extends StatefulWidget {
-  const RewardsPage({super.key});
+  const RewardsPage({super.key, this.args});
+
+  /// Récompenses à afficher (passées par le routeur via `extra`).
+  final RewardsArgs? args;
 
   @override
   State<RewardsPage> createState() => _RewardsPageState();
 }
 
-/// Arguments optionnels passés via `Navigator.pushNamed('/rewards', arguments: RewardsArgs(...))`.
+/// Arguments passés par le routeur : `context.push(Routes.recompenses, extra: RewardsArgs(...))`.
 class RewardsArgs {
   final int xpGained;
   final int goldGained;
   final int crystalsGained;
+
+  /// Sceaux d'invocation gagnés (quêtes prouvées par l'Oracle).
+  final int sealsGained;
   final bool leveledUp;
   final int newLevel;
   final Item? droppedItem;
@@ -33,6 +42,7 @@ class RewardsArgs {
     required this.xpGained,
     required this.goldGained,
     this.crystalsGained = 0,
+    this.sealsGained = 0,
     this.leveledUp = false,
     this.newLevel = 1,
     this.droppedItem,
@@ -73,9 +83,11 @@ class _RewardsPageState extends State<RewardsPage>
     );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _args = ModalRoute.of(context)?.settings.arguments as RewardsArgs?;
+      _args = widget.args ??
+          ModalRoute.of(context)?.settings.arguments as RewardsArgs?;
       if (_args != null) {
         _countCtrl.forward();
+        unawaited(Sons.jouer(_args!.leveledUp ? Son.niveauSuperieur : Son.queteAccomplie));
       }
       setState(() {});
     });
@@ -108,6 +120,7 @@ class _RewardsPageState extends State<RewardsPage>
         backgroundColor: AppColors.backgroundNightBlue,
         appBar: AppBar(
           backgroundColor: AppColors.backgroundNightBlue,
+          leading: BackButton(onPressed: () => quitterEcran(context)),
           title: const Text(
             'Récompenses',
             style: TextStyle(
@@ -208,15 +221,34 @@ class _CelebrationView extends StatelessWidget {
                     ),
                   ],
                 ),
-                if (args.crystalsGained > 0) ...[
+                if (args.sealsGained > 0 || args.crystalsGained > 0) ...[
                   const SizedBox(height: 12),
-                  _AnimatedCounter(
-                    animation: countAnimation,
-                    target: args.crystalsGained,
-                    icon: Icons.diamond,
-                    color: AppColors.primaryVioletLight,
-                    label: 'Cristaux (level-up)',
-                    prefix: '+',
+                  Row(
+                    children: [
+                      if (args.sealsGained > 0)
+                        Expanded(
+                          child: _AnimatedCounter(
+                            animation: countAnimation,
+                            target: args.sealsGained,
+                            icon: Icons.auto_awesome,
+                            color: AppColors.crystalBlue,
+                            label: args.sealsGained > 1 ? 'Sceaux d\'invocation' : 'Sceau d\'invocation',
+                            prefix: '+',
+                          ),
+                        ),
+                      if (args.sealsGained > 0 && args.crystalsGained > 0) const SizedBox(width: 12),
+                      if (args.crystalsGained > 0)
+                        Expanded(
+                          child: _AnimatedCounter(
+                            animation: countAnimation,
+                            target: args.crystalsGained,
+                            icon: Icons.diamond,
+                            color: AppColors.primaryVioletLight,
+                            label: 'Cristaux',
+                            prefix: '+',
+                          ),
+                        ),
+                    ],
                   ),
                 ],
                 const SizedBox(height: 16),
@@ -241,7 +273,7 @@ class _CelebrationView extends StatelessWidget {
                 _StatsSection(),
                 const SizedBox(height: 24),
                 ElevatedButton(
-                  onPressed: () => Navigator.of(context).pop(),
+                  onPressed: () => quitterEcran(context),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primaryTurquoise,
                     foregroundColor: AppColors.backgroundNightBlue,

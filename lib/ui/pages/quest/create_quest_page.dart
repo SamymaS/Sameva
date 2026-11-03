@@ -33,6 +33,32 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
   TimeOfDay _deadlineTime = const TimeOfDay(hour: 23, minute: 59);
 
   bool get _isEditMode => widget.initialQuest != null;
+
+  /// Sprint 1 : le serveur fige titre, catégorie, difficulté et mode de
+  /// preuve 10 minutes après la création (code `champ_verrouille`).
+  bool get _contentLocked =>
+      _isEditMode &&
+      DateTime.now().difference(widget.initialQuest!.createdAt) >=
+          const Duration(minutes: 10);
+
+  /// Une quête à preuve photo ne redevient jamais déclarative.
+  bool get _proofRequiredInitially =>
+      _isEditMode && widget.initialQuest!.validationType == ValidationType.photo;
+
+  void _onValidationTypeChanged(ValidationType t) {
+    final requiresProof = t == ValidationType.photo;
+    if (_proofRequiredInitially && !requiresProof) {
+      AppNotification.show(context,
+          message: 'Une quête à preuve ne peut pas redevenir déclarative.');
+      return;
+    }
+    setState(() => _validationType = t);
+  }
+
+  /// Rend un bloc non modifiable (grisé) quand le contenu est figé.
+  Widget _lockable(Widget child) => _contentLocked
+      ? Opacity(opacity: 0.45, child: AbsorbPointer(child: child))
+      : child;
   bool get _canSubmit => _titleController.text.trim().isNotEmpty;
 
   @override
@@ -104,41 +130,50 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
                       // ── Titre ──────────────────────────────────────────
                       const _SectionLabel(label: 'Titre *'),
                       const SizedBox(height: 8),
-                      TextFormField(
-                        controller: _titleController,
-                        decoration: InputDecoration(
-                          hintText: 'Ex. Ranger ma chambre',
-                          hintStyle: const TextStyle(color: AppColors.textMuted),
-                          filled: true,
-                          fillColor: AppColors.backgroundDarkPanel,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(
-                                color: AppColors.inputBorder),
+                      Semantics(
+                        label: 'Titre de la quête',
+                        child: TextFormField(
+                          controller: _titleController,
+                          enabled: !_contentLocked,
+                          decoration: InputDecoration(
+                            hintText: 'Ex. Ranger ma chambre',
+                            hintStyle:
+                                const TextStyle(color: AppColors.textMuted),
+                            filled: true,
+                            fillColor: AppColors.backgroundDarkPanel,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(
+                                  color: AppColors.inputBorder),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(
+                                  color: AppColors.inputBorder),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(
+                                  color: AppColors.primaryTurquoise),
+                            ),
                           ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(
-                                color: AppColors.inputBorder),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(
-                                color: AppColors.primaryTurquoise),
-                          ),
+                          style: const TextStyle(color: AppColors.textPrimary),
+                          maxLength: 80,
+                          buildCounter: (_,
+                                  {required currentLength,
+                                  required isFocused,
+                                  maxLength}) =>
+                              Text('$currentLength/$maxLength',
+                                  style: const TextStyle(
+                                      color: AppColors.textMuted,
+                                      fontSize: 11)),
+                          validator: (v) {
+                            if (v == null || v.trim().isEmpty) {
+                              return 'Indiquez un titre';
+                            }
+                            return null;
+                          },
                         ),
-                        style: const TextStyle(color: AppColors.textPrimary),
-                        maxLength: 80,
-                        buildCounter: (_, {required currentLength, required isFocused, maxLength}) =>
-                            Text('$currentLength/$maxLength',
-                                style: const TextStyle(
-                                    color: AppColors.textMuted, fontSize: 11)),
-                        validator: (v) {
-                          if (v == null || v.trim().isEmpty) {
-                            return 'Indiquez un titre';
-                          }
-                          return null;
-                        },
                       ),
                       const SizedBox(height: 16),
 
@@ -149,18 +184,19 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
                         controller: _descriptionController,
                         decoration: InputDecoration(
                           hintText: 'Détails ou sous-objectifs…',
-                          hintStyle: const TextStyle(color: AppColors.textMuted),
+                          hintStyle:
+                              const TextStyle(color: AppColors.textMuted),
                           filled: true,
                           fillColor: AppColors.backgroundDarkPanel,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(
-                                color: AppColors.inputBorder),
+                            borderSide:
+                                const BorderSide(color: AppColors.inputBorder),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(
-                                color: AppColors.inputBorder),
+                            borderSide:
+                                const BorderSide(color: AppColors.inputBorder),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
@@ -171,7 +207,10 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
                         style: const TextStyle(color: AppColors.textPrimary),
                         maxLines: 3,
                         maxLength: 300,
-                        buildCounter: (_, {required currentLength, required isFocused, maxLength}) =>
+                        buildCounter: (_,
+                                {required currentLength,
+                                required isFocused,
+                                maxLength}) =>
                             Text('$currentLength/$maxLength',
                                 style: const TextStyle(
                                     color: AppColors.textMuted, fontSize: 11)),
@@ -181,30 +220,38 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
                       // ── Catégorie ──────────────────────────────────────
                       const _SectionLabel(label: 'Catégorie'),
                       const SizedBox(height: 8),
-                      _CategoryPicker(
+                      _lockable(_CategoryPicker(
                         categories: vm.categories,
                         selected: _category,
                         onChanged: (c) => setState(() => _category = c),
-                      ),
+                      )),
                       const SizedBox(height: 20),
 
                       // ── Difficulté ─────────────────────────────────────
                       const _SectionLabel(label: 'Difficulté'),
                       const SizedBox(height: 8),
-                      _DifficultyPicker(
+                      _lockable(_DifficultyPicker(
                         value: _difficulty,
                         onChanged: (v) => setState(() => _difficulty = v),
-                      ),
+                      )),
                       const SizedBox(height: 20),
 
                       // ── Type de validation ─────────────────────────────
                       const _SectionLabel(label: 'Validation'),
                       const SizedBox(height: 8),
-                      _ValidationTypePicker(
+                      _lockable(_ValidationTypePicker(
                         selected: _validationType,
-                        onChanged: (t) =>
-                            setState(() => _validationType = t),
-                      ),
+                        onChanged: _onValidationTypeChanged,
+                      )),
+                      if (_contentLocked) ...[
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Titre, catégorie, difficulté et preuve sont figés '
+                          '10 minutes après la création.',
+                          style: TextStyle(
+                              color: AppColors.textMuted, fontSize: 11),
+                        ),
+                      ],
                       const SizedBox(height: 20),
 
                       // ── Fréquence ──────────────────────────────────────
@@ -221,8 +268,7 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
                       const SizedBox(height: 8),
                       _DurationPicker(
                         value: _durationMinutes,
-                        onChanged: (v) =>
-                            setState(() => _durationMinutes = v),
+                        onChanged: (v) => setState(() => _durationMinutes = v),
                       ),
                       const SizedBox(height: 20),
 
@@ -267,8 +313,8 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
                           style: FilledButton.styleFrom(
                             backgroundColor: AppColors.primaryTurquoise,
                             foregroundColor: AppColors.backgroundNightBlue,
-                            disabledBackgroundColor:
-                                AppColors.primaryTurquoise.withValues(alpha: 0.3),
+                            disabledBackgroundColor: AppColors.primaryTurquoise
+                                .withValues(alpha: 0.3),
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14)),
                             textStyle: const TextStyle(
@@ -321,18 +367,18 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
     DateTime? deadline;
     switch (_scheduleOption) {
       case 'today':
-        deadline = DateTime(now.year, now.month, now.day,
-            _deadlineTime.hour, _deadlineTime.minute);
+        deadline = DateTime(now.year, now.month, now.day, _deadlineTime.hour,
+            _deadlineTime.minute);
         break;
       case 'tomorrow':
         final t = now.add(const Duration(days: 1));
-        deadline = DateTime(t.year, t.month, t.day,
-            _deadlineTime.hour, _deadlineTime.minute);
+        deadline = DateTime(
+            t.year, t.month, t.day, _deadlineTime.hour, _deadlineTime.minute);
         break;
       case 'week':
         final t = now.add(const Duration(days: 7));
-        deadline = DateTime(t.year, t.month, t.day,
-            _deadlineTime.hour, _deadlineTime.minute);
+        deadline = DateTime(
+            t.year, t.month, t.day, _deadlineTime.hour, _deadlineTime.minute);
         break;
       case 'none':
       default:
@@ -380,7 +426,8 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
     if (ok) {
       Navigator.of(context).pop();
       if (!_isEditMode) Navigator.of(context).pop();
-      AppNotification.show(context, message: _isEditMode ? 'Quête modifiée !' : 'Quête créée !');
+      AppNotification.show(context,
+          message: _isEditMode ? 'Quête modifiée !' : 'Quête créée !');
     }
   }
 }
@@ -445,8 +492,7 @@ class _CategoryPicker extends StatelessWidget {
                     ? AppColors.primaryTurquoise
                     : AppColors.textSecondary,
                 fontSize: 13,
-                fontWeight:
-                    isSelected ? FontWeight.w600 : FontWeight.normal,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
           ),
@@ -471,14 +517,20 @@ class _DifficultyPicker extends StatelessWidget {
         Row(
           children: List.generate(4, (i) {
             final filled = i < value;
-            return GestureDetector(
-              onTap: () => onChanged(i + 1),
-              child: Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: Icon(
-                  filled ? Icons.star_rounded : Icons.star_outline_rounded,
-                  color: filled ? AppColors.gold : AppColors.textMuted,
-                  size: 32,
+            return Semantics(
+              button: true,
+              selected: i + 1 == value,
+              label: 'Difficulté ${i + 1} : ${_labels[i]}',
+              excludeSemantics: true,
+              child: GestureDetector(
+                onTap: () => onChanged(i + 1),
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: Icon(
+                    filled ? Icons.star_rounded : Icons.star_outline_rounded,
+                    color: filled ? AppColors.gold : AppColors.textMuted,
+                    size: 32,
+                  ),
                 ),
               ),
             );
@@ -487,8 +539,7 @@ class _DifficultyPicker extends StatelessWidget {
         const SizedBox(width: 10),
         Text(
           _labels[value - 1],
-          style: const TextStyle(
-              color: AppColors.textSecondary, fontSize: 13),
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
         ),
       ],
     );
@@ -506,10 +557,17 @@ class _ValidationTypePicker extends StatelessWidget {
 
   static const _options = [
     (type: ValidationType.manual, icon: Icons.check_outlined, label: 'Manuel'),
-    (type: ValidationType.photo, icon: Icons.camera_alt_outlined, label: 'Photo'),
-    (type: ValidationType.ai, icon: Icons.psychology_outlined, label: 'IA texte'),
+    (
+      type: ValidationType.photo,
+      icon: Icons.camera_alt_outlined,
+      label: 'Photo'
+    ),
     (type: ValidationType.timer, icon: Icons.timer_outlined, label: 'Timer'),
-    (type: ValidationType.geolocation, icon: Icons.location_on_outlined, label: 'Lieu'),
+    (
+      type: ValidationType.geolocation,
+      icon: Icons.location_on_outlined,
+      label: 'Lieu'
+    ),
   ];
 
   @override
@@ -521,8 +579,7 @@ class _ValidationTypePicker extends StatelessWidget {
           child: GestureDetector(
             onTap: () => onChanged(opt.type),
             child: Container(
-              margin: EdgeInsets.only(
-                  right: opt == _options.last ? 0 : 8),
+              margin: EdgeInsets.only(right: opt == _options.last ? 0 : 8),
               padding: const EdgeInsets.symmetric(vertical: 10),
               decoration: BoxDecoration(
                 color: isSelected
@@ -585,8 +642,7 @@ class _FrequencyPicker extends StatelessWidget {
           child: GestureDetector(
             onTap: () => onChanged(opt.freq),
             child: Container(
-              margin: EdgeInsets.only(
-                  right: opt == _options.last ? 0 : 8),
+              margin: EdgeInsets.only(right: opt == _options.last ? 0 : 8),
               padding: const EdgeInsets.symmetric(vertical: 10),
               decoration: BoxDecoration(
                 color: isSelected
@@ -606,9 +662,8 @@ class _FrequencyPicker extends StatelessWidget {
                             ? AppColors.secondaryVioletGlow
                             : AppColors.textMuted,
                         fontSize: 12,
-                        fontWeight: isSelected
-                            ? FontWeight.w600
-                            : FontWeight.normal)),
+                        fontWeight:
+                            isSelected ? FontWeight.w600 : FontWeight.normal)),
               ),
             ),
           ),
@@ -662,8 +717,7 @@ class _DurationPicker extends StatelessWidget {
                       ? AppColors.primaryTurquoise
                       : AppColors.textSecondary,
                   fontSize: 13,
-                  fontWeight:
-                      isSelected ? FontWeight.w600 : FontWeight.normal,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
             ),

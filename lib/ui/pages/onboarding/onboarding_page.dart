@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../../core/router/app_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
@@ -103,7 +105,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     final onboardingKey = 'has_onboarded_$userId';
     await Hive.box('settings').put(onboardingKey, true);
     if (!mounted) return;
-    Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+    context.go(Routes.accueil);
   }
 
   Future<void> _confirmSkip() async {

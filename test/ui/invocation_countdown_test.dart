@@ -7,6 +7,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 import 'package:sameva/data/repositories/auth_repository.dart';
+import 'package:sameva/data/repositories/game_api.dart';
 import 'package:sameva/data/repositories/player_repository.dart';
 import 'package:sameva/presentation/view_models/auth_view_model.dart';
 import 'package:sameva/presentation/view_models/cat_view_model.dart';
@@ -23,7 +24,7 @@ class _MockBox extends Mock implements Box<dynamic> {}
 
 class _MockUser extends Mock implements User {}
 
-Widget _buildInvocationTab() {
+Future<Widget> _buildInvocationTab(WidgetTester tester, {bool freeAvailable = true}) async {
   final authRepo = _MockAuthRepository();
   final mockUser = _MockUser();
   when(() => mockUser.id).thenReturn('u1');
@@ -34,11 +35,20 @@ Widget _buildInvocationTab() {
   final authVm = AuthViewModel(authRepo);
 
   final playerRepo = _MockPlayerRepository();
-  when(() => playerRepo.loadLocalStats()).thenReturn(PlayerStats(crystals: 200));
-  when(() => playerRepo.fetchRemoteStats(any())).thenAnswer((_) async => null);
+  when(() => playerRepo.loadLocalStats()).thenReturn(PlayerStats(seals: 200));
+  // La disponibilité du tirage gratuit vient de l'état serveur (Sprint 1).
+  when(() => playerRepo.fetchServerState()).thenAnswer((_) async => PlayerServerState(
+        stats: PlayerStats(seals: 200),
+        xpForNextLevel: 150,
+        energy: 3,
+        premium: false,
+        gacha: {
+          'objets': GachaBannerState(sinceEpic: 0, sinceLegendary: 0, freeAvailable: freeAvailable),
+        },
+      ));
   when(() => playerRepo.saveLocalStats(any())).thenAnswer((_) async {});
-  when(() => playerRepo.syncToSupabase(any(), any())).thenAnswer((_) async {});
   final playerVm = PlayerViewModel(playerRepo);
+  await tester.runAsync(() => playerVm.loadPlayerStats('u1'));
 
   final invBox = _MockBox();
   when(() => invBox.get(any())).thenReturn(null);
@@ -91,9 +101,7 @@ void main() {
     // démarré (_canUseFree == true → return early dans _startCountdownIfNeeded).
     testWidgets('affiche "Gratuit" quand aucun tirage n\'a été effectué',
         (tester) async {
-      await tester.runAsync(() => Hive.box('settings').delete('lastFreePullAt'));
-
-      await tester.pumpWidget(_buildInvocationTab());
+      await tester.pumpWidget(await _buildInvocationTab(tester));
       await tester.pump();
 
       expect(find.text('Gratuit'), findsOneWidget);
@@ -104,12 +112,9 @@ void main() {
     testWidgets(
         'affiche le compte à rebours quand un tirage gratuit a déjà été utilisé',
         (tester) async {
-      final lastPull =
-          DateTime.now().subtract(const Duration(hours: 1)).toIso8601String();
-      await tester
-          .runAsync(() => Hive.box('settings').put('lastFreePullAt', lastPull));
+      const free = false;
 
-      await tester.pumpWidget(_buildInvocationTab());
+      await tester.pumpWidget(await _buildInvocationTab(tester, freeAvailable: free));
       await tester.pump();
 
       // Le bouton affiche le temps restant, pas "Gratuit".
@@ -137,12 +142,9 @@ void main() {
     // est précisément ce qui manquait et gelait l'affichage.
     testWidgets('le Timer.periodic tourne puis est annulé au dispose (pas de fuite)',
         (tester) async {
-      final lastPull =
-          DateTime.now().subtract(const Duration(hours: 1)).toIso8601String();
-      await tester
-          .runAsync(() => Hive.box('settings').put('lastFreePullAt', lastPull));
+      const free = false;
 
-      await tester.pumpWidget(_buildInvocationTab());
+      await tester.pumpWidget(await _buildInvocationTab(tester, freeAvailable: free));
       await tester.pump();
 
       // Laisse le Timer.periodic (1 s) se déclencher plusieurs fois.

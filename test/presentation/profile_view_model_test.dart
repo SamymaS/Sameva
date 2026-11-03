@@ -56,7 +56,7 @@ void main() {
         ),
       ];
       when(() => playerRepo.loadLocalStats()).thenReturn(stats);
-      when(() => playerRepo.fetchRemoteStats('u')).thenAnswer((_) async => null);
+      when(() => playerRepo.fetchServerState()).thenAnswer((_) async => throw Exception('hors-ligne'));
       when(() => questRepo.loadQuests('u')).thenAnswer((_) async => quests);
 
       await vm.load('u');
@@ -69,7 +69,7 @@ void main() {
 
     test('load avec erreur quêtes laisse une liste vide', () async {
       when(() => playerRepo.loadLocalStats()).thenReturn(PlayerStats());
-      when(() => playerRepo.fetchRemoteStats('u')).thenAnswer((_) async => null);
+      when(() => playerRepo.fetchServerState()).thenAnswer((_) async => throw Exception('hors-ligne'));
       when(() => questRepo.loadQuests('u')).thenThrow(Exception('net'));
 
       await vm.load('u');
@@ -83,7 +83,7 @@ void main() {
       when(() => user.email).thenReturn('hero@sameva.app');
       when(() => auth.user).thenReturn(user);
       when(() => playerRepo.loadLocalStats()).thenReturn(PlayerStats());
-      when(() => playerRepo.fetchRemoteStats('u')).thenAnswer((_) async => null);
+      when(() => playerRepo.fetchServerState()).thenAnswer((_) async => throw Exception('hors-ligne'));
       when(() => questRepo.loadQuests('u')).thenAnswer((_) async => []);
 
       await vm.load('u');

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import '../../../data/repositories/game_api.dart';
 import 'package:uuid/uuid.dart';
 import '../../../config/feature_flags.dart';
 import '../../../data/models/item_model.dart';
 import '../../../domain/services/item_factory.dart';
-import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/view_models/cat_view_model.dart';
 import '../../../presentation/view_models/inventory_view_model.dart';
 import '../../../presentation/view_models/player_view_model.dart';
@@ -277,17 +277,31 @@ class _ShopTabState extends State<_ShopTab> {
 // Achat gold centralisé
 // ─────────────────────────────────────────────────────────────────────────────
 
-void _executeBuyWithGold(
-    BuildContext context, Item item, Color notificationColor) {
+Future<void> _executeBuyWithGold(
+    BuildContext context, Item item, Color notificationColor) async {
   if (item.goldValue <= 0) return;
-  final auth = context.read<AuthViewModel>();
   final player = context.read<PlayerViewModel>();
   final inventory = context.read<InventoryViewModel>();
   if ((player.stats?.gold ?? 0) < item.goldValue) return;
   if (inventory.isFull) return;
-  final userId = auth.userId ?? '';
+  // Débit serveur d'abord ; l'objet n'arrive qu'après succès
+  // (TRANSITOIRE jusqu'au Sprint 3, catalogue serveur).
+  try {
+    await player.spend(
+      resource: 'gold',
+      amount: item.goldValue,
+      reason: 'marche_achat',
+      ref: item.id,
+    );
+  } on GameApiException catch (e) {
+    if (context.mounted) {
+      AppNotification.show(context,
+          message: e.userMessage, backgroundColor: AppColors.error);
+    }
+    return;
+  }
   inventory.addItem(item.copyWith(id: const Uuid().v4()));
-  player.addGold(userId, -item.goldValue);
+  if (!context.mounted) return;
   AppNotification.show(
     context,
     message: '${item.name} acheté !',
@@ -965,16 +979,29 @@ class _CrystalTile extends StatelessWidget {
     );
   }
 
-  void _buy(BuildContext context, PlayerViewModel player,
-      InventoryViewModel inventory) {
+  Future<void> _buy(BuildContext context, PlayerViewModel player,
+      InventoryViewModel inventory) async {
     if (item.crystalValue <= 0) return;
     if ((player.stats?.crystals ?? 0) < item.crystalValue) return;
     if (inventory.isFull) return;
-    final auth = context.read<AuthViewModel>();
-    final userId = auth.userId ?? '';
-    player.spendCrystals(userId, item.crystalValue);
+    // Débit serveur d'abord (TRANSITOIRE jusqu'au Sprint 3).
+    try {
+      await player.spend(
+        resource: 'crystals',
+        amount: item.crystalValue,
+        reason: 'boutique_cristaux',
+        ref: item.id,
+      );
+    } on GameApiException catch (e) {
+      if (context.mounted) {
+        AppNotification.show(context,
+            message: e.userMessage, backgroundColor: AppColors.error);
+      }
+      return;
+    }
     final newItem = item.copyWith(id: const Uuid().v4());
     inventory.addItem(newItem);
+    if (!context.mounted) return;
     AppNotification.show(
       context,
       message: '${item.name} acheté !',
@@ -1139,16 +1166,34 @@ class _SellTab extends StatelessWidget {
     }
   }
 
-  void _sell(BuildContext context, InventoryViewModel inventory, Item item,
-      int sellPrice) {
+  Future<void> _sell(BuildContext context, InventoryViewModel inventory, Item item,
+      int sellPrice) async {
     final player = context.read<PlayerViewModel>();
-    final auth = context.read<AuthViewModel>();
-    final userId = auth.userId ?? '';
+    // Crédit serveur plafonné d'abord (TRANSITOIRE jusqu'au Sprint 3) ;
+    // l'objet ne quitte l'inventaire qu'après succès.
+    final int granted;
+    try {
+      granted = (await player.claimTransitionalReward('vente_objet', sellPrice, ref: item.id)).grantedInt;
+    } on GameApiException catch (e) {
+      if (context.mounted) {
+        AppNotification.show(context,
+            message: e.userMessage, backgroundColor: AppColors.error);
+      }
+      return;
+    }
+    if (!context.mounted) return;
+    if (granted <= 0) {
+      AppNotification.show(context,
+          message: 'Limite de ventes du jour atteinte. Reviens demain !',
+          backgroundColor: AppColors.warning);
+      return;
+    }
     inventory.removeItem(item.id, force: true);
-    player.addGold(userId, sellPrice);
     AppNotification.show(
       context,
-      message: '${item.name} vendu pour $sellPrice pièces.',
+      message: granted < sellPrice
+          ? '${item.name} vendu pour $granted pièces (plafond du jour atteint).'
+          : '${item.name} vendu pour $granted pièces.',
       backgroundColor: AppColors.gold.withValues(alpha: 0.85),
     );
   }

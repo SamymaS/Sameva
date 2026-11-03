@@ -1,5 +1,8 @@
 /// Modèle immuable représentant les statistiques du joueur.
-/// Persisté localement via Hive (JSON) et synchronisé avec Supabase.
+///
+/// Sprint 1 : le serveur est l'unique source de vérité. Ce modèle est LU
+/// depuis Supabase (`get_player_state`) et mis en cache dans Hive pour un
+/// affichage hors-ligne ; il n'est plus jamais écrit vers Supabase.
 class PlayerStats {
   final int level;
   final int experience;
@@ -17,6 +20,19 @@ class PlayerStats {
   final int pityCount;
   final int catPityCount;
 
+  /// Sceaux d'invocation (monnaie du gacha, uniquement gagnée).
+  final int seals;
+
+  /// XP cumulée depuis le début (classement).
+  final int totalExperience;
+
+  /// État « Épuisé » (PV à 0) : récompenses réduites jusqu'à la prochaine
+  /// quête prouvée.
+  final bool isExhausted;
+
+  /// Poussière d'étoile (doublons du gacha, utilisée au Sprint 3).
+  final int stardust;
+
   PlayerStats({
     this.level = 1,
     this.experience = 0,
@@ -33,6 +49,10 @@ class PlayerStats {
     this.totalQuestsCompleted = 0,
     this.pityCount = 0,
     this.catPityCount = 0,
+    this.seals = 0,
+    this.totalExperience = 0,
+    this.isExhausted = false,
+    this.stardust = 0,
   }) : achievements = achievements ?? {};
 
   // Sérialisation Hive (camelCase)
@@ -52,6 +72,10 @@ class PlayerStats {
         'totalQuestsCompleted': totalQuestsCompleted,
         'pityCount': pityCount,
         'catPityCount': catPityCount,
+        'seals': seals,
+        'totalExperience': totalExperience,
+        'isExhausted': isExhausted,
+        'stardust': stardust,
       };
 
   factory PlayerStats.fromJson(Map<String, dynamic> json) => PlayerStats(
@@ -74,26 +98,14 @@ class PlayerStats {
         totalQuestsCompleted: json['totalQuestsCompleted'] as int? ?? 0,
         pityCount: json['pityCount'] as int? ?? 0,
         catPityCount: json['catPityCount'] as int? ?? 0,
+        seals: json['seals'] as int? ?? 0,
+        totalExperience: json['totalExperience'] as int? ?? 0,
+        isExhausted: json['isExhausted'] as bool? ?? false,
+        stardust: json['stardust'] as int? ?? 0,
       );
 
-  // Sérialisation Supabase (snake_case)
-  Map<String, dynamic> toSupabaseMap() => {
-        'level': level,
-        'experience': experience,
-        'gold': gold,
-        'crystals': crystals,
-        'health_points': healthPoints,
-        'max_health_points': maxHealthPoints,
-        'credibility_score': credibilityScore,
-        'moral': moral,
-        'streak': streak,
-        'max_streak': maxStreak,
-        'last_active_date': lastActiveDate?.toIso8601String(),
-        'achievements': achievements,
-        'total_quests_completed': totalQuestsCompleted,
-        'updated_at': DateTime.now().toIso8601String(),
-      };
-
+  // Lecture Supabase (snake_case). Plus de toSupabaseMap : le client
+  // n'écrit plus jamais player_stats (Sprint 1).
   factory PlayerStats.fromSupabaseMap(Map<String, dynamic> map) => PlayerStats(
         level: map['level'] as int? ?? 1,
         experience: map['experience'] as int? ?? 0,
@@ -112,6 +124,10 @@ class PlayerStats {
             ? Map<String, int>.from(map['achievements'] as Map)
             : {},
         totalQuestsCompleted: map['total_quests_completed'] as int? ?? 0,
+        seals: (map['seals'] as num?)?.toInt() ?? 0,
+        totalExperience: (map['total_experience'] as num?)?.toInt() ?? 0,
+        isExhausted: map['is_exhausted'] as bool? ?? false,
+        stardust: (map['stardust'] as num?)?.toInt() ?? 0,
       );
 
   PlayerStats copyWith({
@@ -130,6 +146,10 @@ class PlayerStats {
     int? totalQuestsCompleted,
     int? pityCount,
     int? catPityCount,
+    int? seals,
+    int? totalExperience,
+    bool? isExhausted,
+    int? stardust,
   }) =>
       PlayerStats(
         level: level ?? this.level,
@@ -147,6 +167,10 @@ class PlayerStats {
         totalQuestsCompleted: totalQuestsCompleted ?? this.totalQuestsCompleted,
         pityCount: pityCount ?? this.pityCount,
         catPityCount: catPityCount ?? this.catPityCount,
+        seals: seals ?? this.seals,
+        totalExperience: totalExperience ?? this.totalExperience,
+        isExhausted: isExhausted ?? this.isExhausted,
+        stardust: stardust ?? this.stardust,
       );
 
   static const List<Map<String, String>> achievementDefinitions = [

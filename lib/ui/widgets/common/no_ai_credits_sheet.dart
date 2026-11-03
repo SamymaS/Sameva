@@ -6,9 +6,9 @@ import '../../theme/app_colors.dart';
 
 /// Affiche le sheet « plus de jetons » via [showModalBottomSheet].
 ///
-/// À appeler au point de gating (solde = 0 + non premium) AVANT de router
-/// en validation manuelle. Le sheet informe l'utilisateur et propose de
-/// continuer en manuel (récompenses à 50 %).
+/// À appeler quand l'énergie de l'Oracle est épuisée (solde = 0 et non
+/// premium, ou refus serveur `energie_insuffisante`). Une quête à preuve ne
+/// se valide que par l'Oracle (Sprint 1) : le sheet explique la recharge.
 Future<void> showNoAiCreditsSheet(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
@@ -80,7 +80,7 @@ class _NoAiCreditsSheetContent extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Ta preuve sera validée manuellement.',
+                  'L\'Oracle se repose pour aujourd\'hui.',
                   style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 14,
@@ -89,9 +89,9 @@ class _NoAiCreditsSheetContent extends StatelessWidget {
                 ),
                 SizedBox(height: 6),
                 Text(
-                  'Tu n\'es jamais bloqué — tu peux toujours valider '
-                  'ta quête, mais les récompenses seront à 50 % '
-                  '(l\'analyse MougiBot n\'a pas pu être effectuée).',
+                  'Ton énergie est épuisée. Ta quête t\'attend : '
+                  'tu pourras la faire valider par MougiBot dès la '
+                  'prochaine recharge.',
                   style: TextStyle(
                     color: AppColors.textMuted,
                     fontSize: 13,
@@ -114,24 +114,14 @@ class _NoAiCreditsSheetContent extends StatelessWidget {
           ),
           const SizedBox(height: 10),
 
-          // +1 quotidien
+          // Recharge quotidienne (serveur : oracle.daily_energy)
           const _CreditSourceRow(
             icon: Icons.today_outlined,
             color: AppColors.mintMagic,
-            title: '+1 $kAiCreditLabel chaque jour',
-            subtitle: 'Connecte-toi quotidiennement pour gagner 1 jeton.',
-          ),
-          const SizedBox(height: 8),
-
-          // Paliers de streak
-          const _CreditSourceRow(
-            icon: Icons.local_fire_department_outlined,
-            color: AppColors.warning,
             title:
-                '+${AiValidationCreditsService.kStreakMilestoneGrant} $kAiCreditLabelPlural '
-                'tous les ${AiValidationCreditsService.kStreakMilestoneInterval} jours de série',
-            subtitle: 'Maintiens ta série de quêtes quotidiennes pour '
-                'débloquer des jetons bonus à chaque palier.',
+                'Recharge à ${AiValidationCreditsService.kDailyEnergyFloor} $kAiCreditLabelPlural chaque jour',
+            subtitle: 'Ouvre l\'app chaque jour : ton énergie remonte '
+                'automatiquement à ${AiValidationCreditsService.kDailyEnergyFloor}.',
           ),
           const SizedBox(height: 16),
 
@@ -154,7 +144,7 @@ class _NoAiCreditsSheetContent extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
-          // Bouton « Continuer en manuel »
+          // Bouton « Plus tard »
           SizedBox(
             width: double.infinity,
             child: FilledButton(
@@ -172,7 +162,7 @@ class _NoAiCreditsSheetContent extends StatelessWidget {
                   fontSize: 15,
                 ),
               ),
-              child: const Text('Continuer en manuel'),
+              child: const Text('Plus tard'),
             ),
           ),
         ],

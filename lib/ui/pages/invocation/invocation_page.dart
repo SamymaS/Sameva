@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../../core/audio/sons.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
@@ -8,7 +9,7 @@ import '../../../data/models/cat_model.dart';
 import '../../../data/models/item_model.dart';
 import '../../../data/models/quest_model.dart';
 import '../../../domain/services/item_factory.dart';
-import '../../../presentation/view_models/auth_view_model.dart';
+import '../../../data/repositories/game_api.dart';
 import '../../../presentation/view_models/cat_view_model.dart';
 import '../../../presentation/view_models/inventory_view_model.dart';
 import '../../../presentation/view_models/player_view_model.dart';
@@ -17,7 +18,8 @@ import '../../utils/app_notification.dart';
 import '../../widgets/cat/cat_widget.dart';
 import '../../widgets/common/rarity_badge.dart';
 
-/// Page invocation gacha : 50 cristaux ou 1 gratuit/24h.
+/// Page invocation gacha (Sprint 1) : payée en Sceaux (10, ou 90 pour 10),
+/// une invocation gratuite par jour, tirage et pity calculés par le serveur.
 class InvocationTab extends StatefulWidget {
   const InvocationTab({super.key});
 
@@ -37,6 +39,10 @@ class _InvocationTabState extends State<InvocationTab>
   final List<Item> _history = [];
   List<Item>? _multiPullResults;
   int _lastDupeRefund = 0;
+
+  /// Garanties anti-malchance renvoyées par le serveur après un tirage.
+  int? _epicIn;
+  int? _legendaryIn;
 
   /// Timer périodique qui rafraîchit l'affichage du compte à rebours du
   /// tirage gratuit. S'auto-annule dès que le tirage redevient disponible.
@@ -70,6 +76,16 @@ class _InvocationTabState extends State<InvocationTab>
 
     _loadHistory();
     _startCountdownIfNeeded();
+    // La disponibilité du tirage gratuit vient du serveur : on relance le
+    // compte à rebours dès que l'état joueur est rafraîchi.
+    _playerVm = context.read<PlayerViewModel>()..addListener(_onPlayerChanged);
+  }
+
+  PlayerViewModel? _playerVm;
+
+  void _onPlayerChanged() {
+    if (!mounted) return;
+    if (!(_countdownTimer?.isActive ?? false)) _startCountdownIfNeeded();
   }
 
   /// Démarre un Timer.periodic d'1 seconde pour mettre à jour l'affichage
@@ -124,45 +140,18 @@ class _InvocationTabState extends State<InvocationTab>
     }
   }
 
-  static const _refundDailyCap = 200;
-  static const _refundDateKey = 'dupe_refund_date';
-  static const _refundAmountKey = 'dupe_refund_today';
+  /// Coûts en Sceaux, alignés sur `game_config.gacha.banners`.
+  static const _sealCost = 10;
+  static const _sealCostX10 = 90;
 
-  /// Récupère le total déjà refund aujourd'hui (reset à minuit).
-  int _todayRefundTotal() {
-    try {
-      final box = Hive.box('settings');
-      final dateStr = box.get(_refundDateKey) as String?;
-      final today = DateTime.now().toIso8601String().substring(0, 10);
-      if (dateStr != today) return 0;
-      return box.get(_refundAmountKey, defaultValue: 0) as int;
-    } catch (e) {
-      debugPrint('refund cap read error: $e');
-      return 0;
-    }
-  }
-
-  Future<void> _addRefundToToday(int amount) async {
-    try {
-      final box = Hive.box('settings');
-      final today = DateTime.now().toIso8601String().substring(0, 10);
-      final current = _todayRefundTotal();
-      await box.put(_refundDateKey, today);
-      await box.put(_refundAmountKey, current + amount);
-    } catch (e) {
-      debugPrint('refund cap write error: $e');
-    }
-  }
-
-  /// Détecte un cosmétique déjà possédé. Retourne le refund cristaux selon rareté.
-  /// Retourne 0 si pas un doublon OU si cap journalier atteint.
-  /// Items verrouillés non comptés comme doublons (utilisateur garde le dupe).
-  int _checkDupeRefund(Item item, InventoryViewModel inv) {
+  /// Remboursement indicatif d'un doublon cosmétique, selon la rareté.
+  /// Le serveur plafonne (TRANSITOIRE jusqu'au Sprint 3, Poussière d'étoile).
+  int _dupeRefundBase(Item item, InventoryViewModel inv) {
     if (item.type != ItemType.cosmetic) return 0;
     final exists = inv.items.any((i) =>
         i.type == ItemType.cosmetic && i.name == item.name && i.id != item.id);
     if (!exists) return 0;
-    final base = switch (item.rarity) {
+    return switch (item.rarity) {
       QuestRarity.common => 2,
       QuestRarity.uncommon => 5,
       QuestRarity.rare => 10,
@@ -170,13 +159,22 @@ class _InvocationTabState extends State<InvocationTab>
       QuestRarity.legendary => 50,
       QuestRarity.mythic => 100,
     };
-    final usedToday = _todayRefundTotal();
-    final remaining = (_refundDailyCap - usedToday).clamp(0, _refundDailyCap);
-    return base.clamp(0, remaining);
+  }
+
+  /// Demande le remboursement des doublons ; renvoie le montant accordé.
+  Future<int> _claimDupeRefund(PlayerViewModel player, int amount) async {
+    if (amount <= 0) return 0;
+    try {
+      return (await player.claimTransitionalReward('doublon', amount)).grantedInt;
+    } on GameApiException catch (e) {
+      debugPrint('InvocationTab: remboursement doublon refusé: $e');
+      return 0;
+    }
   }
 
   @override
   void dispose() {
+    _playerVm?.removeListener(_onPlayerChanged);
     _countdownTimer?.cancel();
     _pulseController.dispose();
     _revealController.dispose();
@@ -185,20 +183,20 @@ class _InvocationTabState extends State<InvocationTab>
 
   Box get _settings => Hive.box('settings');
 
-  bool get _canUseFree {
-    final lastStr = _settings.get('lastFreePullAt') as String?;
-    if (lastStr == null) return true;
-    final last = DateTime.parse(lastStr);
-    return DateTime.now().difference(last).inHours >= 24;
+  /// Disponibilité du tirage gratuit, lue dans l'état serveur (un par jour
+  /// local du joueur).
+  bool get _canUseFree =>
+      context.read<PlayerViewModel>().gacha['objets']?.freeAvailable ?? true;
+
+  /// Temps restant avant minuit (renouvellement du tirage gratuit).
+  Duration get _freeTimeRemaining {
+    final now = DateTime.now();
+    final midnight = DateTime(now.year, now.month, now.day + 1);
+    return midnight.difference(now);
   }
 
-  Duration get _freeTimeRemaining {
-    final lastStr = _settings.get('lastFreePullAt') as String?;
-    if (lastStr == null) return Duration.zero;
-    final last = DateTime.parse(lastStr);
-    final elapsed = DateTime.now().difference(last);
-    final remaining = const Duration(hours: 24) - elapsed;
-    return remaining.isNegative ? Duration.zero : remaining;
+  void _showApiError(GameApiException e) {
+    AppNotification.show(context, message: e.userMessage, backgroundColor: AppColors.error);
   }
 
   Future<void> _pull({required bool isFree}) async {
@@ -206,47 +204,37 @@ class _InvocationTabState extends State<InvocationTab>
 
     final player = context.read<PlayerViewModel>();
     final inventory = context.read<InventoryViewModel>();
-    final auth = context.read<AuthViewModel>();
-    final userId = auth.userId ?? '';
 
-    if (!isFree) {
-      if ((player.stats?.crystals ?? 0) < 50) {
-        AppNotification.show(
-          context,
-          message: 'Pas assez de cristaux ! (50 requis)',
-          backgroundColor: AppColors.error,
-        );
-        return;
-      }
-      await player.spendCrystals(userId, 50);
-    } else {
-      await _settings.put('lastFreePullAt', DateTime.now().toIso8601String());
-      // Démarre le compte à rebours dès que lastFreePullAt est enregistré
-      _startCountdownIfNeeded();
+    if (!isFree && (player.stats?.seals ?? 0) < _sealCost) {
+      AppNotification.show(
+        context,
+        message: 'Pas assez de Sceaux ! ($_sealCost requis)',
+        backgroundColor: AppColors.error,
+      );
+      return;
     }
 
     setState(() => _isRevealing = true);
     _revealController.reset();
 
-    final pityCount = player.stats?.pityCount ?? 0;
-    final pullResult = ItemFactory.rollGachaRarityWithPity(pityCount);
-    final item = ItemFactory.generateRandomItem(pullResult.rarity);
-
-    // Mise à jour du compteur pity (centralisé via pityTriggered)
-    if (pullResult.pityTriggered) {
-      await player.resetPity(userId);
-    } else {
-      await player.incrementPity(userId);
+    final InvokeResult result;
+    try {
+      result = await player.invoke('objets', useFree: isFree);
+    } on GameApiException catch (e) {
+      if (mounted) {
+        setState(() => _isRevealing = false);
+        _showApiError(e);
+      }
+      return;
     }
+    if (isFree) _startCountdownIfNeeded();
 
-    // Doublon cosmétique → refund cristaux au lieu d'ajouter à l'inventaire
-    final refund = _checkDupeRefund(item, inventory);
-    if (refund > 0) {
-      await player.addCrystals(userId, refund);
-      await _addRefundToToday(refund);
-    } else {
-      inventory.addItem(item);
-    }
+    // La rareté vient du serveur ; l'objet concret est encore généré
+    // localement (TRANSITOIRE jusqu'au Sprint 3).
+    unawaited(Sons.jouer(Sons.invocationPour(result.results.first.rarity.name)));
+    final item = ItemFactory.generateRandomItem(result.results.first.rarity);
+    final refund = await _claimDupeRefund(player, _dupeRefundBase(item, inventory));
+    if (refund <= 0) inventory.addItem(item);
 
     await _revealController.forward();
 
@@ -254,6 +242,8 @@ class _InvocationTabState extends State<InvocationTab>
       setState(() {
         _lastItem = item;
         _lastDupeRefund = refund;
+        _epicIn = result.epicGuaranteedIn;
+        _legendaryIn = result.legendaryGuaranteedIn;
         _isRevealing = false;
         _history.insert(0, item);
         if (_history.length > _historyMax) _history.removeLast();
@@ -266,59 +256,65 @@ class _InvocationTabState extends State<InvocationTab>
 
   Future<void> _pullMulti() async {
     if (_isRevealing) return;
-    const count = 10;
-    const cost = 450;
 
     final player = context.read<PlayerViewModel>();
     final inventory = context.read<InventoryViewModel>();
-    final auth = context.read<AuthViewModel>();
-    final userId = auth.userId ?? '';
 
-    if ((player.stats?.crystals ?? 0) < cost) {
-      if (!mounted) return;
+    if ((player.stats?.seals ?? 0) < _sealCostX10) {
       AppNotification.show(
         context,
-        message: 'Pas assez de cristaux ! (450 requis)',
+        message: 'Pas assez de Sceaux ! ($_sealCostX10 requis)',
         backgroundColor: AppColors.error,
       );
       return;
     }
-    await player.spendCrystals(userId, cost);
 
     setState(() => _isRevealing = true);
+    final InvokeResult result;
+    try {
+      result = await player.invoke('objets', count: 10);
+    } on GameApiException catch (e) {
+      if (mounted) {
+        setState(() => _isRevealing = false);
+        _showApiError(e);
+      }
+      return;
+    }
+
+    // Le son annonce la meilleure rareté du tirage multiple.
+    final meilleure = result.results
+        .map((p) => p.rarity)
+        .reduce((a, b) => a.index >= b.index ? a : b);
+    unawaited(Sons.jouer(Sons.invocationPour(meilleure.name)));
     final results = <Item>[];
-    int pityCount = player.stats?.pityCount ?? 0;
-    int totalRefund = 0;
-
-    for (int i = 0; i < count; i++) {
-      final pullResult = ItemFactory.rollGachaRarityWithPity(pityCount);
-      final item = ItemFactory.generateRandomItem(pullResult.rarity);
+    final dupes = <Item>[];
+    int dupeTotal = 0;
+    for (final pull in result.results) {
+      final item = ItemFactory.generateRandomItem(pull.rarity);
       results.add(item);
-
-      // Doublon cosmétique → refund au lieu d'ajout
-      final refund = _checkDupeRefund(item, inventory);
-      if (refund > 0) {
-        totalRefund += refund;
+      final base = _dupeRefundBase(item, inventory);
+      if (base > 0) {
+        dupes.add(item);
+        dupeTotal += base;
       } else {
         inventory.addItem(item);
       }
-
-      pityCount = pullResult.pityTriggered ? 0 : pityCount + 1;
     }
-
-    // Sync pity final en une seule écriture
-    await player.setPity(userId, pityCount);
-
-    if (totalRefund > 0) {
-      await player.addCrystals(userId, totalRefund);
-      await _addRefundToToday(totalRefund);
+    // Doublons : convertis seulement si le serveur accorde un remboursement.
+    final totalRefund = await _claimDupeRefund(player, dupeTotal);
+    if (totalRefund <= 0) {
+      for (final item in dupes) {
+        inventory.addItem(item);
+      }
     }
 
     if (mounted) {
       setState(() {
         _multiPullResults = results;
-        _lastItem = results.last;
+        _lastItem = results.isNotEmpty ? results.last : null;
         _lastDupeRefund = totalRefund;
+        _epicIn = result.epicGuaranteedIn;
+        _legendaryIn = result.legendaryGuaranteedIn;
         _isRevealing = false;
         for (final item in results) {
           _history.insert(0, item);
@@ -516,8 +512,7 @@ class _InvocationTabState extends State<InvocationTab>
                               Expanded(
                                 child: Consumer<PlayerViewModel>(
                                   builder: (ctx, player, _) {
-                                    final crystals =
-                                        player.stats?.crystals ?? 0;
+                                    final seals = player.stats?.seals ?? 0;
                                     return FilledButton.icon(
                                       style: FilledButton.styleFrom(
                                         backgroundColor:
@@ -527,11 +522,11 @@ class _InvocationTabState extends State<InvocationTab>
                                             .withValues(alpha: 0.3),
                                       ),
                                       onPressed:
-                                          (!_isRevealing && crystals >= 50)
+                                          (!_isRevealing && seals >= _sealCost)
                                               ? () => _pull(isFree: false)
                                               : null,
-                                      icon: const Icon(Icons.diamond, size: 16),
-                                      label: const Text('Invoquer (50 💎)'),
+                                      icon: const Icon(Icons.auto_awesome, size: 16),
+                                      label: const Text('Invoquer ($_sealCost Sceaux)'),
                                     );
                                   },
                                 ),
@@ -572,20 +567,20 @@ class _InvocationTabState extends State<InvocationTab>
                           const SizedBox(height: 8),
                           Consumer<PlayerViewModel>(
                             builder: (ctx, player, _) {
-                              final crystals = player.stats?.crystals ?? 0;
+                              final seals = player.stats?.seals ?? 0;
                               return SizedBox(
                                 width: double.infinity,
                                 child: OutlinedButton.icon(
                                   style: OutlinedButton.styleFrom(
                                     side: BorderSide(
-                                      color: (!_isRevealing && crystals >= 450)
+                                      color: (!_isRevealing && seals >= _sealCostX10)
                                           ? AppColors.rarityEpic
                                           : AppColors.rarityEpic
                                               .withValues(alpha: 0.3),
                                     ),
                                     foregroundColor: AppColors.rarityEpic,
                                   ),
-                                  onPressed: (!_isRevealing && crystals >= 450)
+                                  onPressed: (!_isRevealing && seals >= _sealCostX10)
                                       ? () {
                                           setState(
                                               () => _multiPullResults = null);
@@ -594,11 +589,20 @@ class _InvocationTabState extends State<InvocationTab>
                                       : null,
                                   icon:
                                       const Icon(Icons.auto_awesome, size: 16),
-                                  label: const Text('10× Invoquer (450 💎)'),
+                                  label: const Text('10× Invoquer ($_sealCostX10 Sceaux)'),
                                 ),
                               );
                             },
                           ),
+                          if (_epicIn != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              'Épique garanti dans $_epicIn tirage${_epicIn! > 1 ? 's' : ''} · '
+                              'légendaire dans $_legendaryIn',
+                              style: const TextStyle(
+                                  color: AppColors.textMuted, fontSize: 12),
+                            ),
+                          ],
                         ],
                       ),
                       // Résultats 10× pull
@@ -887,7 +891,7 @@ class _CatInvocationTabState extends State<_CatInvocationTab>
   bool _isRevealing = false;
   CatStats? _lastCat;
 
-  static const _catCost = 100; // cristaux par invocation de chat
+  static const _catCost = 10; // Sceaux par invocation de chat (game_config)
 
   @override
   void initState() {
@@ -911,33 +915,34 @@ class _CatInvocationTabState extends State<_CatInvocationTab>
   Future<void> _pullCat() async {
     if (_isRevealing) return;
     final player = context.read<PlayerViewModel>();
-    final auth = context.read<AuthViewModel>();
     final catProvider = context.read<CatViewModel>();
-    final userId = auth.userId ?? '';
 
-    if ((player.stats?.crystals ?? 0) < _catCost) {
+    if ((player.stats?.seals ?? 0) < _catCost) {
       AppNotification.show(
         context,
-        message: 'Pas assez de cristaux ! (100 💎 requis)',
+        message: 'Pas assez de Sceaux ! ($_catCost requis)',
         backgroundColor: AppColors.error,
       );
       return;
     }
 
-    await player.spendCrystals(userId, _catCost);
     setState(() => _isRevealing = true);
     _revealCtrl.reset();
 
-    final catPityCount = player.stats?.catPityCount ?? 0;
-    final pullResult = ItemFactory.rollGachaRarityWithPity(catPityCount);
-
-    if (pullResult.pityTriggered) {
-      await player.resetCatPity(userId);
-    } else {
-      await player.incrementCatPity(userId);
+    // Tirage et pity côté serveur (bannière « compagnons »).
+    final InvokeResult result;
+    try {
+      result = await player.invoke('compagnons');
+    } on GameApiException catch (e) {
+      if (mounted) {
+        setState(() => _isRevealing = false);
+        AppNotification.show(context, message: e.userMessage, backgroundColor: AppColors.error);
+      }
+      return;
     }
 
-    final newCat = await catProvider.addRolledCat(pullResult.rarity);
+    unawaited(Sons.jouer(Sons.invocationPour(result.results.first.rarity.name)));
+    final newCat = await catProvider.addRolledCat(result.results.first.rarity);
     await _revealCtrl.forward();
 
     if (mounted) {
@@ -1039,8 +1044,8 @@ class _CatInvocationTabState extends State<_CatInvocationTab>
           // Bouton invocation
           Consumer<PlayerViewModel>(
             builder: (_, player, __) {
-              final crystals = player.stats?.crystals ?? 0;
-              final canAfford = crystals >= _catCost;
+              final seals = player.stats?.seals ?? 0;
+              final canAfford = seals >= _catCost;
               return SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
@@ -1053,9 +1058,9 @@ class _CatInvocationTabState extends State<_CatInvocationTab>
                         borderRadius: BorderRadius.circular(14)),
                   ),
                   onPressed: (!_isRevealing && canAfford) ? _pullCat : null,
-                  icon: const Icon(Icons.diamond, size: 18),
+                  icon: const Icon(Icons.auto_awesome, size: 18),
                   label: Text(
-                    'Invoquer un chat (100 💎)',
+                    'Invoquer un chat ($_catCost Sceaux)',
                     style: GoogleFonts.nunito(fontWeight: FontWeight.w700),
                   ),
                 ),
@@ -1179,9 +1184,10 @@ class _DropRatesSection extends StatelessWidget {
     (rarity: 'Commune', rate: 60.0, color: AppColors.rarityCommon),
     (rarity: 'Peu commune', rate: 25.0, color: AppColors.rarityUncommon),
     (rarity: 'Rare', rate: 10.0, color: AppColors.rarityRare),
-    (rarity: 'Épique', rate: 4.9, color: AppColors.rarityEpic),
-    (rarity: 'Légendaire', rate: 0.9, color: AppColors.rarityLegendary),
-    (rarity: 'Mythique', rate: 0.1, color: AppColors.rarityMythic),
+    // Taux publiés, identiques à game_config.gacha.rates (bannière standard).
+    (rarity: 'Épique', rate: 4.0, color: AppColors.rarityEpic),
+    (rarity: 'Légendaire', rate: 1.0, color: AppColors.rarityLegendary),
+    (rarity: 'Mythique', rate: 0.0, color: AppColors.rarityMythic),
   ];
 
   @override

@@ -1,4 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../../core/audio/sons.dart';
+import 'package:go_router/go_router.dart';
+import '../../../core/router/app_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
@@ -10,8 +14,8 @@ import '../../../domain/services/minigame_service.dart';
 import '../../../presentation/use_cases/daily_reset_use_case.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/view_models/cat_view_model.dart';
-import '../../../presentation/view_models/equipment_view_model.dart';
 import '../../../presentation/view_models/player_view_model.dart';
+import '../../../presentation/view_models/ai_validation_credits_service.dart';
 import '../../../presentation/view_models/quest_view_model.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/app_notification.dart';
@@ -37,7 +41,7 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
   Future<void> _load() async {
     final questVM = context.read<QuestViewModel>();
     final playerVM = context.read<PlayerViewModel>();
-    final equipVM = context.read<EquipmentViewModel>();
+    final creditsVM = context.read<AiValidationCreditsService>();
     final userId = context.read<AuthViewModel>().userId;
     if (userId == null) return;
 
@@ -48,19 +52,34 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
     await playerVM.loadPlayerStats(userId);
     if (!mounted) return;
 
-    final result = await DailyResetUseCase(
-      player: playerVM,
-      quests: questVM,
-      equipment: equipVM,
-    ).execute(userId);
+    // Règles quotidiennes calculées par le serveur (claim_daily).
+    final DailyResetResult result;
+    try {
+      result = await DailyResetUseCase(
+        player: playerVM,
+        quests: questVM,
+      ).execute(userId);
+    } catch (e) {
+      if (mounted) {
+        AppNotification.show(
+          context,
+          message: dailyErrorMessage(e),
+          backgroundColor: AppColors.error,
+        );
+      }
+      return;
+    }
+    // L'énergie de l'Oracle a pu être rechargée : relecture du solde.
+    await creditsVM.refresh();
 
     if (!mounted) return;
 
     if (result.penalties != null) {
+      unawaited(Sons.jouer(Son.degats));
       AppNotification.show(
         context,
         message:
-            '${result.penalties!.missedCount} quête${result.penalties!.missedCount > 1 ? 's' : ''} manquée${result.penalties!.missedCount > 1 ? 's' : ''} — ${result.penalties!.totalDamage} HP perdus',
+            '${result.penalties!.missedCount} quête${result.penalties!.missedCount > 1 ? 's' : ''} manquée${result.penalties!.missedCount > 1 ? 's' : ''} : ${result.penalties!.totalDamage} PV perdus',
         backgroundColor: AppColors.coralRare.withValues(alpha: 0.95),
       );
     }
@@ -75,7 +94,7 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
         builder: (_) => _WeeklySummarySheet(
           questsCompleted: s.questsCompleted,
           xpEarned: s.xpEarned,
-          bossDefeated: s.bossDefeated,
+          bossDefeated: false,
           streak: s.streak,
         ),
       );
@@ -88,18 +107,19 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
         context: context,
         builder: (_) => _DailyRewardDialog(
           gold: r.gold,
-          crystals: r.crystals,
+          seals: r.seals,
           streak: r.streak,
         ),
       );
     }
 
     if (!mounted) return;
-    if (result.newBossGenerated) {
+    if (result.streakLost) {
       AppNotification.show(
         context,
-        message: 'Un nouveau boss hebdomadaire est apparu !',
-        backgroundColor: AppColors.rarityEpic,
+        message:
+            'Ta flamme s\'est éteinte. Valide une quête pour la rallumer !',
+        backgroundColor: AppColors.coralRare.withValues(alpha: 0.95),
       );
     }
 
@@ -114,10 +134,13 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
     if (stats == null) return;
 
     final settings = Hive.box('settings');
-    final bossDefeated = questVM.completedQuests.any((q) => q.category == 'boss');
+    final bossDefeated =
+        questVM.completedQuests.any((q) => q.category == 'boss');
     final minigamesPlayed = MinigameService.totalPlayed(settings);
-    final hasGachaFirst = settings.get('gacha_first_done', defaultValue: false) as bool;
-    final hasGachaMulti = settings.get('gacha_multi_done', defaultValue: false) as bool;
+    final hasGachaFirst =
+        settings.get('gacha_first_done', defaultValue: false) as bool;
+    final hasGachaMulti =
+        settings.get('gacha_multi_done', defaultValue: false) as bool;
 
     final newlyUnlocked = await AchievementService.checkAll(
       level: stats.level,
@@ -159,17 +182,23 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
             final now = DateTime.now();
             final today = DateTime(now.year, now.month, now.day);
             final missedQuests = quests.getMissedQuests();
-            final todayQuests = quests.activeQuests.where((q) {
-              if (q.deadline != null && now.isAfter(q.deadline!)) return false;
-              final created = DateTime(
-                  q.createdAt.year, q.createdAt.month, q.createdAt.day);
-              return created == today || q.frequency == QuestFrequency.daily;
-            }).take(3).toList();
+            final todayQuests = quests.activeQuests
+                .where((q) {
+                  if (q.deadline != null && now.isAfter(q.deadline!)) {
+                    return false;
+                  }
+                  final created = DateTime(
+                      q.createdAt.year, q.createdAt.month, q.createdAt.day);
+                  return created == today ||
+                      q.frequency == QuestFrequency.daily;
+                })
+                .take(3)
+                .toList();
 
             final xpForNext = player.experienceForLevel(stats.level);
             final cat = catProvider.mainCat;
-            final mood = CatMoodService.getMoodExpression(
-                stats.moral, stats.streak);
+            final mood =
+                CatMoodService.getMoodExpression(stats.moral, stats.streak);
 
             return RefreshIndicator(
               onRefresh: _load,
@@ -248,7 +277,8 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
                             ],
                           ),
                           const SizedBox(height: 8),
-                          ...missedQuests.map((q) => _MissedQuestTile(quest: q)),
+                          ...missedQuests
+                              .map((q) => _MissedQuestTile(quest: q)),
                           const SizedBox(height: 20),
                         ],
 
@@ -266,7 +296,7 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
                             ),
                             TextButton(
                               onPressed: () =>
-                                  Navigator.of(context).pushNamed('/quests'),
+                                  context.go(Routes.quetes),
                               child: const Text(
                                 'Voir tout',
                                 style: TextStyle(
@@ -599,8 +629,8 @@ class _StatsCard extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     '${stats.streak} jour${stats.streak > 1 ? 's' : ''}',
-                    style: const TextStyle(
-                        color: AppColors.warning, fontSize: 12),
+                    style:
+                        const TextStyle(color: AppColors.warning, fontSize: 12),
                   ),
                 ],
               ),
@@ -681,7 +711,7 @@ class _QuestTile extends StatelessWidget {
   Widget build(BuildContext context) {
     // L'objet Quest complet est passé directement — pas de lookup par id.
     return GestureDetector(
-      onTap: () => QuestDetailSheet.show(context, quest: quest),
+      onTap: () => _ouvrirQuete(context, quest),
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -737,7 +767,7 @@ class _MissedQuestTile extends StatelessWidget {
 
     // L'objet Quest complet est passé directement — pas de lookup par id.
     return GestureDetector(
-      onTap: () => QuestDetailSheet.show(context, quest: quest),
+      onTap: () => _ouvrirQuete(context, quest),
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -761,8 +791,7 @@ class _MissedQuestTile extends StatelessWidget {
             ),
             Text(
               retardLabel,
-              style:
-                  const TextStyle(color: AppColors.coralRare, fontSize: 11),
+              style: const TextStyle(color: AppColors.coralRare, fontSize: 11),
             ),
           ],
         ),
@@ -784,7 +813,7 @@ class _BossQuestCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // L'objet Quest complet est passé directement — pas de lookup par id.
     return GestureDetector(
-      onTap: () => QuestDetailSheet.show(context, quest: quest),
+      onTap: () => _ouvrirQuete(context, quest),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -966,12 +995,25 @@ class _EmptyQuestCard extends StatelessWidget {
         color: AppColors.backgroundDarkPanel,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Center(
-        child: Text(
-          "Aucune quête pour aujourd'hui.\nCrée ta première quête !",
-          textAlign: TextAlign.center,
-          style: GoogleFonts.nunito(color: AppColors.textMuted),
-        ),
+      child: Column(
+        children: [
+          Text(
+            "Aucune quête pour aujourd'hui.",
+            textAlign: TextAlign.center,
+            style: GoogleFonts.nunito(color: AppColors.textMuted),
+          ),
+          const SizedBox(height: 12),
+          // L'état vide mène directement à l'action attendue.
+          FilledButton.icon(
+            onPressed: () =>
+                context.push(Routes.nouvelleQuete),
+            icon: const Icon(Icons.add),
+            // « Première » seulement si le joueur n'a encore aucune quête (Q20).
+            label: Text(context.watch<QuestViewModel>().quests.isEmpty
+                ? 'Créer ma première quête'
+                : 'Créer une quête'),
+          ),
+        ],
       ),
     );
   }
@@ -983,12 +1025,12 @@ class _EmptyQuestCard extends StatelessWidget {
 
 class _DailyRewardDialog extends StatelessWidget {
   final int gold;
-  final int crystals;
+  final int seals;
   final int streak;
 
   const _DailyRewardDialog({
     required this.gold,
-    required this.crystals,
+    required this.seals,
     required this.streak,
   });
 
@@ -1012,7 +1054,10 @@ class _DailyRewardDialog extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Jour $streak de série',
+              streak > 0
+                  ? 'Jour $streak de série'
+                  : 'Valide une quête aujourd\'hui pour lancer ta série !',
+              textAlign: TextAlign.center,
               style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
             ),
             const SizedBox(height: 20),
@@ -1026,15 +1071,18 @@ class _DailyRewardDialog extends StatelessWidget {
                 ),
                 const SizedBox(width: 16),
                 _RewardChip(
-                  icon: Icons.diamond,
+                  icon: Icons.auto_awesome,
                   color: AppColors.crystalBlue,
-                  label: '+$crystals cristaux',
+                  label: '+$seals Sceau${seals > 1 ? 'x' : ''}',
                 ),
               ],
             ),
             const SizedBox(height: 24),
             FilledButton(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () {
+                unawaited(Sons.jouer(Son.piece));
+                Navigator.of(context).pop();
+              },
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.primaryViolet,
                 minimumSize: const Size.fromHeight(44),
@@ -1053,7 +1101,8 @@ class _RewardChip extends StatelessWidget {
   final Color color;
   final String label;
 
-  const _RewardChip({required this.icon, required this.color, required this.label});
+  const _RewardChip(
+      {required this.icon, required this.color, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -1069,7 +1118,8 @@ class _RewardChip extends StatelessWidget {
         children: [
           Icon(icon, color: color, size: 18),
           const SizedBox(width: 6),
-          Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+          Text(label,
+              style: TextStyle(color: color, fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -1104,7 +1154,8 @@ class _WeeklySummarySheet extends StatelessWidget {
         children: [
           Center(
             child: Container(
-              width: 40, height: 4,
+              width: 40,
+              height: 4,
               decoration: BoxDecoration(
                 color: AppColors.textMuted.withValues(alpha: 0.4),
                 borderRadius: BorderRadius.circular(2),
@@ -1127,15 +1178,29 @@ class _WeeklySummarySheet extends StatelessWidget {
           const SizedBox(height: 24),
           Row(
             children: [
-              _WeekStat(icon: Icons.check_circle_outline, color: AppColors.primaryTurquoise, value: '$questsCompleted', label: 'Quêtes'),
-              _WeekStat(icon: Icons.star_outline,         color: AppColors.primaryTurquoise, value: '$xpEarned',         label: 'XP'),
-              _WeekStat(icon: Icons.local_fire_department, color: AppColors.warning,          value: '${streak}j',        label: 'Série'),
               _WeekStat(
-                icon: Icons.shield_outlined,
-                color: bossDefeated ? AppColors.rarityEpic : AppColors.textMuted,
-                value: bossDefeated ? 'Vaincu' : 'Manqué',
-                label: 'Boss',
-              ),
+                  icon: Icons.check_circle_outline,
+                  color: AppColors.primaryTurquoise,
+                  value: '$questsCompleted',
+                  label: 'Quêtes'),
+              _WeekStat(
+                  icon: Icons.star_outline,
+                  color: AppColors.primaryTurquoise,
+                  value: '$xpEarned',
+                  label: 'XP'),
+              _WeekStat(
+                  icon: Icons.local_fire_department,
+                  color: AppColors.warning,
+                  value: '${streak}j',
+                  label: 'Série'),
+              // Boss hebdomadaire : de retour au Sprint 4 (boss serveur à PV).
+              if (bossDefeated)
+                const _WeekStat(
+                  icon: Icons.shield_outlined,
+                  color: AppColors.rarityEpic,
+                  value: 'Vaincu',
+                  label: 'Boss',
+                ),
             ],
           ),
           if (bossDefeated) ...[
@@ -1145,7 +1210,8 @@ class _WeeklySummarySheet extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppColors.rarityEpic.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.rarityEpic.withValues(alpha: 0.3)),
+                border: Border.all(
+                    color: AppColors.rarityEpic.withValues(alpha: 0.3)),
               ),
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -1171,10 +1237,12 @@ class _WeeklySummarySheet extends StatelessWidget {
                 backgroundColor: AppColors.primaryTurquoise,
                 foregroundColor: AppColors.backgroundNightBlue,
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
               onPressed: () => Navigator.pop(context),
-              child: const Text('Nouvelle semaine !', style: TextStyle(fontWeight: FontWeight.bold)),
+              child: const Text('Nouvelle semaine !',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ),
         ],
@@ -1189,7 +1257,11 @@ class _WeekStat extends StatelessWidget {
   final String value;
   final String label;
 
-  const _WeekStat({required this.icon, required this.color, required this.value, required this.label});
+  const _WeekStat(
+      {required this.icon,
+      required this.color,
+      required this.value,
+      required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -1198,10 +1270,26 @@ class _WeekStat extends StatelessWidget {
         children: [
           Icon(icon, color: color, size: 22),
           const SizedBox(height: 4),
-          Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 16)),
-          Text(label, style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
+          Text(value,
+              style: TextStyle(
+                  color: color, fontWeight: FontWeight.bold, fontSize: 16)),
+          Text(label,
+              style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
         ],
       ),
     );
   }
+}
+
+/// Détail d'une quête depuis l'accueil : une quête active peut être validée
+/// directement (avant, la fiche n'offrait aucune action depuis le Sanctuaire).
+Future<void> _ouvrirQuete(BuildContext context, Quest quest) {
+  final active = quest.status == QuestStatus.active;
+  return QuestDetailSheet.show(
+    context,
+    quest: quest,
+    onValidate: active
+        ? () => context.push(Routes.validerQuete(quest.id ?? ''), extra: quest)
+        : null,
+  );
 }

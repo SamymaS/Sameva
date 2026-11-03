@@ -20,7 +20,8 @@ class Item {
   final int crystalValue;
   final String? cosmeticSlot; // 'hat' | 'outfit' | 'pants' | 'shoes' | 'aura'
 
-  /// Chemin vers l'asset SVG pixel art (ex: 'assets/items/sword_rusty.svg').
+  /// Identifiant historique de l'icône (ex: 'assets/items/sword_rusty.svg') : seul le
+  /// nom de fichier compte, l'icône affichée est `assets/sprites/objets/<nom>.png`.
   /// Null = fallback sur [iconCodePoint] (Material Icons).
   final String? assetPath;
 

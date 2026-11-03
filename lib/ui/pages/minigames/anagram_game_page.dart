@@ -1,8 +1,5 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../../../presentation/view_models/auth_view_model.dart';
-import '../../../presentation/view_models/player_view_model.dart';
 import '../../theme/app_colors.dart';
 
 /// Mini-jeu Anagramme : reconstituer des mots fantaisie.
@@ -153,14 +150,8 @@ class _AnagramGamePageState extends State<AnagramGamePage> {
             style: FilledButton.styleFrom(
                 backgroundColor: AppColors.primaryTurquoise),
             onPressed: () {
-              if (gold > 0) {
-                final player = context.read<PlayerViewModel>();
-                final auth = context.read<AuthViewModel>();
-                if (player.stats != null) {
-                  player.addGold(auth.userId ?? '', gold);
-                  player.addExperience(auth.userId ?? '', xp);
-                }
-              }
+              // Sprint 7 : gains crédités par des sessions d'arène serveur.
+              // Aucun crédit local (le serveur est l'unique autorité).
               Navigator.of(context)
                 ..pop()
                 ..pop();
