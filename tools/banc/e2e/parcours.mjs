@@ -189,9 +189,11 @@ await parcours("lien profond vers une quête", async (page) => {
 await parcours("invocation gratuite", async (page) => {
   await entrerCommeInvite(page);
   await toucher(page, "Portail", { exact: true });
-  await attendre(page, "Gratuit");
+  await attendre(page, "Invoquer · Gratuit");
   await pause(800);
-  await toucher(page, "Gratuit", { exact: true });
+  r.verifier("jauges de garantie à zéro pour un nouveau joueur", await voit(page, "Épique garanti dans 20 tirages") && await voit(page, "Légendaire garanti dans 80 tirages"));
+  await capture(page, "portail_repos");
+  await toucher(page, "Invoquer · Gratuit", { exact: true });
   // Séquence plein écran : charge du portail, puis révélation.
   await attendre(page, "Passer", 20000);
   await capture(page, "invocation_charge");
@@ -211,7 +213,8 @@ await parcours("invocation gratuite", async (page) => {
   r.verifier("serveur : tirage gratuit du jour consommé", etat?.gacha?.objets?.free_available === false, etat?.gacha);
   r.verifier("serveur : aucun Sceau dépensé", etat?.stats?.seals === 1, etat?.stats);
   await toucher(page, "Continuer", { exact: true });
-  await attendre(page, "Invoquer (10 Sceaux)", 10000);
+  await attendre(page, "Invoquer · 10 Sceaux", 10000);
+  r.verifier("la jauge épique avance d'un tirage", await voit(page, "Épique garanti dans 19 tirages"));
   r.verifier("retour au portail après la révélation", !(await voit(page, "Passer")));
 });
 

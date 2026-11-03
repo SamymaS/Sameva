@@ -17,7 +17,9 @@ import '../../theme/app_colors.dart';
 import '../../utils/app_notification.dart';
 import '../../widgets/cat/cat_widget.dart';
 import '../../widgets/common/rarity_badge.dart';
+import 'portail_repos.dart';
 import 'sequence_invocation.dart';
+import '../../widgets/pixel/pixel_ui.dart';
 
 /// Page invocation gacha (Sprint 1) : payée en Sceaux (10, ou 90 pour 10),
 /// une invocation gratuite par jour, tirage et pity calculés par le serveur.
@@ -30,16 +32,11 @@ class InvocationTab extends StatefulWidget {
 
 class _InvocationTabState extends State<InvocationTab>
     with TickerProviderStateMixin {
+  /// Horloge des animations du portail au repos (boucle de 4,8 s).
   late AnimationController _pulseController;
-  late AnimationController _revealController;
-  late Animation<double> _pulseAnim;
-  late Animation<double> _revealAnim;
 
-  Item? _lastItem;
   bool _isRevealing = false;
   final List<Item> _history = [];
-  List<Item>? _multiPullResults;
-  int _lastDupeRefund = 0;
 
   /// Garanties anti-malchance renvoyées par le serveur après un tirage.
   int? _epicIn;
@@ -57,23 +54,8 @@ class _InvocationTabState extends State<InvocationTab>
     super.initState();
     _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
-
-    _revealController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-
-    _pulseAnim = Tween<double>(begin: 0.95, end: 1.05).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
-
-    _revealAnim = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 50),
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 50),
-    ]).animate(
-        CurvedAnimation(parent: _revealController, curve: Curves.easeInOut));
+      duration: const Duration(milliseconds: 4800),
+    )..repeat();
 
     _loadHistory();
     _startCountdownIfNeeded();
@@ -178,7 +160,6 @@ class _InvocationTabState extends State<InvocationTab>
     _playerVm?.removeListener(_onPlayerChanged);
     _countdownTimer?.cancel();
     _pulseController.dispose();
-    _revealController.dispose();
     super.dispose();
   }
 
@@ -216,7 +197,6 @@ class _InvocationTabState extends State<InvocationTab>
     }
 
     setState(() => _isRevealing = true);
-    _revealController.reset();
 
     final InvokeResult result;
     try {
@@ -247,12 +227,9 @@ class _InvocationTabState extends State<InvocationTab>
         legendaireDans: result.legendaryGuaranteedIn,
       );
     }
-    _revealController.value = 1;
 
     if (mounted) {
       setState(() {
-        _lastItem = item;
-        _lastDupeRefund = refund;
         _epicIn = result.epicGuaranteedIn;
         _legendaryIn = result.legendaryGuaranteedIn;
         _isRevealing = false;
@@ -326,9 +303,6 @@ class _InvocationTabState extends State<InvocationTab>
 
     if (mounted) {
       setState(() {
-        _multiPullResults = results;
-        _lastItem = results.isNotEmpty ? results.last : null;
-        _lastDupeRefund = totalRefund;
         _epicIn = result.epicGuaranteedIn;
         _legendaryIn = result.legendaryGuaranteedIn;
         _isRevealing = false;
@@ -343,8 +317,6 @@ class _InvocationTabState extends State<InvocationTab>
     await _settings.put('gacha_multi_done', true);
   }
 
-  Color _rarityColor(QuestRarity r) => AppColors.getRarityColor(r.name);
-
   @override
   Widget build(BuildContext context) {
     // Pas de Scaffold/AppBar : ce widget est embarqué comme onglet du Portail,
@@ -355,15 +327,21 @@ class _InvocationTabState extends State<InvocationTab>
       child: Column(
         children: [
           Material(
-            color: AppColors.backgroundNightCosmos,
+            color: PixelCouleurs.nuit,
             child: TabBar(
-              labelColor: AppColors.primaryVioletLight,
-              unselectedLabelColor: AppColors.textMuted,
-              indicatorColor: AppColors.primaryVioletLight,
-              labelStyle: GoogleFonts.nunito(fontWeight: FontWeight.w700),
+              labelColor: PixelCouleurs.texte,
+              unselectedLabelColor: PixelCouleurs.texteDoux,
+              indicator: const BoxDecoration(
+                color: PixelCouleurs.violet,
+                border: Border(bottom: BorderSide(color: PixelCouleurs.violetClair, width: 3)),
+              ),
+              indicatorSize: TabBarIndicatorSize.tab,
+              dividerColor: PixelCouleurs.trait,
+              labelStyle: PixelTextes.corps(16, poids: FontWeight.w700),
+              unselectedLabelStyle: PixelTextes.corps(16, poids: FontWeight.w600),
               tabs: const [
-                Tab(text: '⚔️  Objets'),
-                Tab(text: '🐱  Chats'),
+                Tab(text: 'Objets'),
+                Tab(text: 'Chats'),
               ],
             ),
           ),
@@ -371,450 +349,7 @@ class _InvocationTabState extends State<InvocationTab>
             child: TabBarView(
               children: [
                 // ── Onglet Objets (gacha classique) ──
-                SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    children: [
-                      // Carte centrale
-                      SizedBox(
-                        height: 260,
-                        child: Center(
-                          child: AnimatedBuilder(
-                            animation:
-                                Listenable.merge([_pulseAnim, _revealAnim]),
-                            builder: (_, __) {
-                              final pulseScale =
-                                  _isRevealing ? 1.0 : _pulseAnim.value;
-                              final item = _lastItem;
-
-                              return Transform.scale(
-                                scale: pulseScale *
-                                    (_isRevealing ? _revealAnim.value : 1.0),
-                                child: Container(
-                                  width: 160,
-                                  height: 220,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: item != null
-                                          ? [
-                                              _rarityColor(item.rarity)
-                                                  .withValues(alpha: 0.3),
-                                              AppColors.backgroundDeepViolet,
-                                            ]
-                                          : [
-                                              AppColors.backgroundDeepViolet,
-                                              AppColors.primaryViolet
-                                                  .withValues(alpha: 0.3),
-                                            ],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                    ),
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: item != null
-                                          ? _rarityColor(item.rarity)
-                                          : AppColors.primaryViolet,
-                                      width: 2,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: (item != null
-                                                ? _rarityColor(item.rarity)
-                                                : AppColors.primaryViolet)
-                                            .withValues(alpha: 0.5),
-                                        blurRadius: 20,
-                                        spreadRadius: 2,
-                                      ),
-                                    ],
-                                  ),
-                                  child: item != null
-                                      ? Column(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Icon(item.getIcon(),
-                                                color:
-                                                    _rarityColor(item.rarity),
-                                                size: 48),
-                                            const SizedBox(height: 12),
-                                            Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 12),
-                                              child: Text(
-                                                item.name,
-                                                textAlign: TextAlign.center,
-                                                style: TextStyle(
-                                                  color:
-                                                      _rarityColor(item.rarity),
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 14,
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              item.rarity.name.toUpperCase(),
-                                              style: TextStyle(
-                                                color: _rarityColor(item.rarity)
-                                                    .withValues(alpha: 0.8),
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                            if (_lastDupeRefund > 0) ...[
-                                              const SizedBox(height: 6),
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                        horizontal: 8,
-                                                        vertical: 3),
-                                                decoration: BoxDecoration(
-                                                  color: AppColors.crystalBlue
-                                                      .withValues(alpha: 0.15),
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                  border: Border.all(
-                                                      color: AppColors
-                                                          .crystalBlue
-                                                          .withValues(
-                                                              alpha: 0.5)),
-                                                ),
-                                                child: Text(
-                                                  'Doublon · +$_lastDupeRefund 💎',
-                                                  style: const TextStyle(
-                                                    color:
-                                                        AppColors.crystalBlue,
-                                                    fontSize: 10,
-                                                    fontWeight: FontWeight.w700,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ],
-                                        )
-                                      : const Column(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Icon(Icons.auto_fix_high,
-                                                color: AppColors
-                                                    .primaryVioletLight,
-                                                size: 48),
-                                            SizedBox(height: 12),
-                                            Text(
-                                              'Invoquez un\nitem mystique',
-                                              textAlign: TextAlign.center,
-                                              style: TextStyle(
-                                                  color:
-                                                      AppColors.textSecondary,
-                                                  fontSize: 13),
-                                            ),
-                                          ],
-                                        ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Boutons
-                      Column(
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Consumer<PlayerViewModel>(
-                                  builder: (ctx, player, _) {
-                                    final seals = player.stats?.seals ?? 0;
-                                    return FilledButton.icon(
-                                      style: FilledButton.styleFrom(
-                                        backgroundColor:
-                                            AppColors.primaryViolet,
-                                        disabledBackgroundColor: AppColors
-                                            .primaryViolet
-                                            .withValues(alpha: 0.3),
-                                      ),
-                                      onPressed:
-                                          (!_isRevealing && seals >= _sealCost)
-                                              ? () => _pull(isFree: false)
-                                              : null,
-                                      icon: const Icon(Icons.auto_awesome, size: 16),
-                                      label: const Text('Invoquer ($_sealCost Sceaux)'),
-                                    );
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                // Le Timer.periodic dans _startCountdownIfNeeded()
-                                // appelle setState() chaque seconde → ce widget
-                                // se reconstruit automatiquement sans StatefulBuilder.
-                                child: FilledButton.icon(
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: _canUseFree
-                                        ? AppColors.gold
-                                        : AppColors.gold.withValues(alpha: 0.3),
-                                  ),
-                                  onPressed: (!_isRevealing && _canUseFree)
-                                      ? () => _pull(isFree: true)
-                                      : null,
-                                  icon: const Icon(Icons.star,
-                                      size: 16,
-                                      color: AppColors.backgroundNightCosmos),
-                                  label: _canUseFree
-                                      ? const Text('Gratuit',
-                                          style: TextStyle(
-                                              color: AppColors
-                                                  .backgroundNightCosmos))
-                                      : Text(
-                                          _formatTimer(_freeTimeRemaining),
-                                          style: const TextStyle(
-                                              color: AppColors
-                                                  .backgroundNightCosmos,
-                                              fontSize: 11),
-                                        ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Consumer<PlayerViewModel>(
-                            builder: (ctx, player, _) {
-                              final seals = player.stats?.seals ?? 0;
-                              return SizedBox(
-                                width: double.infinity,
-                                child: OutlinedButton.icon(
-                                  style: OutlinedButton.styleFrom(
-                                    side: BorderSide(
-                                      color: (!_isRevealing && seals >= _sealCostX10)
-                                          ? AppColors.rarityEpic
-                                          : AppColors.rarityEpic
-                                              .withValues(alpha: 0.3),
-                                    ),
-                                    foregroundColor: AppColors.rarityEpic,
-                                  ),
-                                  onPressed: (!_isRevealing && seals >= _sealCostX10)
-                                      ? () {
-                                          setState(
-                                              () => _multiPullResults = null);
-                                          _pullMulti();
-                                        }
-                                      : null,
-                                  icon:
-                                      const Icon(Icons.auto_awesome, size: 16),
-                                  label: const Text('10× Invoquer ($_sealCostX10 Sceaux)'),
-                                ),
-                              );
-                            },
-                          ),
-                          if (_epicIn != null) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              'Épique garanti dans $_epicIn tirage${_epicIn! > 1 ? 's' : ''} · '
-                              'légendaire dans $_legendaryIn',
-                              style: const TextStyle(
-                                  color: AppColors.textMuted, fontSize: 12),
-                            ),
-                          ],
-                        ],
-                      ),
-                      // Résultats 10× pull
-                      if (_multiPullResults != null) ...[
-                        const SizedBox(height: 24),
-                        Row(
-                          children: [
-                            const Text(
-                              'Résultats',
-                              style: TextStyle(
-                                  color: AppColors.primaryVioletLight,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15),
-                            ),
-                            const Spacer(),
-                            GestureDetector(
-                              onTap: () =>
-                                  setState(() => _multiPullResults = null),
-                              child: const Icon(Icons.close,
-                                  color: AppColors.textMuted, size: 18),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 5,
-                            crossAxisSpacing: 6,
-                            mainAxisSpacing: 6,
-                            childAspectRatio: 0.8,
-                          ),
-                          itemCount: _multiPullResults!.length,
-                          itemBuilder: (_, i) {
-                            final item = _multiPullResults![i];
-                            final color = _rarityColor(item.rarity);
-                            return Container(
-                              decoration: BoxDecoration(
-                                color: color.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                    color: color.withValues(alpha: 0.5)),
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(item.getIcon(), color: color, size: 24),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    item.name,
-                                    textAlign: TextAlign.center,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                        color: color,
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.w600),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-
-                      const SizedBox(height: 32),
-
-                      // Compteur pity
-                      Consumer<PlayerViewModel>(
-                        builder: (_, player, __) {
-                          final pity = player.stats?.pityCount ?? 0;
-                          final epicLeft = (20 - pity).clamp(0, 20);
-                          final legLeft = (80 - pity).clamp(0, 80);
-                          return Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: AppColors.backgroundDarkPanel,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                  color: AppColors.primaryViolet
-                                      .withValues(alpha: 0.3)),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    const Icon(Icons.shield_outlined,
-                                        color: AppColors.primaryVioletLight,
-                                        size: 14),
-                                    const SizedBox(width: 6),
-                                    const Text(
-                                      'Garanties Pity',
-                                      style: TextStyle(
-                                          color: AppColors.textSecondary,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600),
-                                    ),
-                                    const Spacer(),
-                                    Text(
-                                      epicLeft == 0
-                                          ? 'Épique garanti au prochain pull !'
-                                          : '$epicLeft pulls avant épique',
-                                      style: TextStyle(
-                                        color: epicLeft == 0
-                                            ? AppColors.rarityEpic
-                                            : AppColors.textMuted,
-                                        fontSize: 10,
-                                        fontWeight: epicLeft == 0
-                                            ? FontWeight.w700
-                                            : FontWeight.normal,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                _PityBar(
-                                  label: 'Épique garanti',
-                                  current: pity,
-                                  max: 20,
-                                  color: AppColors.rarityEpic,
-                                ),
-                                const SizedBox(height: 8),
-                                _PityBar(
-                                  label: 'Légendaire garanti',
-                                  current: pity,
-                                  max: 80,
-                                  color: AppColors.rarityLegendary,
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  legLeft == 0
-                                      ? '★ Légendaire garanti au prochain pull !'
-                                      : '$legLeft pulls avant légendaire garanti',
-                                  style: TextStyle(
-                                    color: legLeft == 0
-                                        ? AppColors.rarityLegendary
-                                        : AppColors.textMuted,
-                                    fontSize: 10,
-                                    fontWeight: legLeft == 0
-                                        ? FontWeight.w700
-                                        : FontWeight.normal,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Taux de drop
-                      const _DropRatesSection(),
-                      // Historique
-                      if (_history.isNotEmpty) ...[
-                        const Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Derniers pulls',
-                            style: TextStyle(
-                                color: AppColors.textSecondary,
-                                fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
-                          children: _history
-                              .map((item) => Chip(
-                                    avatar: Icon(item.getIcon(),
-                                        color: _rarityColor(item.rarity),
-                                        size: 14),
-                                    label: Text(
-                                      item.name,
-                                      style: TextStyle(
-                                          color: _rarityColor(item.rarity),
-                                          fontSize: 11),
-                                    ),
-                                    backgroundColor: _rarityColor(item.rarity)
-                                        .withValues(alpha: 0.15),
-                                    side: BorderSide(
-                                        color: _rarityColor(item.rarity)
-                                            .withValues(alpha: 0.5)),
-                                    padding: EdgeInsets.zero,
-                                    materialTapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                  ))
-                              .toList(),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
+                _ongletObjets(),
 
                 // ── Onglet Chats (gacha de compagnons) ──
                 const _CatInvocationTab(),
@@ -826,6 +361,81 @@ class _InvocationTabState extends State<InvocationTab>
     );
   }
 
+  /// Seuils de garantie affichés. Le serveur reste seul juge (pity dans
+  /// `game_config.gacha`) ; après un tirage, ses compteurs exacts priment.
+  static const _seuilEpique = 20;
+  static const _seuilLegendaire = 80;
+
+  /// Onglet Objets en pixel art (maquette « Portail (repos) »).
+  Widget _ongletObjets() {
+    return Consumer<PlayerViewModel>(
+      builder: (context, player, _) {
+        final banniere = player.gacha['objets'];
+        final seals = player.stats?.seals ?? 0;
+        final gratuit = _canUseFree;
+        final epique = _epicIn != null ? _seuilEpique - _epicIn! : (banniere?.sinceEpic ?? 0);
+        final legendaire =
+            _legendaryIn != null ? _seuilLegendaire - _legendaryIn! : (banniere?.sinceLegendary ?? 0);
+        return ColoredBox(
+          color: PixelCouleurs.nuit,
+          child: Stack(
+            children: [
+              const Positioned.fill(child: PixelFondPoints()),
+              SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(height: 300, child: Center(child: PortailRepos(horloge: _pulseController))),
+                    PixelCadre(
+                      child: Column(
+                        children: [
+                          JaugeGarantie(
+                              libelle: 'Épique garanti', actuel: epique, seuil: _seuilEpique, couleur: AppColors.rarityEpic),
+                          const SizedBox(height: 12),
+                          JaugeGarantie(
+                              libelle: 'Légendaire garanti',
+                              actuel: legendaire,
+                              seuil: _seuilLegendaire,
+                              couleur: PixelCouleurs.or),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    PixelBouton(
+                      libelle: gratuit ? 'Invoquer · Gratuit' : 'Invoquer · $_sealCost Sceaux',
+                      onPressed: _isRevealing || (!gratuit && seals < _sealCost)
+                          ? null
+                          : () => _pull(isFree: gratuit),
+                    ),
+                    if (!gratuit) ...[
+                      const SizedBox(height: 6),
+                      Text('Prochain tirage gratuit dans ${_formatTimer(_freeTimeRemaining)}',
+                          textAlign: TextAlign.center,
+                          style: PixelTextes.corps(14, couleur: PixelCouleurs.texteDoux)),
+                    ],
+                    const SizedBox(height: 12),
+                    PixelBouton(
+                      libelle: '10× Invoquer · $_sealCostX10 Sceaux',
+                      principal: false,
+                      onPressed: _isRevealing || seals < _sealCostX10 ? null : _pullMulti,
+                    ),
+                    const SizedBox(height: 24),
+                    if (_history.isNotEmpty) ...[
+                      DerniersTirages(objets: _history.take(10).toList()),
+                      const SizedBox(height: 24),
+                    ],
+                    const _DropRatesSection(),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   String _formatTimer(Duration d) {
     final h = d.inHours;
     final m = d.inMinutes % 60;
@@ -834,56 +444,6 @@ class _InvocationTabState extends State<InvocationTab>
   }
 }
 
-// ─────────────────────────────────────────────────────────────────
-// Barre pity
-// ─────────────────────────────────────────────────────────────────
-
-class _PityBar extends StatelessWidget {
-  final String label;
-  final int current;
-  final int max;
-  final Color color;
-
-  const _PityBar({
-    required this.label,
-    required this.current,
-    required this.max,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final ratio = (current / max).clamp(0.0, 1.0);
-    return Row(
-      children: [
-        SizedBox(
-          width: 120,
-          child: Text(
-            label,
-            style: TextStyle(color: color, fontSize: 11),
-          ),
-        ),
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: ratio,
-              backgroundColor: AppColors.backgroundNightCosmos,
-              valueColor: AlwaysStoppedAnimation<Color>(color),
-              minHeight: 7,
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          '$current/$max',
-          style: TextStyle(
-              color: color, fontSize: 11, fontWeight: FontWeight.bold),
-        ),
-      ],
-    );
-  }
-}
 
 // ─────────────────────────────────────────────────────────────────
 // Section taux de drop
@@ -1206,80 +766,50 @@ class _DropRatesSection extends StatelessWidget {
     (rarity: 'Mythique', rate: 0.0, color: AppColors.rarityMythic),
   ];
 
+  /// « 60 % », « 0,5 % » : virgule décimale et espace insécable à la française
+  /// (sur mobile, un double s'affichait « 60.0% »).
+  static String _taux(double t) =>
+      '${t == t.roundToDouble() ? t.toInt() : t.toString().replaceAll('.', ',')}\u00A0%';
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.backgroundDarkPanel,
-        borderRadius: BorderRadius.circular(12),
-        border:
-            Border.all(color: AppColors.primaryViolet.withValues(alpha: 0.3)),
-      ),
+    return PixelCadre(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Row(
-            children: [
-              Icon(Icons.bar_chart,
-                  color: AppColors.primaryVioletLight, size: 16),
-              SizedBox(width: 6),
-              Text(
-                'Taux d\'invocation',
-                style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13),
-              ),
-            ],
-          ),
+          Text('Taux d\'invocation', style: PixelTextes.chiffres(11, PixelCouleurs.texte)),
           const SizedBox(height: 12),
-          ..._rates.map((r) => Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 8,
+          for (final r in _rates)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 116,
+                    child: Text(r.rarity, style: PixelTextes.corps(15, couleur: r.color, poids: FontWeight.w600)),
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: SizedBox(
                       height: 8,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: r.color,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 90,
-                      child: Text(
-                        r.rarity,
-                        style: TextStyle(color: r.color, fontSize: 12),
-                      ),
-                    ),
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(3),
-                        child: LinearProgressIndicator(
-                          value: r.rate / 100,
-                          backgroundColor: AppColors.backgroundNightCosmos,
-                          valueColor: AlwaysStoppedAnimation<Color>(r.color),
-                          minHeight: 6,
+                      child: ColoredBox(
+                        color: PixelCouleurs.violetSombre,
+                        child: FractionallySizedBox(
+                          alignment: Alignment.centerLeft,
+                          widthFactor: r.rate / 100,
+                          child: ColoredBox(color: r.color),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 44,
-                      child: Text(
-                        '${r.rate}%',
-                        textAlign: TextAlign.right,
-                        style: TextStyle(
-                            color: r.color,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12),
-                      ),
-                    ),
-                  ],
-                ),
-              )),
+                  ),
+                  SizedBox(
+                    width: 64,
+                    child: Text(_taux(r.rate),
+                        textAlign: TextAlign.right, style: PixelTextes.chiffres(10, r.color)),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );

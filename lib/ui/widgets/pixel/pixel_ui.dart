@@ -90,7 +90,10 @@ class PixelBouton extends StatelessWidget {
       child: GestureDetector(
         onTap: onPressed,
         behavior: HitTestBehavior.opaque,
-        child: Container(
+        child: Opacity(
+          // désactivé : estompé, sans changer la mise en page
+          opacity: onPressed == null ? 0.45 : 1,
+          child: Container(
           height: 56,
           alignment: Alignment.center,
           decoration: BoxDecoration(
@@ -105,6 +108,7 @@ class PixelBouton extends StatelessWidget {
           ),
           child: Text(libelle,
               style: PixelTextes.corps(19, couleur: texte, poids: FontWeight.w700)),
+          ),
         ),
       ),
     );

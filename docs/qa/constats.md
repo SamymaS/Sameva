@@ -34,3 +34,5 @@ reste listé avec sa date, pour l'historique.
 | Q27 | La police « Press Start 2P » du dépôt n'était qu'un texte de remplacement de 47 octets : les chiffres pixel tombaient sur la police par défaut | Moyenne (visuel) | Corrigé le 2026-11-03 (vraie police OFL, plus Pixelify Sans pour le texte) |
 | Q28 | Chapeau du chat affiché à sa taille native (32 px) au lieu de 36 % du chat : `Image` sans `fit` ne fait que réduire | Faible (visuel) | Corrigé le 2026-11-03 (`BoxFit.contain`) |
 | Q29 | Invocation : la révélation se jouait dans une carte au milieu de la page, sans mise en scène ni moyen de passer | Moyenne (UX) | Corrigé le 2026-11-03 (séquence plein écran : charge, « Passer », révélation, dix cartes retournées) |
+| Q30 | Portail : les jauges de garantie lisaient un ancien compteur local (`stats.pityCount`), pas l'état gacha du serveur | Moyenne (exactitude) | Corrigé le 2026-11-03 (`gacha.objets.since_epic` / `since_legendary`, test) |
+| Q31 | Taux d'invocation affichés « 60.0% » sur mobile (double brut) | Faible | Corrigé le 2026-11-03 (« 60 % », virgule décimale) |

@@ -24,7 +24,8 @@ class _MockBox extends Mock implements Box<dynamic> {}
 
 class _MockUser extends Mock implements User {}
 
-Future<Widget> _buildInvocationTab(WidgetTester tester, {bool freeAvailable = true}) async {
+Future<Widget> _buildInvocationTab(WidgetTester tester,
+    {bool freeAvailable = true, int sinceEpic = 0, int sinceLegendary = 0}) async {
   final authRepo = _MockAuthRepository();
   final mockUser = _MockUser();
   when(() => mockUser.id).thenReturn('u1');
@@ -43,7 +44,7 @@ Future<Widget> _buildInvocationTab(WidgetTester tester, {bool freeAvailable = tr
         energy: 3,
         premium: false,
         gacha: {
-          'objets': GachaBannerState(sinceEpic: 0, sinceLegendary: 0, freeAvailable: freeAvailable),
+          'objets': GachaBannerState(sinceEpic: sinceEpic, sinceLegendary: sinceLegendary, freeAvailable: freeAvailable),
         },
       ));
   when(() => playerRepo.saveLocalStats(any())).thenAnswer((_) async {});
@@ -104,7 +105,8 @@ void main() {
       await tester.pumpWidget(await _buildInvocationTab(tester));
       await tester.pump();
 
-      expect(find.text('Gratuit'), findsOneWidget);
+      expect(find.text('Invoquer · Gratuit'), findsOneWidget);
+      expect(find.textContaining('Prochain tirage gratuit'), findsNothing);
     });
 
     // Test 2 : un tirage gratuit récent → le bouton affiche le compte à
@@ -117,10 +119,10 @@ void main() {
       await tester.pumpWidget(await _buildInvocationTab(tester, freeAvailable: free));
       await tester.pump();
 
-      // Le bouton affiche le temps restant, pas "Gratuit".
-      expect(find.text('Gratuit'), findsNothing);
-      // ~23h restants → format "23h 0min" (contient 'h').
-      expect(find.textContaining('h'), findsWidgets);
+      // Le bouton passe au tirage payant et le délai restant est affiché.
+      expect(find.text('Invoquer · Gratuit'), findsNothing);
+      expect(find.text('Invoquer · 10 Sceaux'), findsOneWidget);
+      expect(find.textContaining('Prochain tirage gratuit dans'), findsOneWidget);
 
       // Dispose → annule le Timer.periodic (évite le « Timer still pending »).
       await tester.pumpWidget(const SizedBox());
@@ -152,11 +154,21 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
       expect(tester.takeException(), isNull);
       // Toujours en mode compte à rebours.
-      expect(find.text('Gratuit'), findsNothing);
+      expect(find.text('Invoquer · Gratuit'), findsNothing);
 
       // Dispose → doit annuler le timer.
       await tester.pumpWidget(const SizedBox());
       expect(tester.takeException(), isNull);
+    });
+
+    // Les jauges de garantie lisent l'état du serveur (gacha.objets), pas un
+    // ancien compteur local.
+    testWidgets('les jauges de garantie suivent l\'état gacha du serveur', (tester) async {
+      await tester.pumpWidget(await _buildInvocationTab(tester, sinceEpic: 13, sinceLegendary: 41));
+      await tester.pump();
+      expect(find.text('13/20'), findsOneWidget);
+      expect(find.text('41/80'), findsOneWidget);
+      expect(find.bySemanticsLabel('Épique garanti dans 7 tirages'), findsOneWidget);
     });
   });
 }
