@@ -82,6 +82,9 @@ class PixelBouton extends StatelessWidget {
     final creux = principal ? PixelCouleurs.orSombre : PixelCouleurs.violetSombre;
     final texte = principal ? PixelCouleurs.nuit : PixelCouleurs.texte;
     return Semantics(
+      // container : sinon, dans une boîte de dialogue, le bouton fusionne avec le
+      // texte voisin en un seul nœud (« Titre Récupérer ») et devient introuvable.
+      container: true,
       button: true,
       enabled: onPressed != null,
       label: libelle,
@@ -226,6 +229,58 @@ class PixelBarreSeuil extends StatelessWidget {
               child: const ColoredBox(color: Colors.white),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Jauge pixel (PV, XP, moral) : remplissage plein avec un reflet clair sur le
+/// haut, qui se remplit en paliers à l'apparition. [valeur] entre 0 et 1.
+class PixelJauge extends StatelessWidget {
+  final double valeur;
+  final Color couleur;
+  final double hauteur;
+  final Color fond;
+
+  const PixelJauge({
+    super.key,
+    required this.valeur,
+    required this.couleur,
+    this.hauteur = 12,
+    this.fond = PixelCouleurs.violetSombre,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cible = valeur.clamp(0.0, 1.0);
+    final reflet = Color.lerp(couleur, Colors.white, .45)!;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: cible),
+      duration: MediaQuery.of(context).disableAnimations ? Duration.zero : const Duration(milliseconds: 600),
+      builder: (_, v, __) => Container(
+        height: hauteur,
+        decoration: BoxDecoration(color: fond, border: Border.all(color: PixelCouleurs.abysse, width: 2)),
+        child: LayoutBuilder(
+          builder: (_, c) => Stack(
+            children: [
+              // positionné : une boîte sans enfant aurait sinon une hauteur nulle
+              Positioned(
+                key: const ValueKey('remplissage'),
+                left: 0,
+                top: 0,
+                bottom: 0,
+                // 12 paliers : la jauge « monte » image par image
+                width: c.maxWidth * (v >= cible ? cible : parPaliers(v, 12)),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: couleur,
+                    border: Border(top: BorderSide(color: reflet, width: hauteur > 8 ? 3 : 2)),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sameva/ui/widgets/pixel/pixel_ui.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:mocktail/mocktail.dart';
@@ -193,7 +194,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
 
       // _StatsCard montre HP et streak dans la même rangée
-      expect(find.text('100 / 100 HP'), findsOneWidget);
+      expect(find.text('100 / 100'), findsOneWidget);
       expect(find.text('3 jours'), findsOneWidget);
     });
 
@@ -203,8 +204,10 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      // _StatsCard affiche les barres XP et HP
-      expect(find.byType(LinearProgressIndicator), findsWidgets);
+      // _StatsCard affiche les jauges PV et XP (plus la jauge de moral)
+      expect(find.byType(PixelJauge), findsNWidgets(3));
+      // Q10 : les chiffres sont exposés aux lecteurs d'écran
+      expect(find.bySemanticsLabel(RegExp(r'^Niveau \d+, .* points de vie, série de 3 jours')), findsOneWidget);
     });
 
     testWidgets('affiche un message vide si aucune quête du jour', (tester) async {

@@ -14,7 +14,7 @@ reste listé avec sa date, pour l'historique.
 | Q7 | « Reprendre une photo » effaçait la photo sans ouvrir la caméra (deux gestes au lieu d'un) | Faible | Corrigé le 2026-10-21 |
 | Q8 | Écran des récompenses : les Sceaux gagnés n'apparaissaient pas | Moyenne | Corrigé le 2026-10-21 |
 | Q9 | Échéance par défaut « aujourd'hui 23:59 » : bonus d'échéance presque automatique (+10 %) | Moyenne (économie) | Corrigé le 2026-10-21 (échéance à 6 h minimum de la création) |
-| Q10 | Sanctuaire : niveau, or, PV et cartes non exposés aux lecteurs d'écran | Moyenne (accessibilité) | Ouvert (Sprint 2, socle client) |
+| Q10 | Sanctuaire : niveau, or, PV et cartes non exposés aux lecteurs d'écran | Moyenne (accessibilité) | Corrigé le 2026-11-03 (tête haute lue d'un seul tenant, cartes de quête en boutons, e2e) |
 | Q11 | Accueil vide : « Crée ta première quête ! » n'est pas cliquable | Faible (UX) | Corrigé le 2026-10-21 (bouton « Créer ma première quête ») |
 | Q12 | Vocabulaire incohérent : « Jetons MougiBot » dans l'app, « Énergie de l'Oracle » dans la conception | Faible | Corrigé le 2026-10-30 (« points d'énergie » de l'Oracle, icône éclair) |
 | Q13 | Champ « Titre » sans libellé propre (seul l'exemple « Ex. Ranger ma chambre » est lu) | Faible (accessibilité) | Corrigé le 2026-10-21 (libellé « Titre de la quête », e2e sans coordonnées) |
@@ -36,3 +36,4 @@ reste listé avec sa date, pour l'historique.
 | Q29 | Invocation : la révélation se jouait dans une carte au milieu de la page, sans mise en scène ni moyen de passer | Moyenne (UX) | Corrigé le 2026-11-03 (séquence plein écran : charge, « Passer », révélation, dix cartes retournées) |
 | Q30 | Portail : les jauges de garantie lisaient un ancien compteur local (`stats.pityCount`), pas l'état gacha du serveur | Moyenne (exactitude) | Corrigé le 2026-11-03 (`gacha.objets.since_epic` / `since_legendary`, test) |
 | Q31 | Taux d'invocation affichés « 60.0% » sur mobile (double brut) | Faible | Corrigé le 2026-11-03 (« 60 % », virgule décimale) |
+| Q32 | `PixelBouton` dans une boîte de dialogue : sa sémantique fusionnait avec le texte voisin (« Titre Récupérer »), bouton introuvable par son nom | Moyenne (accessibilité) | Corrigé le 2026-11-03 (nœud sémantique propre, test de non-régression) |

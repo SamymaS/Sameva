@@ -117,7 +117,7 @@ d'usage (bugs, UX, accessibilité) vont dans `docs/qa/constats.md`.
   réglages, muets sur le web et en test. Ne jamais retoucher les PNG à la main : régénérer depuis Figma.
 - **Interface pixel (maquettes Claude Design « Sameva · Écrans pixel art »)** : `lib/ui/widgets/pixel/pixel_ui.dart`
   (`PixelCouleurs`, `PixelTextes` : polices embarquées PressStart2P et PixelifySans, `PixelCadre`, `PixelBouton`,
-  `PixelAnneau`, `PixelBarreSeuil`, `parPaliers` pour les animations image par image). Piège : une `ColoredBox` sans
+  `PixelAnneau`, `PixelBarreSeuil`, `PixelJauge`, `parPaliers` pour les animations image par image). Piège : une `ColoredBox` sans
   enfant dans une `Stack` ou une `Row` non étirée a une hauteur nulle (positionner ou étirer). Cadres épais, ombres franches sans flou, aucun
   coin arrondi. Invocation : `SequenceInvocation.afficher` (charge du portail dont la couleur annonce la rareté,
   « Passer », révélation d'un objet ou de dix cartes, meilleure en dernier ; respecte « réduire les animations »).

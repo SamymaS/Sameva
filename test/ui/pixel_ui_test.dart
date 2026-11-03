@@ -26,4 +26,33 @@ void main() {
     expect(cases, findsNWidgets(20));
     expect(tester.getSize(cases.first).height, 10);
   });
+
+  // Régression : dans une boîte de dialogue, le bouton fusionnait avec le texte
+  // voisin (« Titre Récupérer ») et n'était plus trouvable par son nom.
+  testWidgets('PixelBouton garde son propre nœud sémantique dans une boîte de dialogue', (tester) async {
+    final semantique = tester.ensureSemantics();
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: Builder(
+          builder: (c) => TextButton(
+            onPressed: () => showDialog<void>(
+              context: c,
+              builder: (_) => Dialog(
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  const Text('Titre'),
+                  PixelBouton(libelle: 'Récupérer', onPressed: () {}),
+                ]),
+              ),
+            ),
+            child: const Text('ouvrir'),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('ouvrir'));
+    await tester.pumpAndSettle();
+    expect(find.bySemanticsLabel('Récupérer'), findsOneWidget);
+    expect(tester.getSemantics(find.byType(PixelBouton)).label, 'Récupérer');
+    semantique.dispose();
+  });
 }

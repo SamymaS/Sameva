@@ -94,6 +94,8 @@ await parcours("accueil invité", async (page) => {
     return r.json();
   });
   r.verifier("Sanctuaire affiché", await voit(page, "Sanctuaire"));
+  r.verifier("Q10 : niveau, PV et série lus par les lecteurs d'écran", await voit(page, "Niveau 1, 0 sur"));
+  await capture(page, "sanctuaire_invite");
   r.verifier("accueil vide : bouton de création proposé", await voit(page, "Créer ma première quête"));
   r.verifier("état serveur : niveau 1, 30 or, 1 Sceau", etat?.stats?.level === 1 && etat?.stats?.gold === 30 && etat?.stats?.seals === 1, etat?.stats);
 });
