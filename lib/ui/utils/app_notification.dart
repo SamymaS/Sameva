@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../widgets/pixel/pixel_ui.dart';
 
 /// Affiche une notification animée en haut de l'écran (remplace les SnackBar bas).
 /// File d'attente : max 3 simultanées, dédup du dernier message identique
@@ -138,21 +139,18 @@ class _TopNotificationWidgetState extends State<_TopNotificationWidget>
             color: Colors.transparent,
             child: GestureDetector(
               onTap: _dismiss,
+              // Style pixel : bord épais, ombre franche, aucun coin arrondi.
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
                   color: widget.backgroundColor,
-                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.08),
+                    color: widget.backgroundColor == AppColors.backgroundDarkPanel
+                        ? PixelCouleurs.trait
+                        : Color.lerp(widget.backgroundColor, Colors.white, .35)!,
+                    width: 3,
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.35),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+                  boxShadow: const [BoxShadow(color: PixelCouleurs.abysse, offset: Offset(0, 4))],
                 ),
                 child: Row(
                   children: [
@@ -165,12 +163,10 @@ class _TopNotificationWidgetState extends State<_TopNotificationWidget>
                       const SizedBox(width: 10),
                     ],
                     Expanded(
-                      child: Text(
-                        widget.message,
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 14,
-                        ),
+                      // annoncée par les lecteurs d'écran dès son apparition
+                      child: Semantics(
+                        liveRegion: true,
+                        child: Text(widget.message, style: PixelTextes.corps(16, poids: FontWeight.w600)),
                       ),
                     ),
                   ],

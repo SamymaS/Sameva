@@ -119,6 +119,8 @@ await parcours("quête déclarative", async (page) => {
 await parcours("oracle et défi de capture", async (page) => {
   await entrerCommeInvite(page);
   await creerQuete(page, { titre: "Ranger le bureau", difficulte: 2, photo: true });
+  await pause(800);
+  await capture(page, "quetes_liste");
   await toucher(page, "Ranger le bureau");
   await toucher(page, "Valider la quête");
   await attendre(page, "Défi de l'Oracle");
