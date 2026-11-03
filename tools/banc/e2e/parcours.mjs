@@ -15,7 +15,7 @@ const r = rapport();
 // Les éléments sont trouvés par leur libellé accessible (comme le ferait un
 // lecteur d'écran), jamais par leur position.
 
-async function creerQuete(page, { titre, difficulte = 2, photo = false }) {
+async function creerQuete(page, { titre, difficulte = 2, photo = false, capturer = null }) {
   await toucher(page, "Quêtes");
   await attendre(page, "Terminées");
   await pause(800);
@@ -27,6 +27,7 @@ async function creerQuete(page, { titre, difficulte = 2, photo = false }) {
   await page.keyboard.type(titre, { delay: 15 });
   await page.getByRole("button", { name: `Difficulté ${difficulte}` }).first().click({ timeout: 15000 });
   if (photo) await toucher(page, "Photo", { exact: true });
+  if (capturer) { await pause(600); await capture(page, capturer); }
   // Ferme le clavier virtuel puis descend jusqu'au bouton.
   await page.keyboard.press("Escape").catch(() => {});
   await page.mouse.wheel(0, 1500);
@@ -118,7 +119,7 @@ await parcours("quête déclarative", async (page) => {
 
 await parcours("oracle et défi de capture", async (page) => {
   await entrerCommeInvite(page);
-  await creerQuete(page, { titre: "Ranger le bureau", difficulte: 2, photo: true });
+  await creerQuete(page, { titre: "Ranger le bureau", difficulte: 2, photo: true, capturer: "quete_formulaire" });
   await pause(800);
   await capture(page, "quetes_liste");
   await toucher(page, "Ranger le bureau");

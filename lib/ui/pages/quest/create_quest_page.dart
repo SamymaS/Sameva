@@ -5,6 +5,7 @@ import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/view_models/create_quest_view_model.dart';
 import '../../../presentation/view_models/quest_view_model.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/pixel/pixel_ui.dart';
 import '../../utils/app_notification.dart';
 
 /// Création de quête — formulaire complet avec validation temps réel.
@@ -107,13 +108,16 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
     return ChangeNotifierProvider<CreateQuestViewModel>.value(
       value: vm,
       child: Scaffold(
-        backgroundColor: AppColors.backgroundNightBlue,
+        backgroundColor: PixelCouleurs.nuit,
         appBar: AppBar(
-          backgroundColor: AppColors.backgroundNightBlue,
+          backgroundColor: PixelCouleurs.nuit,
+          surfaceTintColor: Colors.transparent,
+          foregroundColor: PixelCouleurs.texte,
           title: Text(
             _isEditMode ? 'Modifier la quête' : 'Nouvelle quête',
-            style: const TextStyle(
-                color: AppColors.primaryTurquoise, fontWeight: FontWeight.bold),
+            style: PixelTextes.chiffres(13, PixelCouleurs.texte).copyWith(
+              shadows: const [Shadow(color: PixelCouleurs.violet, offset: Offset(2, 2))],
+            ),
           ),
         ),
         body: SafeArea(
@@ -135,38 +139,16 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
                         child: TextFormField(
                           controller: _titleController,
                           enabled: !_contentLocked,
-                          decoration: InputDecoration(
-                            hintText: 'Ex. Ranger ma chambre',
-                            hintStyle:
-                                const TextStyle(color: AppColors.textMuted),
-                            filled: true,
-                            fillColor: AppColors.backgroundDarkPanel,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(
-                                  color: AppColors.inputBorder),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(
-                                  color: AppColors.inputBorder),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(
-                                  color: AppColors.primaryTurquoise),
-                            ),
-                          ),
-                          style: const TextStyle(color: AppColors.textPrimary),
+                          decoration: pixelChamp(exemple: 'Ex. Ranger ma chambre'),
+                          style: PixelTextes.corps(17),
+                          cursorColor: PixelCouleurs.violetClair,
                           maxLength: 80,
                           buildCounter: (_,
                                   {required currentLength,
                                   required isFocused,
                                   maxLength}) =>
                               Text('$currentLength/$maxLength',
-                                  style: const TextStyle(
-                                      color: AppColors.textMuted,
-                                      fontSize: 11)),
+                                  style: PixelTextes.corps(13, couleur: PixelCouleurs.texteDoux)),
                           validator: (v) {
                             if (v == null || v.trim().isEmpty) {
                               return 'Indiquez un titre';
@@ -182,29 +164,9 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _descriptionController,
-                        decoration: InputDecoration(
-                          hintText: 'Détails ou sous-objectifs…',
-                          hintStyle:
-                              const TextStyle(color: AppColors.textMuted),
-                          filled: true,
-                          fillColor: AppColors.backgroundDarkPanel,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide:
-                                const BorderSide(color: AppColors.inputBorder),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide:
-                                const BorderSide(color: AppColors.inputBorder),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(
-                                color: AppColors.primaryTurquoise),
-                          ),
-                        ),
-                        style: const TextStyle(color: AppColors.textPrimary),
+                        decoration: pixelChamp(exemple: 'Détails ou sous-objectifs…'),
+                        style: PixelTextes.corps(17),
+                        cursorColor: PixelCouleurs.violetClair,
                         maxLines: 3,
                         maxLength: 300,
                         buildCounter: (_,
@@ -212,8 +174,7 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
                                 required isFocused,
                                 maxLength}) =>
                             Text('$currentLength/$maxLength',
-                                style: const TextStyle(
-                                    color: AppColors.textMuted, fontSize: 11)),
+                                style: PixelTextes.corps(13, couleur: PixelCouleurs.texteDoux)),
                       ),
                       const SizedBox(height: 16),
 
@@ -245,11 +206,10 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
                       )),
                       if (_contentLocked) ...[
                         const SizedBox(height: 8),
-                        const Text(
+                        Text(
                           'Titre, catégorie, difficulté et preuve sont figés '
                           '10 minutes après la création.',
-                          style: TextStyle(
-                              color: AppColors.textMuted, fontSize: 11),
+                          style: PixelTextes.corps(14, couleur: PixelCouleurs.texteDoux),
                         ),
                       ],
                       const SizedBox(height: 20),
@@ -286,50 +246,22 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
                       // ── Erreur ─────────────────────────────────────────
                       if (viewModel.errorMessage != null) ...[
                         const SizedBox(height: 16),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: AppColors.error.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                                color: AppColors.error.withValues(alpha: 0.3)),
-                          ),
-                          child: Text(
-                            viewModel.errorMessage!,
-                            style: const TextStyle(
-                                color: AppColors.error, fontSize: 13),
-                          ),
+                        PixelCadre(
+                          bord: AppColors.error,
+                          child: Text(viewModel.errorMessage!,
+                              style: PixelTextes.corps(15, couleur: AppColors.error)),
                         ),
                       ],
                       const SizedBox(height: 32),
 
                       // ── Bouton créer ───────────────────────────────────
-                      SizedBox(
-                        height: 52,
-                        child: FilledButton(
-                          onPressed: (viewModel.isLoading || !_canSubmit)
-                              ? null
-                              : _submit,
-                          style: FilledButton.styleFrom(
-                            backgroundColor: AppColors.primaryTurquoise,
-                            foregroundColor: AppColors.backgroundNightBlue,
-                            disabledBackgroundColor: AppColors.primaryTurquoise
-                                .withValues(alpha: 0.3),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14)),
-                            textStyle: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 16),
-                          ),
-                          child: viewModel.isLoading
-                              ? const SizedBox(
-                                  height: 22,
-                                  width: 22,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: AppColors.backgroundNightBlue),
-                                )
-                              : const Text('Créer la quête'),
-                        ),
+                      PixelBouton(
+                        libelle: viewModel.isLoading
+                            ? 'Enregistrement…'
+                            : _isEditMode
+                                ? 'Enregistrer les modifications'
+                                : 'Créer la quête',
+                        onPressed: (viewModel.isLoading || !_canSubmit) ? null : _submit,
                       ),
                       const SizedBox(height: 16),
                     ],
@@ -432,7 +364,7 @@ class _CreateQuestPageState extends State<CreateQuestPage> {
   }
 }
 
-// ── Widgets internes ──────────────────────────────────────────────────────────
+// ── Widgets internes (style pixel) ────────────────────────────────────────────
 
 class _SectionLabel extends StatelessWidget {
   final String label;
@@ -441,13 +373,9 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: const TextStyle(
-        color: AppColors.textSecondary,
-        fontWeight: FontWeight.w600,
-        fontSize: 13,
-      ),
+    return Semantics(
+      header: true,
+      child: Text(label, style: PixelTextes.chiffres(10, PixelCouleurs.violetClair)),
     );
   }
 }
@@ -468,40 +396,14 @@ class _CategoryPicker extends StatelessWidget {
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: categories.map((c) {
-        final isSelected = c == selected;
-        return GestureDetector(
-          onTap: () => onChanged(c),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? AppColors.primaryTurquoise.withValues(alpha: 0.15)
-                  : AppColors.backgroundDarkPanel,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: isSelected
-                    ? AppColors.primaryTurquoise
-                    : AppColors.inputBorder,
-              ),
-            ),
-            child: Text(
-              c,
-              style: TextStyle(
-                color: isSelected
-                    ? AppColors.primaryTurquoise
-                    : AppColors.textSecondary,
-                fontSize: 13,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-              ),
-            ),
-          ),
-        );
-      }).toList(),
+      children: [
+        for (final c in categories) PixelChoix(libelle: c, choisi: c == selected, onTap: () => onChanged(c)),
+      ],
     );
   }
 }
 
+/// Difficulté : quatre blocs or qui se remplissent (1 à 4).
 class _DifficultyPicker extends StatelessWidget {
   final int value;
   final ValueChanged<int> onChanged;
@@ -514,33 +416,39 @@ class _DifficultyPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Row(
-          children: List.generate(4, (i) {
-            final filled = i < value;
-            return Semantics(
-              button: true,
-              selected: i + 1 == value,
-              label: 'Difficulté ${i + 1} : ${_labels[i]}',
-              excludeSemantics: true,
-              child: GestureDetector(
-                onTap: () => onChanged(i + 1),
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: Icon(
-                    filled ? Icons.star_rounded : Icons.star_outline_rounded,
-                    color: filled ? AppColors.gold : AppColors.textMuted,
-                    size: 32,
+        for (var i = 0; i < 4; i++)
+          Semantics(
+            container: true,
+            button: true,
+            selected: i + 1 == value,
+            label: 'Difficulté ${i + 1} : ${_labels[i]}',
+            excludeSemantics: true,
+            child: GestureDetector(
+              onTap: () => onChanged(i + 1),
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: i < value ? PixelCouleurs.or : PixelCouleurs.panneau,
+                    border: Border(
+                      top: BorderSide(color: i < value ? PixelCouleurs.orClair : PixelCouleurs.trait, width: 3),
+                      left: BorderSide(color: i < value ? PixelCouleurs.orClair : PixelCouleurs.trait, width: 3),
+                      right: BorderSide(color: i < value ? PixelCouleurs.orClair : PixelCouleurs.trait, width: 3),
+                      bottom: BorderSide(color: i < value ? PixelCouleurs.orSombre : PixelCouleurs.trait, width: 6),
+                    ),
                   ),
+                  alignment: Alignment.center,
+                  child: Text('${i + 1}',
+                      style: PixelTextes.chiffres(11, i < value ? PixelCouleurs.nuit : PixelCouleurs.texteDoux)),
                 ),
               ),
-            );
-          }),
-        ),
-        const SizedBox(width: 10),
-        Text(
-          _labels[value - 1],
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
-        ),
+            ),
+          ),
+        const SizedBox(width: 4),
+        Text(_labels[value - 1], style: PixelTextes.corps(16, couleur: PixelCouleurs.orClair, poids: FontWeight.w700)),
       ],
     );
   }
@@ -556,66 +464,31 @@ class _ValidationTypePicker extends StatelessWidget {
   });
 
   static const _options = [
-    (type: ValidationType.manual, icon: Icons.check_outlined, label: 'Manuel'),
-    (
-      type: ValidationType.photo,
-      icon: Icons.camera_alt_outlined,
-      label: 'Photo'
-    ),
-    (type: ValidationType.timer, icon: Icons.timer_outlined, label: 'Timer'),
-    (
-      type: ValidationType.geolocation,
-      icon: Icons.location_on_outlined,
-      label: 'Lieu'
-    ),
+    (type: ValidationType.manual, icon: Icons.check_box_outlined, label: 'Déclarative', accent: PixelCouleurs.violet),
+    (type: ValidationType.photo, icon: Icons.photo_camera_outlined, label: 'Photo', accent: Color(0xFF0B6E9E)),
+    (type: ValidationType.timer, icon: Icons.timer_outlined, label: 'Minuteur', accent: Color(0xFFB45309)),
+    (type: ValidationType.geolocation, icon: Icons.place_outlined, label: 'Lieu', accent: Color(0xFF15803D)),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Row(
-      children: _options.map((opt) {
-        final isSelected = opt.type == selected;
-        return Expanded(
-          child: GestureDetector(
-            onTap: () => onChanged(opt.type),
-            child: Container(
-              margin: EdgeInsets.only(right: opt == _options.last ? 0 : 8),
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? AppColors.primaryTurquoise.withValues(alpha: 0.15)
-                    : AppColors.backgroundDarkPanel,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: isSelected
-                      ? AppColors.primaryTurquoise
-                      : AppColors.inputBorder,
-                ),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(opt.icon,
-                      size: 20,
-                      color: isSelected
-                          ? AppColors.primaryTurquoise
-                          : AppColors.textMuted),
-                  const SizedBox(height: 4),
-                  Text(opt.label,
-                      style: TextStyle(
-                          color: isSelected
-                              ? AppColors.primaryTurquoise
-                              : AppColors.textMuted,
-                          fontSize: 11,
-                          fontWeight: isSelected
-                              ? FontWeight.w600
-                              : FontWeight.normal)),
-                ],
+      children: [
+        for (final opt in _options)
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(right: opt == _options.last ? 0 : 8),
+              child: PixelChoix(
+                libelle: opt.label,
+                icone: opt.icon,
+                accent: opt.accent,
+                vertical: true,
+                choisi: opt.type == selected,
+                onTap: () => onChanged(opt.type),
               ),
             ),
           ),
-        );
-      }).toList(),
+      ],
     );
   }
 }
@@ -636,39 +509,19 @@ class _FrequencyPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      children: _options.map((opt) {
-        final isSelected = opt.freq == selected;
-        return Expanded(
-          child: GestureDetector(
-            onTap: () => onChanged(opt.freq),
-            child: Container(
-              margin: EdgeInsets.only(right: opt == _options.last ? 0 : 8),
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? AppColors.secondaryViolet.withValues(alpha: 0.15)
-                    : AppColors.backgroundDarkPanel,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: isSelected
-                      ? AppColors.secondaryViolet
-                      : AppColors.inputBorder,
-                ),
-              ),
-              child: Center(
-                child: Text(opt.label,
-                    style: TextStyle(
-                        color: isSelected
-                            ? AppColors.secondaryVioletGlow
-                            : AppColors.textMuted,
-                        fontSize: 12,
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.normal)),
+      children: [
+        for (final opt in _options)
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(right: opt == _options.last ? 0 : 8),
+              child: PixelChoix(
+                libelle: opt.label,
+                choisi: opt.freq == selected,
+                onTap: () => onChanged(opt.freq),
               ),
             ),
           ),
-        );
-      }).toList(),
+      ],
     );
   }
 }
@@ -684,44 +537,17 @@ class _DurationPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 40,
+      height: 46,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: _options.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (_, i) {
           final minutes = _options[i];
-          final isSelected = minutes == value;
           final label = minutes >= 60
-              ? '${minutes ~/ 60}h${minutes % 60 > 0 ? "${minutes % 60}m" : ""}'
-              : '${minutes}m';
-          return GestureDetector(
-            onTap: () => onChanged(minutes),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? AppColors.primaryTurquoise.withValues(alpha: 0.15)
-                    : AppColors.backgroundDarkPanel,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: isSelected
-                      ? AppColors.primaryTurquoise
-                      : AppColors.inputBorder,
-                ),
-              ),
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: isSelected
-                      ? AppColors.primaryTurquoise
-                      : AppColors.textSecondary,
-                  fontSize: 13,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                ),
-              ),
-            ),
-          );
+              ? '${minutes ~/ 60} h${minutes % 60 > 0 ? " ${minutes % 60}" : ""}'
+              : '$minutes min';
+          return PixelChoix(libelle: label, choisi: minutes == value, onTap: () => onChanged(minutes));
         },
       ),
     );
@@ -750,79 +576,48 @@ class _SchedulePicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final heure =
+        '${deadlineTime.hour.toString().padLeft(2, '0')}:${deadlineTime.minute.toString().padLeft(2, '0')}';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: _scheduleOptions.map((opt) {
-            final isSelected = opt.value == scheduleOption;
-            return GestureDetector(
-              onTap: () => onScheduleChanged(opt.value),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppColors.primaryTurquoise.withValues(alpha: 0.15)
-                      : AppColors.backgroundDarkPanel,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: isSelected
-                        ? AppColors.primaryTurquoise
-                        : AppColors.inputBorder,
-                  ),
-                ),
-                child: Text(
-                  opt.label,
-                  style: TextStyle(
-                    color: isSelected
-                        ? AppColors.primaryTurquoise
-                        : AppColors.textSecondary,
-                    fontSize: 13,
-                    fontWeight:
-                        isSelected ? FontWeight.w600 : FontWeight.normal,
-                  ),
-                ),
+          children: [
+            for (final opt in _scheduleOptions)
+              PixelChoix(
+                libelle: opt.label,
+                choisi: opt.value == scheduleOption,
+                onTap: () => onScheduleChanged(opt.value),
               ),
-            );
-          }).toList(),
+          ],
         ),
-        // Afficher le sélecteur d'heure seulement si une date est choisie
+        // Le sélecteur d'heure n'apparaît que si une date est choisie.
         if (scheduleOption != 'none') ...[
           const SizedBox(height: 12),
-          GestureDetector(
-            onTap: onTimePick,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: AppColors.backgroundDarkPanel,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.inputBorder),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.access_time,
-                      color: AppColors.textMuted, size: 18),
-                  const SizedBox(width: 10),
-                  const Text('Heure limite',
-                      style: TextStyle(
-                          color: AppColors.textSecondary, fontSize: 13)),
-                  const SizedBox(width: 16),
-                  Text(
-                    '${deadlineTime.hour.toString().padLeft(2, '0')}:${deadlineTime.minute.toString().padLeft(2, '0')}',
-                    style: const TextStyle(
-                      color: AppColors.primaryTurquoise,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  const Icon(Icons.edit_outlined,
-                      color: AppColors.primaryTurquoise, size: 14),
-                ],
+          Semantics(
+            container: true,
+            button: true,
+            label: 'Heure limite $heure, modifier',
+            excludeSemantics: true,
+            child: GestureDetector(
+              onTap: onTimePick,
+              behavior: HitTestBehavior.opaque,
+              child: PixelCadre(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.access_time, color: PixelCouleurs.texteDoux, size: 18),
+                    const SizedBox(width: 10),
+                    Text('Heure limite', style: PixelTextes.corps(16, couleur: PixelCouleurs.texteDoux)),
+                    const SizedBox(width: 16),
+                    Text(heure, style: PixelTextes.chiffres(12, PixelCouleurs.orClair)),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.edit_outlined, color: PixelCouleurs.orClair, size: 16),
+                  ],
+                ),
               ),
             ),
           ),

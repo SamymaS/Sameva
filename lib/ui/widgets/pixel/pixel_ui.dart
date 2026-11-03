@@ -286,3 +286,86 @@ class PixelJauge extends StatelessWidget {
     );
   }
 }
+
+/// Option sélectionnable pixel (pastille de formulaire) : bloc à bord épais,
+/// violet quand choisie. Annoncée comme bouton sélectionné ; cible ≥ 44 px.
+class PixelChoix extends StatelessWidget {
+  final String libelle;
+  final bool choisi;
+  final VoidCallback? onTap;
+  final IconData? icone;
+
+  /// Couleur d'accent quand l'option est choisie (violet par défaut).
+  final Color accent;
+
+  /// Disposition verticale (icône au-dessus du libellé), pour les grilles.
+  final bool vertical;
+
+  const PixelChoix({
+    super.key,
+    required this.libelle,
+    required this.choisi,
+    required this.onTap,
+    this.icone,
+    this.accent = PixelCouleurs.violet,
+    this.vertical = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final clair = Color.lerp(accent, Colors.white, .45)!;
+    final couleurTexte = choisi ? PixelCouleurs.texte : PixelCouleurs.texteDoux;
+    final enfants = [
+      if (icone != null) Icon(icone, size: vertical ? 22 : 16, color: choisi ? clair : PixelCouleurs.texteDoux),
+      if (icone != null) SizedBox(width: vertical ? 0 : 6, height: vertical ? 4 : 0),
+      // réduit plutôt que de couper un mot quand la case est étroite
+      Flexible(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(libelle,
+              maxLines: 1,
+              textAlign: TextAlign.center,
+              style: PixelTextes.corps(vertical ? 14 : 15, couleur: couleurTexte, poids: choisi ? FontWeight.w700 : FontWeight.w500)),
+        ),
+      ),
+    ];
+    return Semantics(
+      container: true,
+      button: true,
+      selected: choisi,
+      enabled: onTap != null,
+      label: libelle,
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 44),
+          padding: EdgeInsets.symmetric(horizontal: vertical ? 4 : 12, vertical: vertical ? 8 : 6),
+          decoration: BoxDecoration(
+            color: choisi ? accent : PixelCouleurs.panneau,
+            border: Border.all(color: choisi ? clair : PixelCouleurs.trait, width: 2),
+          ),
+          child: vertical
+              ? Column(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: enfants)
+              : Row(mainAxisSize: MainAxisSize.min, children: enfants),
+        ),
+      ),
+    );
+  }
+}
+
+/// Bordures de champ de saisie pixel (aucun arrondi, trait épais).
+InputDecoration pixelChamp({required String exemple}) => InputDecoration(
+      hintText: exemple,
+      hintStyle: PixelTextes.corps(16, couleur: PixelCouleurs.texteDoux),
+      filled: true,
+      fillColor: PixelCouleurs.panneau,
+      border: const OutlineInputBorder(borderRadius: BorderRadius.zero, borderSide: BorderSide(color: PixelCouleurs.trait, width: 3)),
+      enabledBorder: const OutlineInputBorder(borderRadius: BorderRadius.zero, borderSide: BorderSide(color: PixelCouleurs.trait, width: 3)),
+      focusedBorder: const OutlineInputBorder(borderRadius: BorderRadius.zero, borderSide: BorderSide(color: PixelCouleurs.violetClair, width: 3)),
+      disabledBorder: const OutlineInputBorder(borderRadius: BorderRadius.zero, borderSide: BorderSide(color: PixelCouleurs.violetSombre, width: 3)),
+      errorBorder: const OutlineInputBorder(borderRadius: BorderRadius.zero, borderSide: BorderSide(color: Color(0xFFFCA5A5), width: 3)),
+      focusedErrorBorder: const OutlineInputBorder(borderRadius: BorderRadius.zero, borderSide: BorderSide(color: Color(0xFFFCA5A5), width: 3)),
+      errorStyle: PixelTextes.corps(14, couleur: const Color(0xFFFCA5A5)),
+    );
