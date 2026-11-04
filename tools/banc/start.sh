@@ -51,7 +51,7 @@ fi
 PSQL="psql -h 127.0.0.1 -p $PG_PORT -U postgres -v ON_ERROR_STOP=1 -q"
 
 if [ "$FRESH" = "1" ]; then
-  echo "Base vierge : rôles, auth, baseline, migrations"
+  echo "Base vierge : rôles, auth, migrations (baseline comprise)"
   $PSQL -d postgres -c "CREATE DATABASE banc"
   $PSQL -d banc -f roles.sql
   # Schéma auth : migrations officielles de GoTrue.
@@ -59,7 +59,6 @@ if [ "$FRESH" = "1" ]; then
      DATABASE_URL="postgres://supabase_auth_admin:banc@127.0.0.1:$PG_PORT/banc?search_path=auth" \
      GOTRUE_JWT_SECRET="$JWT_SECRET" API_EXTERNAL_URL="http://127.0.0.1:$GATEWAY_PORT/auth/v1" \
      GOTRUE_SITE_URL="http://127.0.0.1:8080" ./auth migrate > "$BANC_DIR/logs/gotrue-migrate.log" 2>&1)
-  $PSQL -d banc -f baseline_reconstruite.sql
   for f in "$REPO"/supabase/migrations/*.sql; do
     $PSQL -d banc -f "$f" > /dev/null
   done

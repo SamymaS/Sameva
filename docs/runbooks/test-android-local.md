@@ -15,10 +15,8 @@ Get-Content tools\banc\reglages_banc.sql | docker exec -i supabase_db_<project_i
 npx supabase functions serve --env-file supabase\functions\.env.local
 ```
 
-- Tant que la baseline du Sprint 0 n'existe pas, copier
-  `tools/banc/baseline_reconstruite.sql` en
-  `supabase/migrations/20260101000000_baseline_banc.sql` dans la copie de test
-  (jamais dans le dépôt).
+- La baseline (`supabase/migrations/20260101000000_baseline.sql`) est versionnée :
+  une base vierge rejoue directement tout l'historique.
 - `reglages_banc.sql` autorise la validation déclarative immédiate (dev seulement).
 - L'Oracle simulé ne s'active que si l'URL Supabase est locale (`kong` compris).
 

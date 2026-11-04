@@ -6,7 +6,7 @@ un téléphone ou la production. Aucune donnée réelle, aucune clé de producti
 
 | Composant | Rôle | Port |
 | --- | --- | --- |
-| PostgreSQL 16 | Base avec la baseline reconstruite et toutes les migrations | 54330 |
+| PostgreSQL 16 | Base avec toutes les migrations (baseline de production comprise) | 54330 |
 | GoTrue | Authentification (e-mail, invité) | 54332 |
 | PostgREST | API REST et RPC | 54331 |
 | Edge Functions (Deno) | `analyze-quest-proof` (Oracle **simulé**), `delete-account` | 54340+ |
@@ -45,4 +45,5 @@ création relevé. Rien d'autre ne diffère de la production.
 
 - Pas d'émulateur Android ici (pas de KVM) : caméra native, notifications,
   Play Integrity se testent sur le S918B ou sur l'émulateur du PC de dev.
-- La baseline est reconstruite depuis le code : la vraie viendra du Sprint 0.
+- La baseline est la photographie du schéma de production avant le Sprint 1 :
+  une base neuve construite par les migrations est identique à la production.
