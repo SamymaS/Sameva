@@ -44,7 +44,7 @@ SELECT throws_ok($$ INSERT INTO public.premium_subscriptions (user_id, is_premiu
   'premium_subscriptions : premium non auto-attribuable');
 SELECT throws_ok($$ UPDATE public.game_config SET value = '[9999,9999,9999,9999]' WHERE key = 'quest.base_xp' $$, '42501', NULL,
   'game_config : réglages en lecture seule');
-SELECT throws_ok($$ INSERT INTO public.transactions (user_id, amount, currency) VALUES (auth.uid(), 1000, 'gold') $$, '42501', NULL,
+SELECT throws_ok($$ INSERT INTO public.transactions (user_id, type, gold_amount) VALUES (auth.uid(), 'reward', 1000) $$, '42501', NULL,
   'transactions : plus d''insertion client');
 
 -- Fonctions réservées à l'Edge Function Oracle

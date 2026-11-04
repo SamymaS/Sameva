@@ -37,7 +37,7 @@ SELECT is((:'v2'::jsonb ->> 'accepted')::boolean, true, 'score 86 : accepté');
 SELECT is((:'v2'::jsonb -> 'rewards' ->> 'xp')::int, 30, 'Oracle diff 2 : 30 XP pleins');
 SELECT is((:'v2'::jsonb -> 'rewards' ->> 'seals')::int, 1, 'Oracle diff 2 : 1 Sceau');
 SELECT results_eq(
-  $$ SELECT status, validated_by FROM public.quests WHERE id = $$ || quote_literal(:'q1') || $$::uuid $$,
+  $$ SELECT status::text, validated_by FROM public.quests WHERE id = $$ || quote_literal(:'q1') || $$::uuid $$,
   $$ VALUES ('completed'::text, 'oracle'::text) $$,
   'score 86 : quête close par l''Oracle');
 SELECT is((SELECT round(credibility_score::numeric, 3) FROM public.player_stats WHERE user_id = :'alice'), 0.705,

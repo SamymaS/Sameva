@@ -118,3 +118,24 @@ APK ne fonctionne plus avec le serveur : prévenir les testeurs.
 ```powershell
 supabase db diff --linked   # doit être vide
 ```
+
+## Journal d'exécution (4 novembre 2026)
+
+- **État trouvé** : un premier `db push` (4 nov., 14 h 01 UTC) a appliqué
+  `20261102000100_s1_fondations_economie` puis s'est arrêté sur
+  `20261102000200_s1_quetes_autoritaires`. Cause : en production, `quests.status`,
+  `quests.validation_type`, `quests.frequency` et `quests.rarity` sont des **types
+  énumérés** (et non du texte comme dans la reconstitution du banc) ; le littéral
+  `'ai'` n'existe pas dans l'énuméré `validation_type`.
+- **Sauvegarde** : faute de CLI sur le poste, sauvegarde JSON par l'API (données de
+  toutes les tables `public`, comptes `auth`, et catalogue complet du schéma) dans
+  `supabase/backups/2026-11-04_prod_*.json` (ignoré par Git).
+- **Baseline** : `tools/banc/baseline_reconstruite.sql` est désormais la photographie
+  exacte de la production (énumérés, colonnes, contraintes, index, déclencheurs,
+  politiques). Vérifié : après baseline + migrations déjà appliquées, le catalogue du
+  banc est identique à celui de la production. La conversion en migration
+  `20260101000000_baseline.sql` (étapes 3 et 4) reste à faire avec la CLI.
+- **Correctif** : comparaisons et contraintes passées en `::text` dans
+  `20261102000200` et `20261103000200` (fonctionne avec un énuméré comme avec du
+  texte). Rejoué sur un clone de la production chargé avec ses données réelles :
+  les cinq migrations passent, puis `reinitialiser_economie_recette.sql`.
