@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:sameva/data/repositories/game_api.dart';
 import 'package:sameva/data/repositories/player_repository.dart';
 import 'package:sameva/presentation/view_models/player_view_model.dart';
 import 'package:sameva/presentation/view_models/rewards_view_model.dart';
@@ -58,7 +59,7 @@ void main() {
       when(() => repo.loadLocalStats()).thenReturn(
         PlayerStats(level: 3, experience: 50, gold: 200, streak: 5),
       );
-      when(() => repo.fetchRemoteStats(any())).thenAnswer((_) async => null);
+      when(() => repo.fetchServerState()).thenAnswer((_) async => throw Exception('hors-ligne'));
       when(() => repo.saveLocalStats(any())).thenAnswer((_) async {});
 
       await playerVm.loadPlayerStats('u1');
@@ -73,7 +74,7 @@ void main() {
       when(() => repo.loadLocalStats()).thenReturn(
         PlayerStats(level: 1, experience: 1000),
       );
-      when(() => repo.fetchRemoteStats(any())).thenAnswer((_) async => null);
+      when(() => repo.fetchServerState()).thenAnswer((_) async => throw Exception('hors-ligne'));
       when(() => repo.saveLocalStats(any())).thenAnswer((_) async {});
 
       await playerVm.loadPlayerStats('u1');
@@ -83,23 +84,25 @@ void main() {
 
     test('se met à jour quand le PlayerViewModel notifie (or)', () async {
       when(() => repo.loadLocalStats()).thenReturn(PlayerStats(gold: 10));
-      when(() => repo.fetchRemoteStats(any())).thenAnswer((_) async => null);
+      when(() => repo.fetchServerState()).thenAnswer((_) async => throw Exception('hors-ligne'));
       when(() => repo.saveLocalStats(any())).thenAnswer((_) async {});
-      when(() => repo.syncToSupabase(any(), any())).thenAnswer((_) async {});
 
       await playerVm.loadPlayerStats('u1');
       expect(rewardsVm.gold, 10);
 
-      await playerVm.addGold('u1', 40);
+      // Le serveur crédite ; le VM relit l'état.
+      when(() => repo.fetchServerState()).thenAnswer((_) async => PlayerServerState(
+          stats: PlayerStats(gold: 50), xpForNextLevel: 150, energy: 0, premium: false, gacha: const {}));
+      await playerVm.refresh();
 
       expect(rewardsVm.gold, 50);
     });
 
-    test('orchestration : erreur fetchRemoteStats laisse les stats locales visibles', () async {
+    test('orchestration : erreur fetchServerState laisse les stats locales visibles', () async {
       when(() => repo.loadLocalStats()).thenReturn(
         PlayerStats(level: 4, experience: 10, gold: 77),
       );
-      when(() => repo.fetchRemoteStats(any())).thenThrow(Exception('Supabase indisponible'));
+      when(() => repo.fetchServerState()).thenThrow(Exception('Supabase indisponible'));
       when(() => repo.saveLocalStats(any())).thenAnswer((_) async {});
 
       await playerVm.loadPlayerStats('u1');
@@ -111,9 +114,8 @@ void main() {
 
     test('dispose ne reçoit plus les notifications du PlayerViewModel', () async {
       when(() => repo.loadLocalStats()).thenReturn(PlayerStats(gold: 1));
-      when(() => repo.fetchRemoteStats(any())).thenAnswer((_) async => null);
+      when(() => repo.fetchServerState()).thenAnswer((_) async => throw Exception('hors-ligne'));
       when(() => repo.saveLocalStats(any())).thenAnswer((_) async {});
-      when(() => repo.syncToSupabase(any(), any())).thenAnswer((_) async {});
 
       final localRewards = RewardsViewModel(playerVm);
       var rewardsNotifications = 0;
@@ -124,7 +126,9 @@ void main() {
 
       localRewards.dispose();
 
-      await playerVm.addGold('u1', 10);
+      when(() => repo.fetchServerState()).thenAnswer((_) async => PlayerServerState(
+          stats: PlayerStats(gold: 11), xpForNextLevel: 150, energy: 0, premium: false, gacha: const {}));
+      await playerVm.refresh();
 
       expect(rewardsNotifications, afterLoad);
     });

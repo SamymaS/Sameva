@@ -41,5 +41,9 @@ void main() {
         ValidationType.manual,
       );
     });
+
+    test('« ai » (ancien cache) devient « photo » : une preuve reste exigée', () {
+      expect(ValidationType.fromSupabaseString('ai'), ValidationType.photo);
+    });
   });
 }

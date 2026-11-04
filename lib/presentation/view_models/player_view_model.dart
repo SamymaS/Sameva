@@ -1,26 +1,23 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../data/models/quest_model.dart';
 import '../../data/models/player_stats_model.dart';
+import '../../data/repositories/game_api.dart';
 import '../../data/repositories/player_repository.dart';
-import '../../domain/services/activity_log_service.dart';
-import '../../domain/services/health_regeneration_service.dart';
-import '../../domain/services/item_factory.dart';
-import '../../domain/services/notification_service.dart';
-import './inventory_view_model.dart';
-import './ai_validation_credits_service.dart';
 
 // Re-export pour la compatibilité des imports existants
 export '../../data/models/player_stats_model.dart';
 
-/// ViewModel pour les statistiques joueur (état global).
-/// Délègue la persistance à PlayerRepository — logique métier ici.
+/// ViewModel des statistiques joueur.
 ///
-/// Abonné aux streams [onSignedOut] et [onSignedIn] pour le lifecycle auth
-/// uniforme (pattern identique à CatViewModel) :
+/// Sprint 1 : le serveur est l'unique autorité. Ce ViewModel ne modifie plus
+/// jamais l'or, l'XP, les cristaux, les PV ou la flamme lui-même : il envoie
+/// des intentions via [GameApi] puis relit l'état serveur ([refresh]).
+/// Hive ne sert plus que de cache d'affichage.
+///
+/// Abonné aux streams [onSignedOut] et [onSignedIn] pour le lifecycle auth :
 /// - [onSignedOut] → [reset()] : vide les stats en mémoire.
-/// - [onSignedIn] → [loadPlayerStats(uid)] : recharge (garde idempotente si déjà chargé).
+/// - [onSignedIn] → [loadPlayerStats(uid)] (garde idempotente si déjà chargé).
 class PlayerViewModel with ChangeNotifier {
   final PlayerRepository _repo;
 
@@ -31,7 +28,10 @@ class PlayerViewModel with ChangeNotifier {
   StreamSubscription<void>? _signedInSub;
 
   PlayerStats? _stats;
-  String? _currentUserId;
+  int _xpForNextLevel = 150;
+  int _energy = 0;
+  bool _premium = false;
+  Map<String, GachaBannerState> _gacha = const {};
 
   PlayerViewModel(
     this._repo, {
@@ -44,7 +44,6 @@ class PlayerViewModel with ChangeNotifier {
     }
     if (onSignedIn != null) {
       _signedInSub = onSignedIn.listen((_) async {
-        // Garde idempotente : si les stats sont déjà chargées, ne pas recharger.
         if (_stats != null) return;
         final uid = _testUserId ?? _supabaseUserId;
         if (uid == null) return;
@@ -53,8 +52,6 @@ class PlayerViewModel with ChangeNotifier {
     }
   }
 
-  /// Résout le userId depuis Supabase (production uniquement).
-  /// Retourne null si Supabase n'est pas initialisé (tests sans injection).
   String? get _supabaseUserId {
     try {
       return Supabase.instance.client.auth.currentUser?.id;
@@ -70,373 +67,118 @@ class PlayerViewModel with ChangeNotifier {
     super.dispose();
   }
 
+  GameApi get api => _repo.api;
   PlayerStats? get stats => _stats;
   bool get isInitialized => _stats != null;
   bool get hasStreakBonus => _stats != null && _stats!.streak >= 7;
 
-  int experienceForLevel(int level) => (100 * (level * 1.5)).round();
+  /// Énergie de l'Oracle connue lors du dernier rafraîchissement.
+  int get energy => _energy;
+  bool get isPremium => _premium;
+
+  /// État gacha par bannière (`objets`, `compagnons`).
+  Map<String, GachaBannerState> get gacha => _gacha;
+
+  /// XP requise pour passer au niveau suivant (fournie par le serveur).
+  int get xpForNextLevel => _xpForNextLevel;
+
+  /// Même formule que le serveur (`level.xp_factor` × niveau), pour les
+  /// affichages hors-ligne.
+  int experienceForLevel(int level) => 150 * level;
 
   // ── Chargement ────────────────────────────────────────────────────────────
 
   Future<void> loadPlayerStats(String userId) async {
-    _currentUserId = userId;
-
-    // Offline-first : Hive immédiat
+    // TODO(Sprint 2) : envoyer le fuseau IANA de l'appareil via
+    // api.setTimezone (une seule fois, le serveur le verrouille 30 jours).
+    // DateTime.timeZoneName ne fournit pas de nom IANA : le serveur garde
+    // Europe/Paris par défaut d'ici là.
     _stats = _repo.loadLocalStats();
     notifyListeners();
+    await refresh();
+  }
 
-    // Sync distante — 3 cas traités explicitement.
+  /// Relit l'état faisant autorité. En cas d'erreur réseau, le cache reste
+  /// affiché (rien n'est jamais écrit côté serveur depuis le client).
+  Future<void> refresh() async {
     try {
-      final remote = await _repo.fetchRemoteStats(userId);
-      if (remote != null) {
-        // Cas 1 : données existantes → on les utilise, Hive mis à jour.
-        _stats = remote;
-        await _repo.saveLocalStats(remote);
-        notifyListeners();
-      } else {
-        // Cas 2 : requête réussie, aucune ligne → vrai nouveau user (pas de profil remote).
-        // loadLocalStats() retourne toujours un PlayerStats, _stats est donc déjà défini.
-        // On pousse ce snapshot vers Supabase pour créer le profil distant.
-        await _repo.syncToSupabase(userId, _stats!);
-        notifyListeners();
-      }
-    } catch (e) {
-      // Cas 3 : erreur réseau / exception Supabase.
-      // Principe : EN CAS DE DOUTE, NE JAMAIS ÉCRASER LA DB.
-      // On conserve le snapshot Hive déjà chargé en mémoire et on ne touche pas à Supabase.
-      debugPrint('PlayerViewModel: erreur réseau fetchRemoteStats — fallback Hive: $e');
-      // _stats reste celui chargé depuis Hive ci-dessus (offline-first garanti).
-    }
-
-    /// ATTENTION : sur chemin erreur réseau (cas 3), les stats viennent de Hive
-    /// (potentiellement datées). Les calculs streak/regen ci-dessous seront donc
-    /// effectués sur le snapshot local, ce qui est acceptable : un resync
-    /// ultérieur corrigera l'état canonique côté Supabase.
-
-    // Vérification streak expiré (si absence >= 2 jours depuis dernière activité)
-    if (_stats != null && _stats!.lastActiveDate != null) {
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      final last = DateTime(
-        _stats!.lastActiveDate!.year,
-        _stats!.lastActiveDate!.month,
-        _stats!.lastActiveDate!.day,
-      );
-      if (today.difference(last).inDays >= 2) {
-        _stats = _stats!.copyWith(streak: 0);
-        await _repo.saveLocalStats(_stats!);
-        notifyListeners();
-      }
-    }
-
-    // Régénération HP nocturne
-    if (_stats != null) {
-      final regen = HealthRegenerationService.computeRegen(
-        currentHp: _stats!.healthPoints,
-        maxHp: _stats!.maxHealthPoints,
-      );
-      if (regen > 0) await heal(userId, regen);
-    }
-  }
-
-  Future<void> savePlayerStats(String userId) async {
-    _currentUserId = userId;
-    await _persistStats();
-  }
-
-  Future<void> _persistStats() async {
-    if (_stats == null) return;
-    await _repo.saveLocalStats(_stats!);
-    if (_currentUserId != null) {
-      await _repo.syncToSupabase(_currentUserId!, _stats!);
-    }
-  }
-
-  // ── Mutations ─────────────────────────────────────────────────────────────
-
-  Future<void> addExperience(String userId, int amount) async {
-    if (_stats == null) return;
-
-    int xp = _stats!.experience + amount;
-    int level = _stats!.level;
-    int levelsGained = 0;
-
-    while (xp >= experienceForLevel(level)) {
-      xp -= experienceForLevel(level);
-      level++;
-      levelsGained++;
-    }
-
-    // +10 HP max par niveau gagné (incrémental, préserve les bonus équipement)
-    final newMax = _stats!.maxHealthPoints + levelsGained * 10;
-    _stats = _stats!.copyWith(
-      experience: xp,
-      level: level,
-      maxHealthPoints: newMax,
-    );
-    notifyListeners();
-    await savePlayerStats(userId);
-
-    if (levelsGained > 0) {
-      await ActivityLogService.addEntry(ActivityLogEntry(
-        type: ActivityType.levelUp,
-        title: 'Niveau $level atteint !',
-        subtitle: 'Montée de niveau +$levelsGained',
-        date: DateTime.now(),
-      ));
-    }
-  }
-
-  Future<void> addGold(String userId, int amount) async {
-    if (_stats == null) return;
-    final newGold = (_stats!.gold + amount).clamp(0, 999999999);
-    _stats = _stats!.copyWith(gold: newGold);
-    notifyListeners();
-    await savePlayerStats(userId);
-  }
-
-  Future<void> addCrystals(String userId, int amount) async {
-    if (_stats == null || amount <= 0) return;
-    final newCrystals = (_stats!.crystals + amount).clamp(0, 999999999);
-    _stats = _stats!.copyWith(crystals: newCrystals);
-    notifyListeners();
-    await savePlayerStats(userId);
-  }
-
-  Future<void> spendCrystals(String userId, int amount) async {
-    if (_stats == null || amount <= 0 || _stats!.crystals < amount) return;
-    _stats = _stats!.copyWith(crystals: _stats!.crystals - amount);
-    notifyListeners();
-    await savePlayerStats(userId);
-  }
-
-  /// Modifie les HP max (delta positif = bonus équipement, négatif = retrait).
-  /// Les HP courants sont plafonnés au nouveau max si nécessaire.
-  Future<void> adjustMaxHp(String userId, int delta) async {
-    if (_stats == null) return;
-    final newMax = (_stats!.maxHealthPoints + delta).clamp(10, 99999);
-    final newHp = _stats!.healthPoints.clamp(0, newMax);
-    _stats = _stats!.copyWith(maxHealthPoints: newMax, healthPoints: newHp);
-    notifyListeners();
-    await savePlayerStats(userId);
-  }
-
-  Future<void> updateMoral(String userId, double amount) async {
-    if (_stats == null) return;
-    _stats = _stats!.copyWith(moral: (_stats!.moral + amount).clamp(0.0, 1.0));
-    notifyListeners();
-    await savePlayerStats(userId);
-  }
-
-  /// Met à jour le streak après une quête complétée.
-  ///
-  /// [inventory] : permet de distribuer les récompenses d'objets aux paliers.
-  /// [creditsService] : si fourni, [AiValidationCreditsService.earnFromStreak]
-  ///   est appelé avec le nouveau streak après mise à jour. Idempotent par
-  ///   palier (7, 14, 21…) grâce à [lastRewardedStreakMilestone].
-  ///   L'injection est optionnelle pour ne pas casser les consumers existants.
-  Future<void> updateStreak(
-    String userId, {
-    InventoryViewModel? inventory,
-    AiValidationCreditsService? creditsService,
-  }) async {
-    if (_stats == null) return;
-
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final previousStreak = _stats!.streak;
-
-    if (_stats!.lastActiveDate == null) {
-      _stats = _stats!.copyWith(
-        streak: 1,
-        maxStreak: _stats!.maxStreak < 1 ? 1 : _stats!.maxStreak,
-        lastActiveDate: today,
-      );
-    } else {
-      final last = DateTime(
-        _stats!.lastActiveDate!.year,
-        _stats!.lastActiveDate!.month,
-        _stats!.lastActiveDate!.day,
-      );
-      final diff = today.difference(last).inDays;
-      if (diff == 0) return;
-      if (diff == 1) {
-        final newStreak = _stats!.streak + 1;
-        _stats = _stats!.copyWith(
-          streak: newStreak,
-          maxStreak: newStreak > _stats!.maxStreak ? newStreak : _stats!.maxStreak,
-          lastActiveDate: today,
-        );
-      } else {
-        _stats = _stats!.copyWith(streak: 1, lastActiveDate: today);
-      }
-    }
-
-    notifyListeners();
-    await savePlayerStats(userId);
-
-    try {
-      await NotificationService.rescheduleStreakReminder();
-    } catch (e) {
-      debugPrint('PlayerViewModel: erreur reschedule streak: $e');
-    }
-
-    if (inventory != null) {
-      await _checkStreakMilestones(userId, previousStreak, _stats!.streak, inventory);
-    }
-
-    // Hook gain de jetons IA par palier de streak.
-    // Appelé APRÈS la persistance du streak pour que le nouveau streak soit
-    // définitif avant de déclencher earnFromStreak (idempotent par palier).
-    if (creditsService != null) {
-      try {
-        await creditsService.earnFromStreak(_stats!.streak);
-      } catch (e) {
-        // Ne jamais bloquer le flux de complétion de quête sur une erreur de crédits.
-        debugPrint('PlayerViewModel: erreur earnFromStreak: $e');
-      }
-    }
-  }
-
-  Future<void> _checkStreakMilestones(
-    String userId,
-    int oldStreak,
-    int newStreak,
-    InventoryViewModel inventory,
-  ) async {
-    final milestones = <int, ({String rarity, int crystals})>{
-      7:   (rarity: 'common',    crystals: 5),
-      14:  (rarity: 'rare',      crystals: 10),
-      30:  (rarity: 'epic',      crystals: 25),
-      100: (rarity: 'legendary', crystals: 100),
-    };
-
-    for (final entry in milestones.entries) {
-      if (oldStreak < entry.key && newStreak >= entry.key) {
-        final reward = entry.value;
-        inventory.addItem(ItemFactory.generateRandomItem(_rarityFromString(reward.rarity)));
-        if (reward.crystals > 0) await addCrystals(userId, reward.crystals);
-        try {
-          await NotificationService.showStreakMilestone(entry.key, reward.rarity);
-        } catch (e) {
-          debugPrint('PlayerViewModel: erreur notification streak milestone: $e');
-        }
-        await ActivityLogService.addEntry(ActivityLogEntry(
-          type: ActivityType.streak,
-          title: 'Streak ${entry.key} jours atteint !',
-          subtitle: '+${reward.crystals} cristaux · objet ${reward.rarity}',
-          date: DateTime.now(),
-        ));
-        debugPrint('Streak ${entry.key} j : récompense ${reward.rarity} débloquée');
-      }
-    }
-  }
-
-  static QuestRarity _rarityFromString(String r) => switch (r) {
-        'uncommon'  => QuestRarity.uncommon,
-        'rare'      => QuestRarity.rare,
-        'epic'      => QuestRarity.epic,
-        'legendary' => QuestRarity.legendary,
-        'mythic'    => QuestRarity.mythic,
-        _           => QuestRarity.common,
-      };
-
-  Future<void> takeDamage(String userId, int amount) async {
-    if (_stats == null) return;
-    final hp = (_stats!.healthPoints - amount).clamp(0, _stats!.maxHealthPoints);
-    _stats = _stats!.copyWith(healthPoints: hp);
-    if (hp <= 0) {
-      await resetPlayer(userId);
-    } else {
+      final state = await _repo.fetchServerState();
+      _applyServerState(state);
+      await _repo.saveLocalStats(_stats!);
       notifyListeners();
-      await savePlayerStats(userId);
+    } catch (e) {
+      debugPrint('PlayerViewModel: rafraîchissement impossible, cache conservé: $e');
     }
   }
 
-  Future<void> heal(String userId, int amount) async {
-    if (_stats == null) return;
-    _stats = _stats!.copyWith(
-      healthPoints: (_stats!.healthPoints + amount).clamp(0, _stats!.maxHealthPoints),
-    );
-    notifyListeners();
-    await savePlayerStats(userId);
+  void _applyServerState(PlayerServerState state) {
+    // Les succès restent locaux jusqu'au Sprint 3 : on fusionne ceux du cache.
+    final achievements = <String, int>{
+      ...state.stats.achievements,
+      ...?_stats?.achievements,
+    };
+    _stats = state.stats.copyWith(achievements: achievements);
+    _xpForNextLevel = state.xpForNextLevel;
+    _energy = state.energy;
+    _premium = state.premium;
+    _gacha = state.gacha;
   }
 
-  Future<void> updateCredibilityScore(String userId, double newScore) async {
-    if (_stats == null) return;
-    _stats = _stats!.copyWith(credibilityScore: newScore.clamp(0.0, 1.0));
-    notifyListeners();
-    await savePlayerStats(userId);
+  // ── Intentions (le serveur décide) ────────────────────────────────────────
+
+  /// Validation déclarative d'une quête.
+  Future<QuestRewardResult> completeQuest(String questId) async {
+    final result = await api.completeQuest(questId);
+    await refresh();
+    return result;
   }
 
-  Future<void> resetPlayer(String userId) async {
-    _stats = PlayerStats(
-      level: 1,
-      experience: 0,
-      gold: (_stats?.gold ?? 0) ~/ 2,
-      healthPoints: 100,
-      maxHealthPoints: 100,
-      credibilityScore: (_stats?.credibilityScore ?? 1.0) * 0.9,
-      achievements: _stats?.achievements ?? {},
-      maxStreak: _stats?.maxStreak ?? 0,
-      totalQuestsCompleted: _stats?.totalQuestsCompleted ?? 0,
-    );
-    notifyListeners();
-    await savePlayerStats(userId);
+  /// Règles quotidiennes (connexion, énergie, quêtes manquées, PV).
+  Future<DailyResult> claimDaily() async {
+    final result = await api.claimDaily();
+    await refresh();
+    return result;
   }
 
-  Future<void> incrementPity(String userId) async {
-    if (_stats == null) return;
-    _stats = _stats!.copyWith(pityCount: _stats!.pityCount + 1);
-    notifyListeners();
-    await savePlayerStats(userId);
+  /// Invocation gacha (payée en Sceaux).
+  Future<InvokeResult> invoke(String banner, {int count = 1, bool useFree = false}) async {
+    final result = await api.invoke(banner, count: count, useFree: useFree);
+    await refresh();
+    return result;
   }
 
-  Future<void> resetPity(String userId) async {
-    if (_stats == null) return;
-    _stats = _stats!.copyWith(pityCount: 0);
-    notifyListeners();
-    await savePlayerStats(userId);
+  /// TRANSITOIRE (Sprint 3) : débit d'or ou de cristaux.
+  Future<void> spend({
+    required String resource,
+    required int amount,
+    required String reason,
+    String? ref,
+  }) async {
+    await api.spend(resource: resource, amount: amount, reason: reason, ref: ref);
+    await refresh();
   }
 
-  /// Définit directement le compteur pity (utile pour batch multi-pull).
-  Future<void> setPity(String userId, int count) async {
-    if (_stats == null) return;
-    _stats = _stats!.copyWith(pityCount: count.clamp(0, 999));
-    notifyListeners();
-    await savePlayerStats(userId);
-  }
-
-  Future<void> incrementCatPity(String userId) async {
-    if (_stats == null) return;
-    _stats = _stats!.copyWith(catPityCount: _stats!.catPityCount + 1);
-    notifyListeners();
-    await savePlayerStats(userId);
-  }
-
-  Future<void> resetCatPity(String userId) async {
-    if (_stats == null) return;
-    _stats = _stats!.copyWith(catPityCount: 0);
-    notifyListeners();
-    await savePlayerStats(userId);
-  }
-
-  Future<void> incrementQuestsCompleted(String userId) async {
-    if (_stats == null) return;
-    _stats = _stats!.copyWith(
-        totalQuestsCompleted: _stats!.totalQuestsCompleted + 1);
-    notifyListeners();
-    await savePlayerStats(userId);
+  /// TRANSITOIRE (Sprint 3) : gain plafonné issu de l'inventaire local.
+  Future<TransitionalReward> claimTransitionalReward(String source, num amount, {String? ref}) async {
+    final result = await api.claimTransitionalReward(source, amount, ref: ref);
+    await refresh();
+    return result;
   }
 
   /// Remet le ViewModel à son état initial (changement de compte).
-  /// Vider _stats empêche toute syncToSupabase résiduelle sur le nouveau user.
   void reset() {
     _stats = null;
-    _currentUserId = null;
+    _energy = 0;
+    _premium = false;
+    _gacha = const {};
+    _xpForNextLevel = 150;
     notifyListeners();
   }
 
+  // ── Succès (locaux jusqu'au Sprint 3) ─────────────────────────────────────
+
+  /// Débloque les succès atteints. Purement cosmétiques et stockés dans le
+  /// cache local : ils ne donnent aucune ressource (Sprint 3 : succès serveur).
   Future<List<String>> checkAndUnlockAchievements(String userId,
       {int inventoryCount = 0}) async {
     if (_stats == null) return [];
@@ -471,7 +213,7 @@ class PlayerViewModel with ChangeNotifier {
     if (newlyUnlocked.isNotEmpty) {
       _stats = _stats!.copyWith(achievements: achievements);
       notifyListeners();
-      await savePlayerStats(userId);
+      await _repo.saveLocalStats(_stats!);
     }
 
     return newlyUnlocked;

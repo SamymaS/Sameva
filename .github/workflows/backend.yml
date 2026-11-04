@@ -1,0 +1,67 @@
+name: Sameva backend
+
+# Tests du backend : règles du jeu et droits (pgTAP) et Edge Function Oracle
+# (Deno). Lancé à chaque modification de supabase/.
+on:
+  push:
+    branches: [main, develop]
+    paths: ['supabase/**', '.github/workflows/backend.yml']
+  pull_request:
+    branches: [main]
+    paths: ['supabase/**', '.github/workflows/backend.yml']
+
+jobs:
+  oracle:
+    name: Edge Function Oracle (Deno)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Tests unitaires et empreinte perceptuelle
+        working-directory: supabase/functions/analyze-quest-proof
+        run: deno test --node-modules-dir=none --allow-net --allow-read index.test.ts dhash.test.ts
+      - name: Vérification des types
+        working-directory: supabase/functions/analyze-quest-proof
+        run: deno check index.ts
+
+  database:
+    name: Base de données (pgTAP)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Une base vide ne peut rejouer les migrations qu'avec la baseline issue
+      # de `supabase db pull` (Sprint 0) : les tables créées depuis le dashboard
+      # n'ont pas de migration. Les étapes suivantes s'activent toutes seules
+      # dès que la baseline est versionnée.
+      - name: Baseline présente ?
+        id: baseline
+        run: |
+          if ls supabase/migrations/*baseline*.sql >/dev/null 2>&1 || ls supabase/migrations/*remote_schema*.sql >/dev/null 2>&1; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Pas encore de baseline (Sprint 0) : tests pgTAP ignorés."
+          fi
+      - uses: supabase/setup-cli@v1
+        if: steps.baseline.outputs.ok == 'true'
+        with:
+          version: latest
+      - name: Démarrer Postgres avec toutes les migrations
+        if: steps.baseline.outputs.ok == 'true'
+        run: supabase db start
+      - name: Tests pgTAP
+        if: steps.baseline.outputs.ok == 'true'
+        run: supabase test db
+      - name: Installer Deno
+        if: steps.baseline.outputs.ok == 'true'
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Oracle de bout en bout (IA simulée)
+        if: steps.baseline.outputs.ok == 'true'
+        working-directory: supabase/functions/analyze-quest-proof
+        env:
+          SAMEVA_TEST_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: deno test --node-modules-dir=none --allow-env --allow-net --allow-read --allow-sys integration.test.ts

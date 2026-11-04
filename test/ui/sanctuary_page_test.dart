@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sameva/ui/widgets/pixel/pixel_ui.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:mocktail/mocktail.dart';
@@ -12,6 +13,8 @@ import 'package:sameva/data/repositories/player_repository.dart';
 import 'package:sameva/data/repositories/quest_repository.dart';
 import 'package:sameva/presentation/view_models/auth_view_model.dart';
 import 'package:sameva/presentation/view_models/cat_view_model.dart';
+import 'package:sameva/data/repositories/game_api.dart';
+import 'package:sameva/presentation/view_models/ai_validation_credits_service.dart';
 import 'package:sameva/presentation/view_models/player_view_model.dart';
 import 'package:sameva/presentation/view_models/quest_view_model.dart';
 import 'package:sameva/presentation/view_models/equipment_view_model.dart';
@@ -25,6 +28,23 @@ class _MockQuestRepository extends Mock implements QuestRepository {}
 class _MockBox extends Mock implements Box<dynamic> {}
 class _MockUser extends Mock implements User {}
 
+class _MockGameApi extends Mock implements GameApi {}
+
+/// API simulée : `claim_daily` déjà réclamé aujourd'hui (aucun dialogue).
+GameApi _fakeGameApi() {
+  final api = _MockGameApi();
+  when(() => api.claimDaily()).thenAnswer((_) async => DailyResult.fromJson(const {'first_today': false}));
+  return api;
+}
+
+AiValidationCreditsService _makeCreditsService() {
+  final box = _MockBox();
+  when(() => box.get(any())).thenReturn(null);
+  when(() => box.put(any(), any())).thenAnswer((_) async {});
+  return AiValidationCreditsService(box);
+}
+
+
 
 Widget _buildSanctuary({
   AuthViewModel? authVm,
@@ -37,6 +57,7 @@ Widget _buildSanctuary({
     providers: [
       ChangeNotifierProvider<AuthViewModel>.value(value: authVm ?? _makeAuthVm()),
       ChangeNotifierProvider<PlayerViewModel>.value(value: playerVm ?? _makePlayerVm()),
+      ChangeNotifierProvider<AiValidationCreditsService>.value(value: _makeCreditsService()),
       ChangeNotifierProvider<QuestViewModel>.value(value: questVm ?? _makeQuestVm()),
       ChangeNotifierProvider<CatViewModel>.value(value: catVm ?? _makeCatVm()),
       ChangeNotifierProvider<EquipmentViewModel>.value(value: equipVm ?? _makeEquipmentVm()),
@@ -61,9 +82,10 @@ AuthViewModel _makeAuthVm({User? user}) {
 PlayerViewModel _makePlayerVm() {
   final repo = _MockPlayerRepository();
   when(() => repo.loadLocalStats()).thenReturn(PlayerStats(streak: 3));
-  when(() => repo.fetchRemoteStats(any())).thenAnswer((_) async => null);
+  when(() => repo.fetchServerState()).thenAnswer((_) async => throw Exception('hors-ligne'));
   when(() => repo.saveLocalStats(any())).thenAnswer((_) async {});
-  when(() => repo.syncToSupabase(any(), any())).thenAnswer((_) async {});
+  final fakeApi = _fakeGameApi();
+  when(() => repo.api).thenReturn(fakeApi);
   return PlayerViewModel(repo);
 }
 
@@ -115,7 +137,11 @@ void main() {
   ));
   final dir = await Directory.systemTemp.createTemp('hive_sanctuary_test');
   Hive.init(dir.path);
-  await Hive.openBox('settings');
+    await Hive.openBox('settings');
+    // Le résumé hebdomadaire (feuille modale) est considéré comme déjà vu.
+    final now = DateTime.now();
+    final monday = now.subtract(Duration(days: now.weekday - 1));
+    await Hive.box('settings').put('last_weekly_summary', '${monday.year}_${monday.month}_${monday.day}');
 });
 
   // Pas de tearDownAll : Hive.close() bloque le runner de tests.
@@ -168,7 +194,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
 
       // _StatsCard montre HP et streak dans la même rangée
-      expect(find.text('100 / 100 HP'), findsOneWidget);
+      expect(find.text('100 / 100'), findsOneWidget);
       expect(find.text('3 jours'), findsOneWidget);
     });
 
@@ -178,8 +204,10 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      // _StatsCard affiche les barres XP et HP
-      expect(find.byType(LinearProgressIndicator), findsWidgets);
+      // _StatsCard affiche les jauges PV et XP (plus la jauge de moral)
+      expect(find.byType(PixelJauge), findsNWidgets(3));
+      // Q10 : les chiffres sont exposés aux lecteurs d'écran
+      expect(find.bySemanticsLabel(RegExp(r'^Niveau \d+, .* points de vie, série de 3 jours')), findsOneWidget);
     });
 
     testWidgets('affiche un message vide si aucune quête du jour', (tester) async {

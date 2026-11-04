@@ -1,8 +1,5 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../../../presentation/view_models/auth_view_model.dart';
-import '../../../presentation/view_models/player_view_model.dart';
 import '../../theme/app_colors.dart';
 
 /// Mini-jeu Mémoire de sorts : 8 paires d'icônes à retrouver.
@@ -170,13 +167,8 @@ class _MemoryGamePageState extends State<MemoryGamePage>
             style: FilledButton.styleFrom(
                 backgroundColor: AppColors.primaryTurquoise),
             onPressed: () {
-              final player = context.read<PlayerViewModel>();
-              final auth = context.read<AuthViewModel>();
-              final userId = auth.userId ?? '';
-              if (player.stats != null) {
-                player.addGold(userId, gold);
-                player.addExperience(userId, xp);
-              }
+              // Sprint 7 : gains crédités par des sessions d'arène serveur.
+              // Aucun crédit local (le serveur est l'unique autorité).
               Navigator.of(context)
                 ..pop()
                 ..pop();

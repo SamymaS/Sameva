@@ -73,7 +73,6 @@ void main() {
         () async {
       // Scénario : webhook Stripe a posé is_premium=true, premium_until non encore reçu.
       when(() => creditsRepo.fetchForUser(_userId)).thenAnswer((_) async => null);
-      when(() => creditsRepo.upsertForUser(any(), any())).thenAnswer((_) async {});
       when(() => premiumRepo.fetchForUser(_userId)).thenAnswer(
         (_) async => const PremiumEntitlement(
           isPremium: true,
@@ -95,7 +94,6 @@ void main() {
 
     test('pas de ligne → isPremium=false (PremiumEntitlement.libre())', () async {
       when(() => creditsRepo.fetchForUser(_userId)).thenAnswer((_) async => null);
-      when(() => creditsRepo.upsertForUser(any(), any())).thenAnswer((_) async {});
       when(() => premiumRepo.fetchForUser(_userId)).thenAnswer(
         (_) async => const PremiumEntitlement.libre(),
       );
@@ -113,13 +111,12 @@ void main() {
   });
 
   // ==========================================================================
-  // load → entitlement reflété dans canValidateWithAI et consumeForValidation
+  // load → entitlement reflété dans canValidateWithAI
   // ==========================================================================
 
   group('load → entitlement piloté par le serveur', () {
     test('après load : canValidateWithAI()=true à 0 jeton si premium', () async {
       when(() => creditsRepo.fetchForUser(_userId)).thenAnswer((_) async => null);
-      when(() => creditsRepo.upsertForUser(any(), any())).thenAnswer((_) async {});
       when(() => premiumRepo.fetchForUser(_userId)).thenAnswer(
         (_) async => const PremiumEntitlement(isPremium: true),
       );
@@ -136,30 +133,9 @@ void main() {
       expect(service.canValidateWithAI(), isTrue);
     });
 
-    test('consumeForValidation ne décrémente pas en premium (0 jeton)', () async {
-      when(() => creditsRepo.fetchForUser(_userId)).thenAnswer((_) async => null);
-      when(() => creditsRepo.upsertForUser(any(), any())).thenAnswer((_) async {});
-      when(() => premiumRepo.fetchForUser(_userId)).thenAnswer(
-        (_) async => const PremiumEntitlement(isPremium: true),
-      );
-
-      final service = _buildService(
-        box: box,
-        creditsRepo: creditsRepo,
-        premiumRepo: premiumRepo,
-      );
-      await service.load(_userId);
-
-      final result = await service.consumeForValidation();
-
-      expect(result, isTrue);
-      expect(service.balance, 0); // premium ne consomme jamais
-    });
-
     test('setPremium appelé : isPremium reflété dans l\'état', () async {
       // Vérifie que _fetchAndApplyPremiumEntitlement met bien à jour l'état.
       when(() => creditsRepo.fetchForUser(_userId)).thenAnswer((_) async => null);
-      when(() => creditsRepo.upsertForUser(any(), any())).thenAnswer((_) async {});
 
       final until = DateTime.utc(2027, 1, 1);
       when(() => premiumRepo.fetchForUser(_userId)).thenAnswer(
@@ -193,7 +169,6 @@ void main() {
 
       when(() => creditsRepo.fetchForUser(_userId))
           .thenAnswer((_) async => localState);
-      when(() => creditsRepo.upsertForUser(any(), any())).thenAnswer((_) async {});
       // Fetch premium qui lève une exception (hors-ligne).
       when(() => premiumRepo.fetchForUser(_userId))
           .thenThrow(Exception('connexion impossible'));
@@ -225,7 +200,6 @@ void main() {
       // anticipé dans load() AVANT le fetch d'entitlement → premium jamais lu.
       when(() => creditsRepo.fetchForUser(_userId))
           .thenThrow(Exception('crédits hors-ligne'));
-      when(() => creditsRepo.upsertForUser(any(), any())).thenAnswer((_) async {});
       // L'entitlement, lui, est joignable et renvoie premium=true.
       when(() => premiumRepo.fetchForUser(_userId)).thenAnswer(
         (_) async => const PremiumEntitlement(isPremium: true),
@@ -245,7 +219,6 @@ void main() {
 
     test('refreshEntitlement hors-ligne → pas de crash, état inchangé', () async {
       when(() => creditsRepo.fetchForUser(_userId)).thenAnswer((_) async => null);
-      when(() => creditsRepo.upsertForUser(any(), any())).thenAnswer((_) async {});
       // Premier load : premium ok.
       when(() => premiumRepo.fetchForUser(_userId)).thenAnswer(
         (_) async => const PremiumEntitlement(isPremium: true),
@@ -297,32 +270,24 @@ void main() {
   });
 
   // ==========================================================================
-  // Réconciliation LWW des crédits non perturbée par le fetch entitlement
+  // Le serveur fait autorité sur le solde (plus de last-write-wins)
   // ==========================================================================
 
-  group('LWW crédits non perturbé par l\'entitlement', () {
-    test(
-        'load : entitlement premium ne modifie pas updatedAt des crédits '
-        '(le LWW reste intact pour les crédits)', () async {
-      // État local récent.
-      final dateLocale = DateTime.utc(2026, 6, 16, 12, 0);
+  group('solde serveur autoritaire', () {
+    test('load : le solde serveur remplace le cache, le premium est conservé', () async {
       final localState = AiValidationState(
-        balance: 5,
+        balance: 9,
         onboardingGranted: true,
-        updatedAt: dateLocale,
+        updatedAt: DateTime.utc(2026, 6, 16, 12, 0),
       );
-
-      // Remote crédits : plus ancien.
-      final dateRemote = DateTime.utc(2026, 6, 16, 8, 0);
       final remoteCredits = AiValidationState(
         balance: 2,
-        onboardingGranted: false,
-        updatedAt: dateRemote,
+        onboardingGranted: true,
+        updatedAt: DateTime.utc(2026, 6, 16, 8, 0),
       );
 
       when(() => creditsRepo.fetchForUser(_userId))
           .thenAnswer((_) async => remoteCredits);
-      when(() => creditsRepo.upsertForUser(any(), any())).thenAnswer((_) async {});
       when(() => premiumRepo.fetchForUser(_userId)).thenAnswer(
         (_) async => const PremiumEntitlement(isPremium: true),
       );
@@ -335,10 +300,7 @@ void main() {
       );
       await service.load(_userId);
 
-      // LWW : local plus récent → balance locale conservée (5, pas 2).
-      expect(service.balance, 5);
-      expect(service.onboardingGranted, isTrue);
-      // Entitlement appliqué correctement en plus.
+      expect(service.balance, 2, reason: 'le serveur gagne toujours');
       expect(service.isPremium, isTrue);
     });
   });
@@ -556,7 +518,6 @@ void main() {
       when(() => box.put(any(), any())).thenAnswer((_) async {});
       when(() => creditsRepo.fetchForUser(_userId))
           .thenAnswer((_) async => null);
-      when(() => creditsRepo.upsertForUser(any(), any())).thenAnswer((_) async {});
       when(() => premiumRepo.fetchForUser(_userId)).thenAnswer(
         (_) async => const PremiumEntitlement(isPremium: true),
       );

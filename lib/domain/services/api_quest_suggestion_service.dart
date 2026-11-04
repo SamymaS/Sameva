@@ -1,57 +1,63 @@
 import 'dart:convert';
 
-import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/models/quest_model.dart';
 import 'quest_suggestion_service.dart';
 
-/// Implémentation réelle : appelle l'Edge Function Supabase `suggest-quests`.
-/// L'URL et le token sont injectés via le constructeur (lus depuis .env).
+/// Appel brut de l'Edge Function : renvoie (statut HTTP, corps décodé).
+typedef SuggestInvoker = Future<(int, Object?)> Function(Map<String, dynamic> body);
+
+/// Erreur lisible renvoyée à l'écran (quota atteint, MougiBot indisponible...).
+class QuestSuggestionException implements Exception {
+  QuestSuggestionException(this.userMessage, {this.code});
+  final String userMessage;
+  final String? code;
+  @override
+  String toString() => userMessage;
+}
+
+/// Implémentation réelle : appelle l'Edge Function Supabase `suggest-quests`
+/// avec la session de l'utilisateur (Sprint 2 : la clé anon seule est
+/// refusée, le serveur lit le profil en base et applique un quota quotidien).
 class ApiQuestSuggestionService implements QuestSuggestionService {
-  ApiQuestSuggestionService({
-    required this.baseUrl,
-    this.authToken,
-    this.timeout = const Duration(seconds: 30),
-    http.Client? httpClient,
-  }) : _httpClient = httpClient ?? http.Client();
+  ApiQuestSuggestionService({SuggestInvoker? invoker})
+      : _invoke = invoker ?? _supabaseInvoker;
 
-  /// URL de l'Edge Function (ex. https://xxx.supabase.co/functions/v1/suggest-quests)
-  final String baseUrl;
+  final SuggestInvoker _invoke;
 
-  /// Token Authorization: Bearer (clé anon Supabase)
-  final String? authToken;
-
-  final Duration timeout;
-
-  final http.Client _httpClient;
+  static Future<(int, Object?)> _supabaseInvoker(Map<String, dynamic> body) async {
+    try {
+      final res = await Supabase.instance.client.functions
+          .invoke('suggest-quests', body: body);
+      return (res.status, res.data);
+    } on FunctionException catch (e) {
+      return (e.status, e.details);
+    }
+  }
 
   @override
   Future<List<Quest>> suggestQuests({
     required String userId,
     required QuestSuggestionRequest request,
   }) async {
-    final uri = Uri.parse(baseUrl);
-    final body = jsonEncode(request.toJson());
-
-    final headers = <String, String>{
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
+    // Seuls ces champs sont pris en compte par le serveur.
+    final body = <String, dynamic>{
+      if (request.favoriteCategory != null) 'favorite_category': request.favoriteCategory,
     };
-    if (authToken != null && authToken!.isNotEmpty) {
-      headers['Authorization'] = 'Bearer $authToken';
-    }
-
-    final response = await _httpClient
-        .post(uri, headers: headers, body: body)
-        .timeout(timeout);
-
-    if (response.statusCode != 200) {
-      throw Exception(
-        'Erreur API ${response.statusCode}: ${response.body.isNotEmpty ? response.body : "pas de détail"}',
+    final (status, data) = await _invoke(body);
+    if (status != 200) {
+      final code = data is Map ? data['code'] as String? : null;
+      throw QuestSuggestionException(
+        switch (code) {
+          'plafond_atteint' => 'MougiBot a assez cherché pour aujourd\'hui. Reviens demain !',
+          'non_authentifie' => 'Connecte-toi pour demander des quêtes à MougiBot.',
+          _ => 'MougiBot est indisponible pour le moment. Réessaie plus tard.',
+        },
+        code: code,
       );
     }
-
-    return _parseQuests(response.body, userId);
+    return _parseQuests(data is String ? data : jsonEncode(data), userId);
   }
 
   List<Quest> _parseQuests(String responseBody, String userId) {

@@ -125,14 +125,14 @@ void main() {
       await tester.pumpAndSettle();
 
       // La liste des templates Sport s'affiche — tape le premier item
-      final premierTemplate = find.byType(ListTile).first;
+      final premierTemplate = find.text('Faire du sport (durée libre)');
       expect(premierTemplate, findsOneWidget);
       await tester.tap(premierTemplate);
       await tester.pumpAndSettle();
 
       // La dialog de confirmation s'affiche — confirme la création
-      expect(find.text('Créer la quête'), findsOneWidget);
-      await tester.tap(find.text('Créer la quête'));
+      expect(find.text('Durée estimée'), findsOneWidget);
+      await tester.tap(find.text('Créer'));
       await tester.pumpAndSettle();
 
       // Après création, on doit être revenu sur ListePage

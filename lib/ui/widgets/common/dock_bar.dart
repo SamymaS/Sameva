@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../../../core/audio/sons.dart';
 import '../../theme/app_colors.dart';
 
 /// Barre de navigation flottante — 5 onglets principaux (périmètre MVP).
@@ -10,10 +12,10 @@ class DockBar extends StatelessWidget {
   final Map<int, int> badges;
 
   static const _items = [
-    (icon: Icons.cottage_outlined,        label: 'Accueil'),
-    (icon: Icons.assignment_outlined,     label: 'Quêtes'),
-    (icon: Icons.auto_awesome,            label: 'Portail'),
-    (icon: Icons.pets_outlined,           label: 'Chat'),
+    (icon: Icons.cottage_outlined, label: 'Accueil'),
+    (icon: Icons.assignment_outlined, label: 'Quêtes'),
+    (icon: Icons.auto_awesome, label: 'Portail'),
+    (icon: Icons.pets_outlined, label: 'Chat'),
     (icon: Icons.account_circle_outlined, label: 'Profil'),
   ];
 
@@ -45,7 +47,10 @@ class DockBar extends StatelessWidget {
                     label: item.label,
                     isActive: i == currentIndex,
                     badgeCount: badges[i] ?? 0,
-                    onTap: () => onTap(i),
+                    onTap: () {
+                      unawaited(Sons.jouer(Son.toucher));
+                      onTap(i);
+                    },
                   ),
                 );
               }),
@@ -88,7 +93,8 @@ class _DockItem extends StatelessWidget {
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   curve: Curves.easeOut,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: isActive
                         ? AppColors.primaryVioletLight.withValues(alpha: 0.15)
@@ -108,8 +114,10 @@ class _DockItem extends StatelessWidget {
                     top: -2,
                     right: -2,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 1),
+                      constraints:
+                          const BoxConstraints(minWidth: 16, minHeight: 16),
                       decoration: BoxDecoration(
                         color: AppColors.coralRare,
                         borderRadius: BorderRadius.circular(8),
@@ -139,8 +147,7 @@ class _DockItem extends StatelessWidget {
                     ? AppColors.primaryVioletLight
                     : AppColors.textMuted,
                 fontSize: 10,
-                fontWeight:
-                    isActive ? FontWeight.w600 : FontWeight.normal,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
           ],

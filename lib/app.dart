@@ -1,29 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:hive_flutter/hive_flutter.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+
+import 'core/router/app_router.dart';
 import 'presentation/view_models/ai_validation_credits_service.dart';
 import 'presentation/view_models/auth_view_model.dart';
-import 'presentation/view_models/quest_view_model.dart';
 import 'presentation/view_models/theme_view_model.dart';
-import 'ui/pages/auth/login_page.dart';
-import 'ui/pages/onboarding/onboarding_page.dart';
-import 'ui/pages/auth/register_page.dart';
-import 'ui/pages/quest/create_quest_page.dart';
-import 'ui/pages/quest/quest_validation_page.dart';
-import 'ui/pages/quest/quests_list_page.dart';
-import 'ui/pages/profile/profile_page.dart';
-import 'ui/pages/rewards/rewards_page.dart';
-import 'ui/pages/settings/settings_page.dart';
-import 'ui/pages/home/sanctuary_page.dart';
-import 'ui/pages/market/market_page.dart';
-import 'ui/pages/cat/cat_page.dart';
-import 'ui/pages/avatar/avatar_page.dart';
-import 'ui/pages/quest/create_quest_choice_page.dart';
-import 'ui/widgets/common/dock_bar.dart';
 import 'ui/theme/app_theme.dart';
-import 'data/models/quest_model.dart';
 
-/// Sameva — navigation 5 pages avec DockBar flottant + swipe horizontal.
+/// Sameva : navigation go_router (ADR 0007), dock à une pile par onglet,
+/// redirections d'authentification centralisées dans [creerRouteur].
 class SamevaApp extends StatefulWidget {
   const SamevaApp({super.key});
 
@@ -32,214 +18,42 @@ class SamevaApp extends StatefulWidget {
 }
 
 class _SamevaAppState extends State<SamevaApp> with WidgetsBindingObserver {
-  int _currentIndex = 0;
-  late final PageController _pageController;
-
-  // Pages enveloppées dans _KeepAlivePage pour préserver leur état pendant le swipe
-  late final List<Widget> _pages;
-
-  static const _rawPages = <Widget>[
-    SanctuaryPage(),
-    QuestsListPage(),
-    PortailPage(),
-    CatPage(),
-    ProfilePage(),
-  ];
-
-  // Pages fréquemment consultées : KeepAlive activé (Accueil, Quêtes, Chat).
-  // Portail (gacha/boutique) et Profil : rebuild OK, évite la RAM constante.
-  static const _keepAliveIndices = {0, 1, 3};
+  late final GoRouter _router;
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(initialPage: _currentIndex);
-    _pages = List.generate(_rawPages.length, (i) {
-      return _keepAliveIndices.contains(i)
-          ? _KeepAlivePage(child: _rawPages[i])
-          : _rawPages[i];
-    });
-    // Écoute du lifecycle pour détecter le retour dans l'app après un checkout.
+    _router = creerRouteur(context.read<AuthViewModel>());
+    // Retour dans l'app après un paiement : vérifie l'abonnement.
     WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _pageController.dispose();
+    _router.dispose();
     super.dispose();
   }
 
-  /// Détecte le retour dans l'app (AppLifecycleState.resumed) après un checkout
-  /// Stripe initié. Déclenche un poll court sur l'entitlement premium car le
-  /// webhook Stripe est asynchrone.
+  /// Le webhook Stripe est asynchrone : au retour dans l'app après un
+  /// paiement, un court sondage de l'abonnement premium est lancé.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      // context est valide ici : _SamevaAppState est dans l'arbre quand resumed.
-      final creditsService = context.read<AiValidationCreditsService>();
-      creditsService.onAppResumedAfterCheckout();
+      context.read<AiValidationCreditsService>().onAppResumedAfterCheckout();
     }
-  }
-
-  void _goToPage(int index) {
-    _pageController.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
-    setState(() => _currentIndex = index);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ThemeViewModel>(
-      builder: (context, themeProvider, _) {
-        return MaterialApp(
-          title: 'Sameva',
-          theme: AppTheme.light(),
-          darkTheme: AppTheme.dark(),
-          themeMode: themeProvider.themeMode,
-          debugShowCheckedModeBanner: false,
-          routes: {
-            '/login':               (context) => const LoginPage(),
-            '/profile':             (context) => const ProfilePage(),
-            '/settings':            (context) => const SettingsPage(),
-            '/quests':              (context) => const QuestsListPage(),
-            '/create-quest':        (context) => const CreateQuestPage(),
-            '/create-quest-choice': (context) => const CreateQuestChoicePage(),
-            '/rewards':             (context) => const RewardsPage(),
-            '/register':            (context) => const RegisterPage(),
-            '/avatar':              (context) => const AvatarPage(),
-          },
-          onGenerateRoute: (settings) {
-            if (settings.name == '/quest/validate' &&
-                settings.arguments is Quest) {
-              return MaterialPageRoute<void>(
-                builder: (_) =>
-                    QuestValidationPage(quest: settings.arguments! as Quest),
-              );
-            }
-            return null;
-          },
-          home: _AuthGate(homeBuilder: _buildHome),
-        );
-      },
+    final theme = context.watch<ThemeViewModel>();
+    return MaterialApp.router(
+      title: 'Sameva',
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: theme.themeMode,
+      debugShowCheckedModeBanner: false,
+      routerConfig: _router,
     );
-  }
-
-  Widget _buildHome(BuildContext context) {
-    // viewPadding.bottom est stable même quand le clavier est ouvert,
-    // contrairement à padding.bottom qui peut devenir 0.
-    final navBarHeight = MediaQuery.viewPaddingOf(context).bottom;
-    const dockBarHeight = 68.0;
-
-    return Scaffold(
-      // Empêche le Scaffold de redimensionner le body quand le clavier s'ouvre
-      // (le keyboard est géré par chaque page individuellement).
-      resizeToAvoidBottomInset: false,
-      body: Stack(
-        children: [
-          // Contenu des pages : réserve l'espace pour la DockBar + barre Android
-          Padding(
-            padding: EdgeInsets.only(bottom: dockBarHeight + navBarHeight),
-            child: PageView(
-              controller: _pageController,
-              onPageChanged: (i) => setState(() => _currentIndex = i),
-              children: _pages,
-            ),
-          ),
-          // DockBar flottante en bas — gère elle-même son padding de barre sys
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Consumer<QuestViewModel>(
-              builder: (_, qvm, __) {
-                final missedCount = qvm.getMissedQuests().length;
-                return DockBar(
-                  currentIndex: _currentIndex,
-                  onTap: _goToPage,
-                  badges: missedCount > 0 ? {1: missedCount} : const {},
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Isole le Consumer<AuthViewModel> du MaterialApp pour éviter que le
-/// Navigator racine soit reconstruit lors des notifyListeners() d'AuthViewModel.
-class _AuthGate extends StatelessWidget {
-  final Widget Function(BuildContext) homeBuilder;
-
-  const _AuthGate({required this.homeBuilder});
-
-  @override
-  Widget build(BuildContext context) {
-    final authProvider = context.watch<AuthViewModel>();
-
-    // Migration silencieuse : les comptes existants ont la clé globale 'has_onboarded'.
-    // Le nouveau code utilise 'has_onboarded_$userId'. On migre post-frame pour
-    // éviter tout I/O Hive pendant le build. Idempotent : no-op si déjà migré.
-    final userId = authProvider.userId;
-    if (authProvider.isAuthenticated && userId != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        final settings = Hive.box('settings');
-        const globalKey = 'has_onboarded';
-        final perUserKey = 'has_onboarded_$userId';
-        if (settings.get(globalKey) == true && !settings.containsKey(perUserKey)) {
-          await settings.put(perUserKey, true);
-          await settings.delete(globalKey);
-        }
-      });
-    }
-
-    // Routing : LoginPage si pas authentifié, OnboardingPage si authentifié mais
-    // pas encore onboardé, HomePage sinon.
-    //
-    // La clé Hive est isolée par user_id ('has_onboarded_$userId') pour éviter
-    // qu'un User B hérite du flag posé par User A. Lecture conjointe pendant la
-    // période de transition : si la clé globale 'has_onboarded' est encore
-    // présente (migration postFrame pas encore exécutée), elle est aussi
-    // considérée valide pour éviter un faux re-déclenchement de l'onboarding.
-    final settings = Hive.box('settings');
-    const globalKey = 'has_onboarded';
-    final perUserKey = userId != null ? 'has_onboarded_$userId' : globalKey;
-    final hasOnboarded = settings.get(perUserKey) == true ||
-        (userId != null && settings.get(globalKey) == true);
-
-    if (!authProvider.isAuthenticated) {
-      return const LoginPage();
-    }
-    if (!hasOnboarded) {
-      return const OnboardingPage();
-    }
-    return homeBuilder(context);
-  }
-}
-
-/// Préserve l'état d'une page même quand elle sort du viewport du PageView.
-class _KeepAlivePage extends StatefulWidget {
-  final Widget child;
-
-  const _KeepAlivePage({required this.child});
-
-  @override
-  State<_KeepAlivePage> createState() => _KeepAlivePageState();
-}
-
-class _KeepAlivePageState extends State<_KeepAlivePage>
-    with AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => true;
-
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-    return widget.child;
   }
 }

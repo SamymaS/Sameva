@@ -63,13 +63,14 @@ enum ValidationType {
   manual,
   photo,
   timer,
-  geolocation,
-  ai;
+  geolocation;
 
   // P3 : .name correspond exactement aux valeurs Supabase
   String toSupabaseString() => name;
 
   static ValidationType fromSupabaseString(String value) {
+    // Sprint 2 : « ai » a été fusionné dans « photo » (caches anciens).
+    if (value == 'ai') return ValidationType.photo;
     try {
       return ValidationType.values.byName(value);
     } catch (_) {

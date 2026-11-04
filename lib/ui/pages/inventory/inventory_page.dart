@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../data/repositories/game_api.dart';
 import '../../../data/models/item_model.dart';
 import '../../../data/models/quest_model.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
@@ -94,7 +95,6 @@ class _InventoryPageState extends State<InventoryPage> {
   Future<void> _bulkSellLowRarity(BuildContext context,
       InventoryViewModel inventory, EquipmentViewModel equipment) async {
     final player = context.read<PlayerViewModel>();
-    final userId = context.read<AuthViewModel>().userId ?? '';
     final eligible = inventory.items.where((item) {
       if (item.isLocked) return false;
       if (item.rarity != QuestRarity.common &&
@@ -143,13 +143,31 @@ class _InventoryPageState extends State<InventoryPage> {
     );
     if (ok != true || !mounted) return;
 
+    // Le serveur crédite d'abord (plafond quotidien, TRANSITOIRE jusqu'au
+    // Sprint 3) ; les objets ne quittent l'inventaire qu'après succès.
+    final int granted;
+    try {
+      granted = (await player.claimTransitionalReward('vente_objet', totalGold)).grantedInt;
+    } on GameApiException catch (e) {
+      if (!mounted) return;
+      AppNotification.show(this.context,
+          message: e.userMessage, backgroundColor: AppColors.error);
+      return;
+    }
+    if (!mounted) return;
+    if (granted <= 0) {
+      AppNotification.show(this.context,
+          message: 'Limite de ventes du jour atteinte. Reviens demain !',
+          backgroundColor: AppColors.warning);
+      return;
+    }
     for (final item in eligible) {
       inventory.removeItem(item.id, quantity: item.quantity, force: true);
     }
-    await player.addGold(userId, totalGold);
-    if (!mounted) return;
     AppNotification.show(this.context,
-        message: '+$totalGold or · ${eligible.length} objets vendus',
+        message: granted < totalGold
+            ? '+$granted or (plafond du jour atteint) · ${eligible.length} objets vendus'
+            : '+$granted or · ${eligible.length} objets vendus',
         backgroundColor: AppColors.gold.withValues(alpha: 0.85));
   }
 
@@ -1118,20 +1136,9 @@ class _ActionButtons extends StatelessWidget {
             icon: Icons.shield_outlined,
             color: color,
             onTap: () async {
-              // Retirer le bonus de l'item actuellement en slot (s'il y en a un)
-              final current = equipment.getSlot(slot!);
-              if (current != null) {
-                final oldHp = current.stats['hpBonus'] ?? 0;
-                final oldMoral = current.stats['moralBonus'] ?? 0;
-                if (oldHp > 0) await player.adjustMaxHp(userId, -oldHp);
-                if (oldMoral > 0) await player.updateMoral(userId, -(oldMoral / 100.0));
-              }
+              // Bonus de PV max et de moral des équipements désactivés au
+              // Sprint 1 : réactivé au Sprint 3, inventaire serveur.
               equipment.equip(item, slot!, inventory);
-              // Appliquer les bonus du nouvel item
-              final hp = item.stats['hpBonus'] ?? 0;
-              final moral = item.stats['moralBonus'] ?? 0;
-              if (hp > 0) await player.adjustMaxHp(userId, hp);
-              if (moral > 0) await player.updateMoral(userId, moral / 100.0);
               if (context.mounted) Navigator.pop(context);
             },
           ),
@@ -1147,11 +1154,7 @@ class _ActionButtons extends StatelessWidget {
               final s = equipment.equipped.entries
                   .firstWhere((e) => e.value?.id == item.id)
                   .key;
-              // Retirer les bonus avant de déséquiper
-              final hp = item.stats['hpBonus'] ?? 0;
-              final moral = item.stats['moralBonus'] ?? 0;
-              if (hp > 0) await player.adjustMaxHp(userId, -hp);
-              if (moral > 0) await player.updateMoral(userId, -(moral / 100.0));
+              // Bonus d'équipement : réactivé au Sprint 3, inventaire serveur.
               equipment.unequip(s, inventory);
               if (context.mounted) Navigator.pop(context);
             },
@@ -1196,20 +1199,45 @@ class _ActionButtons extends StatelessWidget {
           icon: Icons.local_pharmacy,
           color: AppColors.success,
           onTap: () async {
-            if (player.stats != null) {
-              final hp = item.stats['hpBonus'] ?? 0;
-              final xp = item.stats['xpBonus'] ?? 0;
-              final moralRaw = item.stats['moralBonus'] ?? 0;
-              final moral = moralRaw / 100.0;
-              if (hp > 0) await player.heal(userId, hp);
-              if (xp > 0) await player.addExperience(userId, xp);
-              if (moral > 0) await player.updateMoral(userId, moral);
-              if (hp == 0 && xp == 0 && moralRaw == 0) {
-                await player.heal(userId, 20);
+            // Effets appliqués par le serveur, plafonnés par jour
+            // (TRANSITOIRE jusqu'au Sprint 3). La potion n'est consommée
+            // qu'après succès.
+            final hp = item.stats['hpBonus'] ?? 0;
+            final xp = item.stats['xpBonus'] ?? 0;
+            final moralRaw = item.stats['moralBonus'] ?? 0;
+            final parts = <String>[];
+            try {
+              if (hp > 0 || (xp == 0 && moralRaw == 0)) {
+                final r = await player.claimTransitionalReward(
+                    'potion_pv', hp > 0 ? hp : 20, ref: item.id);
+                if (r.grantedInt > 0) parts.add('+${r.grantedInt} PV');
               }
+              if (xp > 0) {
+                final r = await player.claimTransitionalReward('potion_xp', xp, ref: item.id);
+                if (r.grantedInt > 0) parts.add('+${r.grantedInt} XP');
+              }
+              if (moralRaw > 0) {
+                final r = await player.claimTransitionalReward(
+                    'potion_moral', moralRaw / 100.0, ref: item.id);
+                if (r.granted > 0) parts.add('+${(r.granted * 100).round()} % moral');
+              }
+            } on GameApiException catch (e) {
+              if (context.mounted) {
+                AppNotification.show(context,
+                    message: e.userMessage, backgroundColor: AppColors.error);
+              }
+              return;
             }
             inventory.removeItem(item.id);
-            if (context.mounted) Navigator.pop(context);
+            if (!context.mounted) return;
+            Navigator.pop(context);
+            AppNotification.show(
+              context,
+              message: parts.isEmpty
+                  ? 'Effet plafonné pour aujourd\'hui.'
+                  : parts.join(' · '),
+              backgroundColor: AppColors.backgroundDarkPanel,
+            );
           },
         ),
       ));
@@ -1278,12 +1306,34 @@ class _ActionButtons extends StatelessWidget {
                 );
                 if (ok != true) return;
                 if (!context.mounted) return;
+                // Crédit serveur d'abord (plafonné, TRANSITOIRE Sprint 3).
+                final int granted;
+                try {
+                  granted = (await player.claimTransitionalReward(
+                          'vente_objet', price, ref: item.id))
+                      .grantedInt;
+                } on GameApiException catch (e) {
+                  if (context.mounted) {
+                    AppNotification.show(context,
+                        message: e.userMessage,
+                        backgroundColor: AppColors.error);
+                  }
+                  return;
+                }
+                if (!context.mounted) return;
+                if (granted <= 0) {
+                  AppNotification.show(context,
+                      message: 'Limite de ventes du jour atteinte. Reviens demain !',
+                      backgroundColor: AppColors.warning);
+                  return;
+                }
                 inventory.removeItem(item.id, force: true);
-                if (player.stats != null) player.addGold(userId, price);
                 Navigator.pop(context);
                 AppNotification.show(
                   context,
-                  message: 'Vendu pour $price or',
+                  message: granted < price
+                      ? 'Vendu pour $granted or (plafond du jour atteint)'
+                      : 'Vendu pour $granted or',
                   backgroundColor: AppColors.backgroundDarkPanel,
                 );
               },

@@ -130,29 +130,5 @@ void main() {
         expect(filter.eqValue, 'q-del');
       });
     });
-
-    group('completeQuest', () {
-      test('met le statut à completed et renseigne completedAt', () async {
-        final filter = _FakeWriteFilter();
-        when(() => supabase.from('quests')).thenAnswer((_) => queryBuilder);
-        when(() => queryBuilder.update(any())).thenAnswer((_) => filter);
-        final quest = _makeQuest(id: 'q-c');
-
-        final result = await repo.completeQuest(quest);
-
-        expect(result.status, QuestStatus.completed);
-        expect(result.completedAt, isNotNull);
-      });
-
-      test('délègue à updateQuest (appel Supabase unique)', () async {
-        final filter = _FakeWriteFilter();
-        when(() => supabase.from('quests')).thenAnswer((_) => queryBuilder);
-        when(() => queryBuilder.update(any())).thenAnswer((_) => filter);
-
-        await repo.completeQuest(_makeQuest(id: 'q-c2'));
-
-        verify(() => queryBuilder.update(any())).called(1);
-      });
-    });
   });
 }

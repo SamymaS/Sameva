@@ -1,4 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../../core/audio/sons.dart';
+import 'package:go_router/go_router.dart';
+import '../../../core/router/app_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
@@ -10,12 +14,13 @@ import '../../../domain/services/minigame_service.dart';
 import '../../../presentation/use_cases/daily_reset_use_case.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/view_models/cat_view_model.dart';
-import '../../../presentation/view_models/equipment_view_model.dart';
 import '../../../presentation/view_models/player_view_model.dart';
+import '../../../presentation/view_models/ai_validation_credits_service.dart';
 import '../../../presentation/view_models/quest_view_model.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/app_notification.dart';
 import '../../widgets/cat/cat_widget.dart';
+import '../../widgets/pixel/pixel_ui.dart';
 import '../../widgets/common/quest_detail_sheet.dart';
 
 /// Page d'accueil : sanctuaire du joueur.
@@ -37,7 +42,7 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
   Future<void> _load() async {
     final questVM = context.read<QuestViewModel>();
     final playerVM = context.read<PlayerViewModel>();
-    final equipVM = context.read<EquipmentViewModel>();
+    final creditsVM = context.read<AiValidationCreditsService>();
     final userId = context.read<AuthViewModel>().userId;
     if (userId == null) return;
 
@@ -48,19 +53,34 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
     await playerVM.loadPlayerStats(userId);
     if (!mounted) return;
 
-    final result = await DailyResetUseCase(
-      player: playerVM,
-      quests: questVM,
-      equipment: equipVM,
-    ).execute(userId);
+    // Règles quotidiennes calculées par le serveur (claim_daily).
+    final DailyResetResult result;
+    try {
+      result = await DailyResetUseCase(
+        player: playerVM,
+        quests: questVM,
+      ).execute(userId);
+    } catch (e) {
+      if (mounted) {
+        AppNotification.show(
+          context,
+          message: dailyErrorMessage(e),
+          backgroundColor: AppColors.error,
+        );
+      }
+      return;
+    }
+    // L'énergie de l'Oracle a pu être rechargée : relecture du solde.
+    await creditsVM.refresh();
 
     if (!mounted) return;
 
     if (result.penalties != null) {
+      unawaited(Sons.jouer(Son.degats));
       AppNotification.show(
         context,
         message:
-            '${result.penalties!.missedCount} quête${result.penalties!.missedCount > 1 ? 's' : ''} manquée${result.penalties!.missedCount > 1 ? 's' : ''} — ${result.penalties!.totalDamage} HP perdus',
+            '${result.penalties!.missedCount} quête${result.penalties!.missedCount > 1 ? 's' : ''} manquée${result.penalties!.missedCount > 1 ? 's' : ''} : ${result.penalties!.totalDamage} PV perdus',
         backgroundColor: AppColors.coralRare.withValues(alpha: 0.95),
       );
     }
@@ -75,7 +95,7 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
         builder: (_) => _WeeklySummarySheet(
           questsCompleted: s.questsCompleted,
           xpEarned: s.xpEarned,
-          bossDefeated: s.bossDefeated,
+          bossDefeated: false,
           streak: s.streak,
         ),
       );
@@ -88,18 +108,19 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
         context: context,
         builder: (_) => _DailyRewardDialog(
           gold: r.gold,
-          crystals: r.crystals,
+          seals: r.seals,
           streak: r.streak,
         ),
       );
     }
 
     if (!mounted) return;
-    if (result.newBossGenerated) {
+    if (result.streakLost) {
       AppNotification.show(
         context,
-        message: 'Un nouveau boss hebdomadaire est apparu !',
-        backgroundColor: AppColors.rarityEpic,
+        message:
+            'Ta flamme s\'est éteinte. Valide une quête pour la rallumer !',
+        backgroundColor: AppColors.coralRare.withValues(alpha: 0.95),
       );
     }
 
@@ -114,10 +135,13 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
     if (stats == null) return;
 
     final settings = Hive.box('settings');
-    final bossDefeated = questVM.completedQuests.any((q) => q.category == 'boss');
+    final bossDefeated =
+        questVM.completedQuests.any((q) => q.category == 'boss');
     final minigamesPlayed = MinigameService.totalPlayed(settings);
-    final hasGachaFirst = settings.get('gacha_first_done', defaultValue: false) as bool;
-    final hasGachaMulti = settings.get('gacha_multi_done', defaultValue: false) as bool;
+    final hasGachaFirst =
+        settings.get('gacha_first_done', defaultValue: false) as bool;
+    final hasGachaMulti =
+        settings.get('gacha_multi_done', defaultValue: false) as bool;
 
     final newlyUnlocked = await AchievementService.checkAll(
       level: stats.level,
@@ -147,7 +171,7 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.backgroundNightCosmos,
+      backgroundColor: PixelCouleurs.nuit,
       body: SafeArea(
         child: Consumer3<PlayerViewModel, QuestViewModel, CatViewModel>(
           builder: (context, player, quests, catProvider, _) {
@@ -159,17 +183,23 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
             final now = DateTime.now();
             final today = DateTime(now.year, now.month, now.day);
             final missedQuests = quests.getMissedQuests();
-            final todayQuests = quests.activeQuests.where((q) {
-              if (q.deadline != null && now.isAfter(q.deadline!)) return false;
-              final created = DateTime(
-                  q.createdAt.year, q.createdAt.month, q.createdAt.day);
-              return created == today || q.frequency == QuestFrequency.daily;
-            }).take(3).toList();
+            final todayQuests = quests.activeQuests
+                .where((q) {
+                  if (q.deadline != null && now.isAfter(q.deadline!)) {
+                    return false;
+                  }
+                  final created = DateTime(
+                      q.createdAt.year, q.createdAt.month, q.createdAt.day);
+                  return created == today ||
+                      q.frequency == QuestFrequency.daily;
+                })
+                .take(3)
+                .toList();
 
             final xpForNext = player.experienceForLevel(stats.level);
             final cat = catProvider.mainCat;
-            final mood = CatMoodService.getMoodExpression(
-                stats.moral, stats.streak);
+            final mood =
+                CatMoodService.getMoodExpression(stats.moral, stats.streak);
 
             return RefreshIndicator(
               onRefresh: _load,
@@ -178,15 +208,17 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
                 slivers: [
                   // ── AppBar ─────────────────────────────────────────────
                   SliverAppBar(
-                    backgroundColor: AppColors.backgroundNightCosmos,
+                    backgroundColor: PixelCouleurs.nuit,
+                    surfaceTintColor: Colors.transparent,
                     floating: true,
                     elevation: 0,
-                    title: Text(
-                      'Sanctuaire',
-                      style: GoogleFonts.nunito(
-                        color: AppColors.primaryVioletLight,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 20,
+                    title: Semantics(
+                      header: true,
+                      child: Text(
+                        'Sanctuaire',
+                        style: PixelTextes.chiffres(15, PixelCouleurs.texte).copyWith(
+                          shadows: const [Shadow(color: PixelCouleurs.violet, offset: Offset(3, 3))],
+                        ),
                       ),
                     ),
                   ),
@@ -237,18 +269,12 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
                               const Icon(Icons.warning_amber_rounded,
                                   color: AppColors.coralRare, size: 16),
                               const SizedBox(width: 6),
-                              Text(
-                                'En retard',
-                                style: GoogleFonts.nunito(
-                                  color: AppColors.coralRare,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 16,
-                                ),
-                              ),
+                              Text('En retard', style: PixelTextes.chiffres(11, AppColors.coralRare)),
                             ],
                           ),
                           const SizedBox(height: 8),
-                          ...missedQuests.map((q) => _MissedQuestTile(quest: q)),
+                          ...missedQuests
+                              .map((q) => _MissedQuestTile(quest: q)),
                           const SizedBox(height: 20),
                         ],
 
@@ -256,22 +282,19 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              "Aujourd'hui",
-                              style: GoogleFonts.nunito(
-                                color: AppColors.textPrimary,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 16,
-                              ),
+                            Semantics(
+                              header: true,
+                              child: Text("Aujourd'hui", style: PixelTextes.chiffres(12, PixelCouleurs.texte)),
                             ),
                             TextButton(
                               onPressed: () =>
-                                  Navigator.of(context).pushNamed('/quests'),
-                              child: const Text(
-                                'Voir tout',
-                                style: TextStyle(
-                                    color: AppColors.primaryVioletLight),
+                                  context.go(Routes.quetes),
+                              style: TextButton.styleFrom(
+                                foregroundColor: PixelCouleurs.violetClair,
+                                minimumSize: const Size(48, 48),
+                                textStyle: PixelTextes.corps(16, poids: FontWeight.w600),
                               ),
+                              child: const Text('Voir tout'),
                             ),
                           ],
                         ),
@@ -302,6 +325,7 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
 // Hero chat
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Chat compagnon sur son socle, avec sa bulle (maquette « Accueil · Sanctuaire »).
 class _CatHeroSection extends StatelessWidget {
   final String catName;
   final String race;
@@ -323,85 +347,80 @@ class _CatHeroSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bodyColor = catBodyColor(race);
     final message = questCount > 0
-        ? _questMessage(questCount, mood)
+        ? _questMessage(questCount)
         : CatMoodService.getBubbleMessage(mood, streak);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        // Chat avec glow
-        Stack(
-          alignment: Alignment.center,
-          children: [
-            // Glow derrière
-            Container(
-              width: 140,
-              height: 140,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: bodyColor.withValues(alpha: 0.35),
-                    blurRadius: 40,
-                    spreadRadius: 10,
-                  ),
-                ],
-              ),
-            ),
-            CatWidget(
-              race: race,
-              equippedHat: equippedHat,
-              size: 130,
-              mood: CatMoodService.getIdleAnimation(mood),
-            ),
-          ],
-        ),
-
-        const SizedBox(width: 12),
-
-        // Colonne : nom + bulle
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        // Socle en pierre et ombre : le chat est « posé » dans le sanctuaire.
+        SizedBox(
+          width: 150,
+          height: 150,
+          child: Stack(
+            alignment: Alignment.bottomCenter,
+            clipBehavior: Clip.none,
             children: [
-              // Nom + humeur
-              Row(
-                children: [
-                  Text(
-                    catName,
-                    style: GoogleFonts.nunito(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 16,
+              const Positioned(
+                bottom: 0,
+                child: SizedBox(
+                  width: 132,
+                  height: 16,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: PixelCouleurs.panneauProfond,
+                      border: Border(top: BorderSide(color: PixelCouleurs.trait, width: 3)),
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  Text(
-                    CatMoodService.moodEmoji(mood),
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                ],
+                ),
               ),
-              const SizedBox(height: 8),
-
-              // Bulle de dialogue
-              _SpeechBubble(message: message),
+              const Positioned(
+                bottom: 16,
+                child: SizedBox(width: 84, height: 6, child: ColoredBox(color: PixelCouleurs.abysse)),
+              ),
+              // le sprite garde une marge transparente sous les pattes : on le
+              // descend d'autant pour qu'il repose sur l'ombre
+              Positioned(
+                bottom: -9,
+                child: CatWidget(
+                  race: race,
+                  equippedHat: equippedHat,
+                  size: 136,
+                  mood: CatMoodService.getIdleAnimation(mood),
+                ),
+              ),
             ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(catName, style: PixelTextes.corps(18, poids: FontWeight.w700)),
+                Text(CatMoodService.moodLabel(mood),
+                    style: PixelTextes.corps(14, couleur: PixelCouleurs.texteDoux)),
+                const SizedBox(height: 8),
+                _SpeechBubble(message: message),
+              ],
+            ),
           ),
         ),
       ],
     );
   }
 
-  String _questMessage(int count, CatMood mood) {
-    if (count == 1) return 'Tu as 1 quête aujourd\'hui, allez ! 🐾';
-    if (count == 2) return '$count quêtes t\'attendent, courage ! ✨';
-    return '$count quêtes aujourd\'hui — je crois en toi ! 🌟';
+  String _questMessage(int count) {
+    if (count == 1) return 'Tu as 1 quête aujourd\'hui, allez !';
+    if (count == 2) return '$count quêtes t\'attendent, courage !';
+    return '$count quêtes aujourd\'hui, je crois en toi !';
   }
 }
 
+/// Bulle de dialogue pixel : fond blanc, ombre franche, petite pointe carrée.
 class _SpeechBubble extends StatelessWidget {
   final String message;
 
@@ -409,77 +428,29 @@ class _SpeechBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.backgroundDarkPanel,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(16),
-          topRight: Radius.circular(16),
-          bottomRight: Radius.circular(16),
-          bottomLeft: Radius.circular(4), // pointe vers le chat
-        ),
-        border: Border.all(
-          color: AppColors.primaryVioletLight.withValues(alpha: 0.35),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primaryViolet.withValues(alpha: 0.12),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            boxShadow: [BoxShadow(color: PixelCouleurs.violet, offset: Offset(4, 4))],
           ),
-        ],
-      ),
-      child: Text(
-        message,
-        style: GoogleFonts.nunito(
-          color: AppColors.textSecondary,
-          fontSize: 13,
-          height: 1.4,
+          child: Text(message, style: PixelTextes.corps(15, couleur: PixelCouleurs.nuit, poids: FontWeight.w600)),
         ),
-      ),
+        const Positioned(
+          left: -8,
+          bottom: 10,
+          child: SizedBox(width: 8, height: 8, child: ColoredBox(color: Colors.white)),
+        ),
+      ],
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Barre animée réutilisable
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _AnimatedBar extends StatelessWidget {
-  final double value;
-  final Color color;
-  final Color backgroundColor;
-  final double height;
-
-  const _AnimatedBar({
-    required this.value,
-    required this.color,
-    required this.backgroundColor,
-    this.height = 8,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0, end: value),
-      duration: const Duration(milliseconds: 800),
-      curve: Curves.easeOutCubic,
-      builder: (_, v, __) => ClipRRect(
-        borderRadius: BorderRadius.circular(4),
-        child: LinearProgressIndicator(
-          value: v,
-          backgroundColor: backgroundColor,
-          valueColor: AlwaysStoppedAnimation<Color>(color),
-          minHeight: height,
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Carte stats
+// Carte stats (tête haute : niveau, monnaies, série, PV, XP)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _StatsCard extends StatelessWidget {
@@ -495,129 +466,101 @@ class _StatsCard extends StatelessWidget {
     final hpProgress = stats.maxHealthPoints > 0
         ? (stats.healthPoints / stats.maxHealthPoints).clamp(0.0, 1.0)
         : 0.0;
+    final serie = '${stats.streak} jour${stats.streak > 1 ? 's' : ''}';
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            AppColors.backgroundDarkPanel,
-            AppColors.backgroundDeepViolet,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColors.primaryViolet.withValues(alpha: 0.30),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Niveau ${stats.level}',
-                    style: GoogleFonts.nunito(
-                      color: AppColors.primaryVioletLight,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  Text(
-                    '${stats.experience} / $xpForNext XP',
-                    style: const TextStyle(color: AppColors.textSecondary),
-                  ),
-                ],
-              ),
-              Flexible(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.monetization_on,
-                        color: AppColors.gold, size: 18),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        '${stats.gold}',
-                        style: const TextStyle(
-                            color: AppColors.gold, fontWeight: FontWeight.bold),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Icon(Icons.diamond,
-                        color: AppColors.crystalBlue, size: 18),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        '${stats.crystals}',
-                        style: const TextStyle(
-                            color: AppColors.crystalBlue,
-                            fontWeight: FontWeight.bold),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
+    // Q10 : les chiffres du Sanctuaire sont lus d'un seul tenant par les
+    // lecteurs d'écran.
+    return Semantics(
+      container: true,
+      label: 'Niveau ${stats.level}, ${stats.experience} sur $xpForNext points d\'expérience, '
+          '${stats.healthPoints} sur ${stats.maxHealthPoints} points de vie, série de $serie, '
+          '${stats.gold} or, ${stats.crystals} cristaux',
+      excludeSemantics: true,
+      child: PixelCadre(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  color: PixelCouleurs.violetClair,
+                  child: Text('NIV ${stats.level}', style: PixelTextes.chiffres(10, PixelCouleurs.nuit)),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          // Barre XP
-          _AnimatedBar(
-            value: xpProgress,
-            color: AppColors.primaryViolet,
-            backgroundColor: AppColors.backgroundNightCosmos,
-          ),
-          const SizedBox(height: 12),
-          // HP + streak
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.favorite,
-                      color: AppColors.rosePastel, size: 14),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${stats.healthPoints} / ${stats.maxHealthPoints} HP',
-                    style: const TextStyle(
-                        color: AppColors.textSecondary, fontSize: 12),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  const Icon(Icons.local_fire_department,
-                      color: AppColors.warning, size: 14),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${stats.streak} jour${stats.streak > 1 ? 's' : ''}',
-                    style: const TextStyle(
-                        color: AppColors.warning, fontSize: 12),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          // Barre HP
-          _AnimatedBar(
-            value: hpProgress,
-            color: AppColors.rosePastel,
-            backgroundColor: AppColors.backgroundNightCosmos,
-            height: 6,
-          ),
-        ],
+                const Spacer(),
+                _Compteur(icone: Icons.local_fire_department, couleur: PixelCouleurs.or, texte: serie),
+                const SizedBox(width: 12),
+                _Compteur(icone: Icons.monetization_on, couleur: PixelCouleurs.orClair, texte: '${stats.gold}'),
+                const SizedBox(width: 12),
+                _Compteur(icone: Icons.diamond, couleur: AppColors.crystalBlue, texte: '${stats.crystals}'),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _LigneJauge(
+              libelle: 'PV',
+              couleurLibelle: AppColors.rarityMythic,
+              valeur: hpProgress,
+              couleur: const Color(0xFFF87171),
+              texte: '${stats.healthPoints} / ${stats.maxHealthPoints}',
+            ),
+            const SizedBox(height: 10),
+            _LigneJauge(
+              libelle: 'XP',
+              couleurLibelle: AppColors.rarityUncommon,
+              valeur: xpProgress,
+              couleur: const Color(0xFF4ADE80),
+              texte: '${stats.experience} / $xpForNext',
+            ),
+          ],
+        ),
       ),
     );
   }
+}
+
+class _Compteur extends StatelessWidget {
+  final IconData icone;
+  final Color couleur;
+  final String texte;
+  const _Compteur({required this.icone, required this.couleur, required this.texte});
+
+  @override
+  Widget build(BuildContext context) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icone, color: couleur, size: 16),
+          const SizedBox(width: 4),
+          Text(texte, style: PixelTextes.corps(15, couleur: couleur, poids: FontWeight.w700)),
+        ],
+      );
+}
+
+/// Ligne « libellé, jauge, valeur » de la tête haute.
+class _LigneJauge extends StatelessWidget {
+  final String libelle;
+  final Color couleurLibelle;
+  final double valeur;
+  final Color couleur;
+  final String texte;
+
+  const _LigneJauge({
+    required this.libelle,
+    required this.couleurLibelle,
+    required this.valeur,
+    required this.couleur,
+    required this.texte,
+  });
+
+  @override
+  Widget build(BuildContext context) => Row(
+        children: [
+          SizedBox(width: 30, child: Text(libelle, style: PixelTextes.chiffres(9, couleurLibelle))),
+          Expanded(child: PixelJauge(valeur: valeur, couleur: couleur, hauteur: 14)),
+          const SizedBox(width: 10),
+          Text(texte, style: PixelTextes.corps(14, couleur: PixelCouleurs.texteDoux, poids: FontWeight.w600)),
+        ],
+      );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -636,34 +579,25 @@ class _MoralBar extends StatelessWidget {
         : moral > 0.3
             ? AppColors.warning
             : AppColors.coralRare;
+    final pourcent = (moral * 100).round();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Moral',
-              style: GoogleFonts.nunito(
-                color: AppColors.textSecondary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            Text(
-              '${(moral * 100).round()}%',
-              style: TextStyle(color: color, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        _AnimatedBar(
-          value: moral,
-          color: color,
-          backgroundColor: AppColors.backgroundDarkPanel,
-          height: 6,
-        ),
-      ],
+    return Semantics(
+      label: 'Moral $pourcent pour cent',
+      excludeSemantics: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Moral', style: PixelTextes.corps(15, couleur: PixelCouleurs.texteDoux, poids: FontWeight.w600)),
+              Text('$pourcent %', style: PixelTextes.chiffres(10, color)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          PixelJauge(valeur: moral, couleur: color, hauteur: 10),
+        ],
+      ),
     );
   }
 }
@@ -672,6 +606,8 @@ class _MoralBar extends StatelessWidget {
 // Tuile quête
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Carte de quête pixel : pastille d'icône colorée selon le mode de
+/// validation, titre, sous-titre (« Preuve photo · Oracle », durée...).
 class _QuestTile extends StatelessWidget {
   final Quest quest;
 
@@ -679,49 +615,27 @@ class _QuestTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // L'objet Quest complet est passé directement — pas de lookup par id.
-    return GestureDetector(
-      onTap: () => QuestDetailSheet.show(context, quest: quest),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: AppColors.backgroundDarkPanel,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: AppColors.primaryViolet.withValues(alpha: 0.20),
-          ),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.assignment_outlined,
-                color: AppColors.primaryVioletLight, size: 20),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                quest.title,
-                style: const TextStyle(color: AppColors.textPrimary),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            Text(
-              '${quest.estimatedDurationMinutes} min',
-              style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-            ),
-            const SizedBox(width: 4),
-            const Icon(Icons.chevron_right,
-                color: AppColors.textMuted, size: 16),
-          ],
-        ),
-      ),
+    final duree = quest.estimatedDurationMinutes > 0 ? '${quest.estimatedDurationMinutes} min' : null;
+    final (icone, couleur, sousTitre) = switch (quest.validationType) {
+      ValidationType.photo => (Icons.photo_camera_outlined, PixelCouleurs.oracle, 'Preuve photo · Oracle'),
+      ValidationType.timer => (Icons.timer_outlined, PixelCouleurs.orClair, duree == null ? 'Minuteur' : 'Minuteur · $duree'),
+      ValidationType.geolocation => (Icons.place_outlined, AppColors.mintMagic, 'Lieu à visiter'),
+      ValidationType.manual => (Icons.check_box_outlined, PixelCouleurs.violetClair, duree ?? quest.category),
+    };
+    // L'objet Quest complet est passé directement : pas de lookup par id.
+    return _CartePixel(
+      onTap: () => _ouvrirQuete(context, quest),
+      bord: PixelCouleurs.trait,
+      icone: icone,
+      couleurIcone: couleur,
+      titre: quest.title,
+      sousTitre: sousTitre,
+      couleurSousTitre: quest.validationType == ValidationType.photo ? PixelCouleurs.oracle : PixelCouleurs.texteDoux,
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Tuile quête en retard
-// ─────────────────────────────────────────────────────────────────────────────
-
+/// Tuile quête en retard : bord corail et retard affiché.
 class _MissedQuestTile extends StatelessWidget {
   final Quest quest;
 
@@ -735,36 +649,79 @@ class _MissedQuestTile extends StatelessWidget {
         ? '${diff.inHours}h de retard'
         : '${diff.inDays}j de retard';
 
-    // L'objet Quest complet est passé directement — pas de lookup par id.
-    return GestureDetector(
-      onTap: () => QuestDetailSheet.show(context, quest: quest),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: AppColors.coralRare.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(10),
-          border:
-              Border.all(color: AppColors.coralRare.withValues(alpha: 0.40)),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.warning_amber_rounded,
-                color: AppColors.coralRare, size: 18),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                quest.title,
-                style: const TextStyle(color: AppColors.textPrimary),
-                overflow: TextOverflow.ellipsis,
+    return _CartePixel(
+      onTap: () => _ouvrirQuete(context, quest),
+      bord: AppColors.coralRare,
+      icone: Icons.warning_amber_rounded,
+      couleurIcone: AppColors.coralRare,
+      titre: quest.title,
+      sousTitre: retardLabel,
+      couleurSousTitre: AppColors.coralRare,
+    );
+  }
+}
+
+class _CartePixel extends StatelessWidget {
+  final VoidCallback onTap;
+  final Color bord;
+  final IconData icone;
+  final Color couleurIcone;
+  final String titre;
+  final String sousTitre;
+  final Color couleurSousTitre;
+
+  const _CartePixel({
+    required this.onTap,
+    required this.bord,
+    required this.icone,
+    required this.couleurIcone,
+    required this.titre,
+    required this.sousTitre,
+    required this.couleurSousTitre,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: MergeSemantics(
+        child: Semantics(
+          button: true,
+          child: GestureDetector(
+            onTap: onTap,
+            behavior: HitTestBehavior.opaque,
+            child: PixelCadre(
+              bord: bord,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: PixelCouleurs.panneauProfond,
+                      border: Border.all(color: couleurIcone, width: 2),
+                    ),
+                    child: Icon(icone, color: couleurIcone, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(titre,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: PixelTextes.corps(17, poids: FontWeight.w600)),
+                        Text(sousTitre, style: PixelTextes.corps(14, couleur: couleurSousTitre)),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right, color: PixelCouleurs.texteDoux, size: 22),
+                ],
               ),
             ),
-            Text(
-              retardLabel,
-              style:
-                  const TextStyle(color: AppColors.coralRare, fontSize: 11),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -784,7 +741,7 @@ class _BossQuestCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // L'objet Quest complet est passé directement — pas de lookup par id.
     return GestureDetector(
-      onTap: () => QuestDetailSheet.show(context, quest: quest),
+      onTap: () => _ouvrirQuete(context, quest),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -930,23 +887,13 @@ class _ErrorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.error.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.error.withValues(alpha: 0.4)),
-      ),
+    return PixelCadre(
+      bord: AppColors.error,
       child: Row(
         children: [
-          const Icon(Icons.wifi_off_rounded, color: AppColors.error, size: 18),
+          const Icon(Icons.wifi_off_rounded, color: AppColors.error, size: 20),
           const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(color: AppColors.error, fontSize: 13),
-            ),
-          ),
+          Expanded(child: Text(message, style: PixelTextes.corps(15, couleur: AppColors.error))),
         ],
       ),
     );
@@ -960,18 +907,26 @@ class _ErrorCard extends StatelessWidget {
 class _EmptyQuestCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AppColors.backgroundDarkPanel,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Center(
-        child: Text(
-          "Aucune quête pour aujourd'hui.\nCrée ta première quête !",
-          textAlign: TextAlign.center,
-          style: GoogleFonts.nunito(color: AppColors.textMuted),
-        ),
+    return PixelCadre(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            "Aucune quête pour aujourd'hui.",
+            textAlign: TextAlign.center,
+            style: PixelTextes.corps(16, couleur: PixelCouleurs.texteDoux),
+          ),
+          const SizedBox(height: 14),
+          // L'état vide mène directement à l'action attendue.
+          PixelBouton(
+            // « Première » seulement si le joueur n'a encore aucune quête (Q20).
+            libelle: context.watch<QuestViewModel>().quests.isEmpty
+                ? 'Créer ma première quête'
+                : 'Créer une quête',
+            onPressed: () => context.push(Routes.nouvelleQuete),
+          ),
+        ],
       ),
     );
   }
@@ -983,20 +938,20 @@ class _EmptyQuestCard extends StatelessWidget {
 
 class _DailyRewardDialog extends StatelessWidget {
   final int gold;
-  final int crystals;
+  final int seals;
   final int streak;
 
   const _DailyRewardDialog({
     required this.gold,
-    required this.crystals,
+    required this.seals,
     required this.streak,
   });
 
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: AppColors.backgroundDarkPanel,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      backgroundColor: PixelCouleurs.panneau,
+      shape: const RoundedRectangleBorder(side: BorderSide(color: PixelCouleurs.or, width: 3)),
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -1004,16 +959,18 @@ class _DailyRewardDialog extends StatelessWidget {
           children: [
             Text(
               'Récompense quotidienne',
-              style: GoogleFonts.nunito(
-                color: AppColors.gold,
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
+              textAlign: TextAlign.center,
+              style: PixelTextes.chiffres(13, PixelCouleurs.orClair).copyWith(
+                shadows: const [Shadow(color: PixelCouleurs.orSombre, offset: Offset(2, 2))],
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Jour $streak de série',
-              style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+              streak > 0
+                  ? 'Jour $streak de série'
+                  : 'Valide une quête aujourd\'hui pour lancer ta série !',
+              textAlign: TextAlign.center,
+              style: PixelTextes.corps(15, couleur: PixelCouleurs.texteDoux),
             ),
             const SizedBox(height: 20),
             Row(
@@ -1026,20 +983,19 @@ class _DailyRewardDialog extends StatelessWidget {
                 ),
                 const SizedBox(width: 16),
                 _RewardChip(
-                  icon: Icons.diamond,
+                  icon: Icons.auto_awesome,
                   color: AppColors.crystalBlue,
-                  label: '+$crystals cristaux',
+                  label: '+$seals Sceau${seals > 1 ? 'x' : ''}',
                 ),
               ],
             ),
             const SizedBox(height: 24),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primaryViolet,
-                minimumSize: const Size.fromHeight(44),
-              ),
-              child: const Text('Récupérer'),
+            PixelBouton(
+              libelle: 'Récupérer',
+              onPressed: () {
+                unawaited(Sons.jouer(Son.piece));
+                Navigator.of(context).pop();
+              },
             ),
           ],
         ),
@@ -1053,23 +1009,23 @@ class _RewardChip extends StatelessWidget {
   final Color color;
   final String label;
 
-  const _RewardChip({required this.icon, required this.color, required this.label});
+  const _RewardChip(
+      {required this.icon, required this.color, required this.label});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.4)),
+        color: PixelCouleurs.panneauProfond,
+        border: Border.all(color: color, width: 2),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, color: color, size: 18),
           const SizedBox(width: 6),
-          Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+          Text(label, style: PixelTextes.corps(16, couleur: color, poids: FontWeight.w700)),
         ],
       ),
     );
@@ -1104,7 +1060,8 @@ class _WeeklySummarySheet extends StatelessWidget {
         children: [
           Center(
             child: Container(
-              width: 40, height: 4,
+              width: 40,
+              height: 4,
               decoration: BoxDecoration(
                 color: AppColors.textMuted.withValues(alpha: 0.4),
                 borderRadius: BorderRadius.circular(2),
@@ -1127,15 +1084,29 @@ class _WeeklySummarySheet extends StatelessWidget {
           const SizedBox(height: 24),
           Row(
             children: [
-              _WeekStat(icon: Icons.check_circle_outline, color: AppColors.primaryTurquoise, value: '$questsCompleted', label: 'Quêtes'),
-              _WeekStat(icon: Icons.star_outline,         color: AppColors.primaryTurquoise, value: '$xpEarned',         label: 'XP'),
-              _WeekStat(icon: Icons.local_fire_department, color: AppColors.warning,          value: '${streak}j',        label: 'Série'),
               _WeekStat(
-                icon: Icons.shield_outlined,
-                color: bossDefeated ? AppColors.rarityEpic : AppColors.textMuted,
-                value: bossDefeated ? 'Vaincu' : 'Manqué',
-                label: 'Boss',
-              ),
+                  icon: Icons.check_circle_outline,
+                  color: AppColors.primaryTurquoise,
+                  value: '$questsCompleted',
+                  label: 'Quêtes'),
+              _WeekStat(
+                  icon: Icons.star_outline,
+                  color: AppColors.primaryTurquoise,
+                  value: '$xpEarned',
+                  label: 'XP'),
+              _WeekStat(
+                  icon: Icons.local_fire_department,
+                  color: AppColors.warning,
+                  value: '${streak}j',
+                  label: 'Série'),
+              // Boss hebdomadaire : de retour au Sprint 4 (boss serveur à PV).
+              if (bossDefeated)
+                const _WeekStat(
+                  icon: Icons.shield_outlined,
+                  color: AppColors.rarityEpic,
+                  value: 'Vaincu',
+                  label: 'Boss',
+                ),
             ],
           ),
           if (bossDefeated) ...[
@@ -1145,7 +1116,8 @@ class _WeeklySummarySheet extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppColors.rarityEpic.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.rarityEpic.withValues(alpha: 0.3)),
+                border: Border.all(
+                    color: AppColors.rarityEpic.withValues(alpha: 0.3)),
               ),
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -1171,10 +1143,12 @@ class _WeeklySummarySheet extends StatelessWidget {
                 backgroundColor: AppColors.primaryTurquoise,
                 foregroundColor: AppColors.backgroundNightBlue,
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
               onPressed: () => Navigator.pop(context),
-              child: const Text('Nouvelle semaine !', style: TextStyle(fontWeight: FontWeight.bold)),
+              child: const Text('Nouvelle semaine !',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ),
         ],
@@ -1189,7 +1163,11 @@ class _WeekStat extends StatelessWidget {
   final String value;
   final String label;
 
-  const _WeekStat({required this.icon, required this.color, required this.value, required this.label});
+  const _WeekStat(
+      {required this.icon,
+      required this.color,
+      required this.value,
+      required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -1198,10 +1176,26 @@ class _WeekStat extends StatelessWidget {
         children: [
           Icon(icon, color: color, size: 22),
           const SizedBox(height: 4),
-          Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 16)),
-          Text(label, style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
+          Text(value,
+              style: TextStyle(
+                  color: color, fontWeight: FontWeight.bold, fontSize: 16)),
+          Text(label,
+              style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
         ],
       ),
     );
   }
+}
+
+/// Détail d'une quête depuis l'accueil : une quête active peut être validée
+/// directement (avant, la fiche n'offrait aucune action depuis le Sanctuaire).
+Future<void> _ouvrirQuete(BuildContext context, Quest quest) {
+  final active = quest.status == QuestStatus.active;
+  return QuestDetailSheet.show(
+    context,
+    quest: quest,
+    onValidate: active
+        ? () => context.push(Routes.validerQuete(quest.id ?? ''), extra: quest)
+        : null,
+  );
 }

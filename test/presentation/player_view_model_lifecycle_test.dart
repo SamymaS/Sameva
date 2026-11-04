@@ -26,7 +26,6 @@ void main() {
   setUp(() {
     repo = _MockPlayerRepo();
     // Stub défensif pour syncToSupabase (cas 2 : pas de remote).
-    when(() => repo.syncToSupabase(any(), any())).thenAnswer((_) async {});
     when(() => repo.saveLocalStats(any())).thenAnswer((_) async {});
   });
 
@@ -39,7 +38,7 @@ void main() {
       final signedOutCtrl = StreamController<void>.broadcast(sync: true);
 
       when(() => repo.loadLocalStats()).thenReturn(PlayerStats(level: 5, gold: 100));
-      when(() => repo.fetchRemoteStats(any())).thenAnswer((_) async => null);
+      when(() => repo.fetchServerState()).thenAnswer((_) async => throw Exception('hors-ligne'));
 
       final vm = PlayerViewModel(
         repo,
@@ -74,7 +73,7 @@ void main() {
 
       when(() => repo.loadLocalStats())
           .thenReturn(PlayerStats(level: 3, gold: 50));
-      when(() => repo.fetchRemoteStats(any())).thenAnswer((_) async => null);
+      when(() => repo.fetchServerState()).thenAnswer((_) async => throw Exception('hors-ligne'));
 
       final vm = PlayerViewModel(
         repo,
@@ -102,7 +101,7 @@ void main() {
       final signedInCtrl = StreamController<void>.broadcast(sync: true);
 
       when(() => repo.loadLocalStats()).thenReturn(PlayerStats(level: 7));
-      when(() => repo.fetchRemoteStats(any())).thenAnswer((_) async => null);
+      when(() => repo.fetchServerState()).thenAnswer((_) async => throw Exception('hors-ligne'));
 
       final vm = PlayerViewModel(
         repo,
@@ -123,7 +122,7 @@ void main() {
 
       // loadLocalStats et fetchRemoteStats NE doivent PAS avoir été rappelés.
       verifyNever(() => repo.loadLocalStats());
-      verifyNever(() => repo.fetchRemoteStats(any()));
+      verifyNever(() => repo.fetchServerState());
 
       await signedInCtrl.close();
       vm.dispose();
@@ -140,7 +139,7 @@ void main() {
       final signedInCtrl = StreamController<void>.broadcast(sync: true);
 
       when(() => repo.loadLocalStats()).thenReturn(PlayerStats(level: 4));
-      when(() => repo.fetchRemoteStats(any())).thenAnswer((_) async => null);
+      when(() => repo.fetchServerState()).thenAnswer((_) async => throw Exception('hors-ligne'));
 
       final vm = PlayerViewModel(
         repo,

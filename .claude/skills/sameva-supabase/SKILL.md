@@ -3,6 +3,15 @@ name: sameva-supabase
 description: Patterns d'accès à Supabase dans Sameva — auth, requêtes SQL, RLS, repositories. À utiliser pour toute interaction avec la base de données, l'authentification, le storage, ou les RLS policies. Pour les Edge Functions, voir sameva-edge-functions.
 ---
 
+> **Mise à jour Sprint 1 (2026-10-21, ADR 0005) : prioritaire sur tout ce qui suit.**
+> Plus aucune écriture client sur `player_stats`, `ai_validation_credits`, `economy_ledger`,
+> `gacha_state`, `quest_proofs`, `oracle_challenges` (SELECT seulement). Plus d'`upsert` des stats :
+> lecture via la RPC `get_player_state`. Les mutations passent par les RPC `SECURITY DEFINER` du schéma
+> `public` (logique interne dans le schéma `private`, non exposé). Toute nouvelle règle = migration +
+> test pgTAP dans `supabase/tests/database/`. Les tables historiques créées au dashboard seront
+> décrites par la baseline du Sprint 0.
+
+
 # Supabase Sameva
 
 ## Configuration

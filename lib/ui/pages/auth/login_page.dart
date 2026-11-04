@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../../core/router/app_router.dart';
 import 'package:provider/provider.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
 import '../../theme/app_colors.dart';
@@ -105,7 +107,7 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 const SizedBox(height: 16),
                 OutlinedButton(
-                  onPressed: () => Navigator.of(context).pushNamed('/register'),
+                  onPressed: () => context.push(Routes.inscription),
                   child: const Text('Créer un compte'),
                 ),
                 const SizedBox(height: 24),
@@ -147,7 +149,7 @@ class _LoginPageState extends State<LoginPage> {
       );
       if (!mounted) return;
       if (auth.isAuthenticated) {
-        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+        context.go(Routes.accueil);
       }
     } catch (_) {
       // Message déjà dans AuthViewModel.errorMessage
@@ -159,7 +161,7 @@ class _LoginPageState extends State<LoginPage> {
       await auth.signInWithGoogle();
       if (!mounted) return;
       if (auth.isAuthenticated) {
-        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+        context.go(Routes.accueil);
       }
     } catch (_) {
       // Message déjà dans AuthViewModel.errorMessage (ou annulation silencieuse)
@@ -171,7 +173,7 @@ class _LoginPageState extends State<LoginPage> {
       await auth.continueAsGuest();
       if (!mounted) return;
       if (auth.isAuthenticated) {
-        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+        context.go(Routes.accueil);
       }
     } catch (_) {
       // Message déjà dans AuthViewModel.errorMessage

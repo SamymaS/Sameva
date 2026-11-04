@@ -1,11 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../../../data/models/item_model.dart';
 import '../../theme/app_colors.dart';
 
+/// Icône pixel art d'un objet (assets/sprites/objets, générées par tools/pixel).
+///
+/// Les objets déjà en inventaire gardent leur ancien chemin SVG
+/// (`assets/items/sword_rusty.svg`) : seul le nom compte, inutile de migrer.
+String? iconePixelPour(String? assetPath) {
+  if (assetPath == null || assetPath.isEmpty) return null;
+  final nom = assetPath.split('/').last.split('.').first;
+  return 'assets/sprites/objets/$nom.png';
+}
+
 /// Widget d'icône d'item universel.
 ///
-/// Affiche l'asset SVG pixel art si [item.assetPath] est défini,
+/// Affiche l'icône pixel art de l'objet si [item.assetPath] est défini,
 /// sinon replie sur l'icône Material avec la couleur de rareté.
 ///
 /// Usage :
@@ -76,13 +85,18 @@ class ItemIcon extends StatelessWidget {
   }
 
   Widget _buildIcon(Color rarityColor) {
-    if (item.assetPath != null) {
-      return SvgPicture.asset(
-        item.assetPath!,
+    final pixel = iconePixelPour(item.assetPath);
+    if (pixel != null) {
+      return Image.asset(
+        pixel,
         width: size,
         height: size,
+        // Pixel art : agrandissement sans lissage.
+        filterQuality: FilterQuality.none,
+        isAntiAlias: false,
         fit: BoxFit.contain,
-        placeholderBuilder: (_) => _fallbackIcon(rarityColor),
+        semanticLabel: item.name,
+        errorBuilder: (_, __, ___) => _fallbackIcon(rarityColor),
       );
     }
     return _fallbackIcon(rarityColor);

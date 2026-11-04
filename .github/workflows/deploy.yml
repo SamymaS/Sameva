@@ -1,14 +1,12 @@
 name: Deploy backend
 
-# Déploiement continu du backend.
-# Toute modification d'une Edge Function fusionnée sur main est déployée
-# automatiquement, sans intervention manuelle.
+# Déploiement du backend, déclenché à la main depuis l'onglet Actions.
+#
+# Sprint 1 : le déploiement automatique à chaque push sur main est coupé. Les
+# Edge Functions dépendent désormais de fonctions SQL (oracle_begin...) : les
+# déployer avant `supabase db push` casserait l'Oracle en production. Ordre
+# obligatoire : 1) migrations (`supabase db push`), 2) ce workflow.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'supabase/functions/**'
-      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 jobs:

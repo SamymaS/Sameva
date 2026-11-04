@@ -14,11 +14,10 @@
 // Déploiement :
 //   supabase functions deploy suggest-quests
 //
-// Format de requête (POST) :
+// Format de requête (POST, en-tête Authorization: Bearer <JWT utilisateur>) :
+//   Le profil (niveau, flamme, quêtes accomplies) est lu en base via la RPC
+//   mougibot_suggest_take, qui consomme aussi le quota quotidien (429 sinon).
 //   {
-//     "player_level": 12,
-//     "current_streak": 5,
-//     "total_quests_completed": 34,
 //     "favorite_category": "Sport",   // optionnel, max 30 chars
 //     "quest_count": 3                // optionnel, défaut 3, bornes [1-5]
 //   }
@@ -36,6 +35,8 @@
 //       }
 //     ]
 //   }
+
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Types pour l'exécution Deno (Supabase Edge Functions)
 // Évite "Cannot find name 'Deno'" dans l'IDE
@@ -98,6 +99,8 @@ interface SuggestedQuest {
 
 interface SuggestResponse {
   quests: SuggestedQuest[];
+  /** Générations restantes aujourd'hui (renvoyé par la fonction HTTP). */
+  remaining?: unknown;
 }
 
 interface ErrorResponse {
@@ -213,7 +216,7 @@ function jsonResponse(
  * Ex : 35 → 30, 37 → 45, 7 → 5.
  */
 function snapDuration(raw: number): ValidDuration {
-  let closest = VALID_DURATIONS[0];
+  let closest: ValidDuration = VALID_DURATIONS[0];
   let minDiff = Math.abs(raw - closest);
   for (const d of VALID_DURATIONS) {
     const diff = Math.abs(raw - d);
@@ -564,6 +567,21 @@ Deno.serve(async (req: Request): Promise<Response> => {
     );
   }
 
+  // Sprint 2 : un utilisateur identifié est obligatoire. verify_jwt laisse
+  // passer la clé anon publique ; ici on exige une vraie session.
+  const authorization = req.headers.get("Authorization") ?? "";
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  const userClient = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: authorization } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data: userData, error: userError } = await userClient.auth.getUser();
+  if (userError || !userData.user) {
+    return jsonResponse({ error: "Session requise", code: "non_authentifie" }, 401);
+  }
+  const userId = userData.user.id;
+
   // Parsing body
   let body: RequestBody;
   try {
@@ -572,26 +590,53 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return jsonResponse({ error: "Body JSON invalide" }, 400);
   }
 
-  // Validation des champs
-  const validation = validateInput(body);
+  // Le quota est consommé AVANT l'appel IA, et le profil vient de la base :
+  // le client ne choisit que la catégorie et le nombre de quêtes.
+  const { data: profile, error: quotaError } = await userClient.rpc("mougibot_suggest_take");
+  if (quotaError) {
+    const quota = quotaError.message === "plafond_atteint";
+    return jsonResponse(
+      { error: quota ? "Plus de suggestions pour aujourd'hui" : "Profil indisponible",
+        code: quota ? "plafond_atteint" : "profil_indisponible" },
+      quota ? 429 : 500,
+    );
+  }
+  const p = profile as Record<string, unknown>;
+
+  const validation = validateInput({
+    player_level: Math.max(1, Number(p.player_level ?? 1)),
+    current_streak: Number(p.current_streak ?? 0),
+    total_quests_completed: Number(p.total_quests_completed ?? 0),
+    favorite_category: body.favorite_category,
+    quest_count: body.quest_count,
+  });
   if (!validation.ok) {
+    await refund(userId);
     return jsonResponse({ error: validation.error }, 400);
   }
 
   // Appel MougiBot
   try {
     const result = await callMougiBot(validation.value);
-    return jsonResponse(result, 200);
+    return jsonResponse({ ...result, remaining: p.remaining }, 200);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     console.error("Erreur MougiBot suggest-quests :", message);
-
-    // Erreurs de parsing/structure → 502 (upstream malformed)
-    // Erreurs réseau/timeout → 502 également (upstream unavailable)
-    // Le détail interne reste dans les logs serveur, jamais exposé au client.
+    // L'échec vient de nous ou de l'IA : la génération est rendue.
+    await refund(userId);
     return jsonResponse(
       { error: "Échec de la suggestion MougiBot", code: "UPSTREAM_ERROR" },
       502,
     );
   }
 });
+
+async function refund(userId: string): Promise<void> {
+  const admin = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  );
+  const { error } = await admin.rpc("mougibot_suggest_refund", { p_user: userId });
+  if (error) console.error("Remboursement de suggestion impossible :", error.message);
+}

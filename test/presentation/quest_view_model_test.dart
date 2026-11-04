@@ -4,10 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sameva/data/models/quest_model.dart';
 import 'package:sameva/data/repositories/quest_repository.dart';
-import 'package:sameva/domain/services/quest_rewards_calculator.dart';
 import 'package:sameva/presentation/view_models/quest_view_model.dart';
 
-import '../helpers/quest_test_factory.dart';
 
 class _MockQuestRepo extends Mock implements QuestRepository {}
 
@@ -161,39 +159,25 @@ void main() {
       expect(vm.quests, isEmpty);
     });
 
-    test('completeQuest met à jour le statut via le repository', () async {
+    test('markCompletedFromServer reflète une complétion serveur', () async {
       final q = makeQuest(id: 'c');
       when(() => repo.loadQuests('u')).thenAnswer((_) async => [q]);
       await vm.loadQuests('u');
-      final done = q.copyWith(
-        status: QuestStatus.completed,
-        completedAt: DateTime(2024, 6, 1),
-      );
-      when(() => repo.completeQuest(q)).thenAnswer((_) async => done);
 
-      await vm.completeQuest(q);
+      await vm.markCompletedFromServer('c', completedAt: DateTime(2024, 6, 1));
 
       expect(vm.quests.first.status, QuestStatus.completed);
+      expect(vm.quests.first.completedAt, DateTime(2024, 6, 1));
     });
 
-    test('completeQuest avec id inconnu insère la quête complétée', () async {
-      // Cas limite : compléter une quête absente de la liste chargée. Le VM
-      // (source de vérité unique) insère le résultat renvoyé par le repo.
+    test('markCompletedFromServer avec id inconnu ne modifie rien', () async {
       final q = makeQuest(id: 'only');
       when(() => repo.loadQuests('u')).thenAnswer((_) async => [q]);
       await vm.loadQuests('u');
 
-      final inconnue = makeQuest(id: 'inexistant');
-      final done = inconnue.copyWith(
-        status: QuestStatus.completed,
-        completedAt: DateTime(2024, 6, 1),
-      );
-      when(() => repo.completeQuest(inconnue)).thenAnswer((_) async => done);
+      await vm.markCompletedFromServer('inexistant');
 
-      await vm.completeQuest(inconnue);
-
-      // La quête inconnue a été ajoutée puis mise à jour au statut completed.
-      expect(vm.quests.any((q) => q.id == 'inexistant' && q.status == QuestStatus.completed), isTrue);
+      expect(vm.quests.single.status, q.status);
     });
 
     test('deleteQuest propage si le repository échoue', () async {
@@ -206,16 +190,6 @@ void main() {
         vm.deleteQuest('d'),
         throwsException,
       );
-    });
-
-    test('calculateRewards délègue au calculateur métier', () {
-      final quest = buildTestQuest(difficulty: 2);
-      final at = DateTime.utc(2024, 6, 1, 13, 0);
-      final fromVm = vm.calculateRewards(quest, at);
-      final direct = QuestRewardsCalculator.calculateRewardsWithTiming(quest, at);
-      expect(fromVm.experience, direct.experience);
-      expect(fromVm.gold, direct.gold);
-      expect(fromVm.bonusType, direct.bonusType);
     });
 
     test('getMissedQuests inclut les quêtes actives après deadline', () async {

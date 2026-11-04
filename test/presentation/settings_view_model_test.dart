@@ -69,23 +69,5 @@ void main() {
 
       verify(() => notif.setReminderTime(14, 15)).called(1);
     });
-
-    test('resetPlayer utilise userId puis PlayerViewModel', () async {
-      when(() => auth.userId).thenReturn('uid-z');
-      when(() => player.resetPlayer('uid-z')).thenAnswer((_) async {});
-
-      await vm.resetPlayer();
-
-      verify(() => player.resetPlayer('uid-z')).called(1);
-    });
-
-    test('resetPlayer avec userId null appelle reset avec chaîne vide', () async {
-      when(() => auth.userId).thenReturn(null);
-      when(() => player.resetPlayer('')).thenAnswer((_) async {});
-
-      await vm.resetPlayer();
-
-      verify(() => player.resetPlayer('')).called(1);
-    });
   });
 }

@@ -1,99 +1,131 @@
 import 'package:flutter/material.dart';
+import '../../widgets/pixel/mougibot_sprite.dart';
+import '../../widgets/pixel/pixel_ui.dart';
 import 'create_quest_by_theme_page.dart';
 import 'create_quest_page.dart';
 import 'generate_quests_page.dart';
 
-/// Écran de choix : Par thème (tâches préconfigurées) ou Quête personnalisée.
+/// Écran de choix : par thème (tâches préconfigurées), générée par MougiBot ou
+/// quête personnalisée. Style pixel : trois cartes à bord épais.
 class CreateQuestChoicePage extends StatelessWidget {
   const CreateQuestChoicePage({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Créer une quête')),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const SizedBox(height: 24),
-            Text(
-              'Comment voulez-vous créer votre quête ?',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+      backgroundColor: PixelCouleurs.nuit,
+      appBar: AppBar(
+        backgroundColor: PixelCouleurs.nuit,
+        surfaceTintColor: Colors.transparent,
+        foregroundColor: PixelCouleurs.texte,
+        title: Text(
+          'Créer une quête',
+          style: PixelTextes.chiffres(13, PixelCouleurs.texte).copyWith(
+            shadows: const [Shadow(color: PixelCouleurs.violet, offset: Offset(2, 2))],
+          ),
+        ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        children: [
+          Text('Comment veux-tu créer ta quête ?',
+              style: PixelTextes.corps(17, couleur: PixelCouleurs.texteDoux)),
+          const SizedBox(height: 16),
+          _CarteChoix(
+            icone: const Icon(Icons.category_outlined, color: PixelCouleurs.orClair, size: 28),
+            accent: PixelCouleurs.or,
+            titre: 'Par thème (Sport, Loisir, Maison)',
+            description: 'Choisis une tâche préconfigurée dans un thème.',
+            onTap: () async {
+              // Attend le résultat : true = quête créée, on se ferme aussi.
+              final created = await Navigator.of(context).push<bool>(
+                MaterialPageRoute(builder: (_) => const CreateQuestByThemePage()),
+              );
+              if (created == true && context.mounted) {
+                Navigator.of(context).pop(true);
+              }
+            },
+          ),
+          _CarteChoix(
+            icone: const MougiBotSprite(etat: EtatMougiBot.repos, cote: 48),
+            accent: PixelCouleurs.oracle,
+            titre: 'Générer avec IA',
+            description: 'MougiBot propose des quêtes adaptées à ton profil.',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const GenerateQuestsPage()),
             ),
-            const SizedBox(height: 32),
-            FilledButton.icon(
-              onPressed: () async {
-                // Attend le résultat : true = quête créée, on se ferme aussi.
-                final created = await Navigator.of(context).push<bool>(
-                  MaterialPageRoute(
-                    builder: (_) => const CreateQuestByThemePage(),
+          ),
+          _CarteChoix(
+            icone: const Icon(Icons.edit_note, color: PixelCouleurs.violetClair, size: 30),
+            accent: PixelCouleurs.violet,
+            titre: 'Quête personnalisée',
+            description: 'Tu sais déjà ce que tu veux faire ? Crée une quête sur mesure.',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const CreateQuestPage()),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CarteChoix extends StatelessWidget {
+  final Widget icone;
+  final Color accent;
+  final String titre;
+  final String description;
+  final VoidCallback onTap;
+
+  const _CarteChoix({
+    required this.icone,
+    required this.accent,
+    required this.titre,
+    required this.description,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: MergeSemantics(
+        child: Semantics(
+          button: true,
+          child: GestureDetector(
+            onTap: onTap,
+            behavior: HitTestBehavior.opaque,
+            child: PixelCadre(
+              bord: accent,
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: PixelCouleurs.panneauProfond,
+                      border: Border.all(color: accent, width: 2),
+                    ),
+                    child: icone,
                   ),
-                );
-                if (created == true && context.mounted) {
-                  Navigator.of(context).pop(true);
-                }
-              },
-              icon: const Icon(Icons.category_outlined),
-              label: const Text('Par thème (Sport, Loisir, Maison)'),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 20),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(titre, style: PixelTextes.corps(17, poids: FontWeight.w700)),
+                        const SizedBox(height: 4),
+                        Text(description, style: PixelTextes.corps(14, couleur: PixelCouleurs.texteDoux)),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right, color: PixelCouleurs.texteDoux),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
-            Text(
-              'Choisissez une tâche préconfigurée dans un thème.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-            ),
-            const SizedBox(height: 32),
-            FilledButton.tonalIcon(
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const GenerateQuestsPage(),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.auto_awesome),
-              label: const Text('Générer avec IA'),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 20),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Laissez MougiBot créer des quêtes adaptées à votre profil.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-            ),
-            const SizedBox(height: 32),
-            OutlinedButton.icon(
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const CreateQuestPage(),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.edit_note),
-              label: const Text('Quête personnalisée'),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 20),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Vous savez déjà ce que vous voulez faire ? Créez une quête sur mesure.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-            ),
-          ],
+          ),
         ),
       ),
     );

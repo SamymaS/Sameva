@@ -3,6 +3,7 @@ import '../../data/models/craft_recipe_model.dart';
 import '../../domain/services/craft_service.dart';
 import 'inventory_view_model.dart';
 import 'player_view_model.dart';
+import '../../data/repositories/game_api.dart';
 
 /// Résultat d'une opération de forge.
 class CraftResult {
@@ -65,9 +66,15 @@ class CraftViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // 1. Déduire le coût en or en premier (rollback trivial si échec ultérieur)
+      // 1. Débit de l'or côté serveur d'abord : si le serveur refuse, rien
+      //    n'est retiré de l'inventaire (TRANSITOIRE jusqu'au Sprint 3).
       if (recipe.goldCost > 0) {
-        await player.addGold(userId, -recipe.goldCost);
+        await player.spend(
+          resource: 'gold',
+          amount: recipe.goldCost,
+          reason: 'craft',
+          ref: recipe.id,
+        );
       }
 
       // 2. Retirer les ingrédients
@@ -85,6 +92,9 @@ class CraftViewModel extends ChangeNotifier {
         message: '${recipe.icon} ${newItem.name} forgé avec succès !',
         craftedItemName: newItem.name,
       );
+    } on GameApiException catch (e) {
+      _error = e.code;
+      return CraftResult(success: false, message: e.userMessage);
     } catch (e) {
       _error = e.toString();
       return CraftResult(success: false, message: 'Erreur : $_error');

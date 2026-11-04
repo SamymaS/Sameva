@@ -10,6 +10,9 @@ Un ADR n'est jamais réécrit une fois accepté : il est remplacé par un ADR ul
 | [0002](0002-asset-resolver.md) | AssetResolver : placeholders par défaut et contrat vers les assets définitifs | Proposé |
 | [0003](0003-game-event-bus.md) | GameEventBus : découplage entre logique métier et animations | Proposé |
 | [0004](0004-hero-avatar.md) | HeroAvatar : widget de héros en couches | Proposé |
+| [0005](0005-serveur-autoritaire.md) | Le serveur est l'unique autorité sur l'économie et la progression | Proposé (implémenté au Sprint 1) |
+| [0006](0006-defi-de-capture.md) | Défi de capture : prouver qu'une photo vient d'être prise | Proposé (implémenté au Sprint 1) |
+| [0007](0007-socle-client-sprint2.md) | Socle client : go_router, Riverpod, Drift, configuration | Accepté (Sprint 2 en cours) |
 
 ## Statuts
 
@@ -26,6 +29,9 @@ Un ADR n'est jamais réécrit une fois accepté : il est remplacé par un ADR ul
   └─> 0002 (AssetResolver)    prérequis : 0001 terminé et projet vert
         └─> 0004 (HeroAvatar) prérequis : 0002
 0003 (GameEventBus)           prérequis : 0001 ; parallélisable avec 0002
+0005 (serveur autoritaire)    prérequis : baseline Supabase (Sprint 0)
+  └─> 0006 (défi de capture)  prérequis : 0005
+  └─> 0007 (socle client)     prérequis : 0005 déployé ; s'appuie sur 0003
 ```
 
 Chaque phase se termine par `flutter analyze` à zéro et une suite de tests verte.

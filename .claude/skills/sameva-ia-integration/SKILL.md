@@ -3,6 +3,16 @@ name: sameva-ia-integration
 description: Intégration de MougiBot (validation IA des preuves de quête) dans Sameva. À utiliser pour brancher l'API Claude, gérer le service ValidationAIService, modifier le prompt, ajuster le seuil, ou ajouter un fallback. Pour le code de l'Edge Function elle-même, voir sameva-edge-functions.
 ---
 
+> **Mise à jour Sprint 1 (2026-10-21, ADR 0005 et 0006) : prioritaire sur tout ce qui suit.**
+> L'Edge Function reçoit `{quest_id, challenge_id, image_base64}` (JPEG ou PNG), identifie
+> l'utilisateur par son JWT, ouvre l'analyse (`oracle_begin` : énergie, défi de capture, empreintes
+> SHA-256 et dHash), puis enregistre le verdict (`oracle_resolve`) qui termine et récompense la quête
+> si `score >= seuil` **et** que le défi observé correspond au défi tiré. MougiBot ne connaît
+> PAS le défi : il renvoie `{score, geste_observe, nombre_observe, explanation}` et le serveur
+> compare. L'image est réencodée côté serveur (`dhash.ts`, `normalizeImage`). Le client n'applique plus aucun seuil ni aucune récompense ;
+> les services `ApiValidationAIService` / `ClaudeValidationAIService` / mock ont été supprimés.
+
+
 # Intégration IA Sameva — MougiBot
 
 ## Identités

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../../core/audio/sons.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
@@ -8,7 +9,7 @@ import '../../../data/models/cat_model.dart';
 import '../../../data/models/item_model.dart';
 import '../../../data/models/quest_model.dart';
 import '../../../domain/services/item_factory.dart';
-import '../../../presentation/view_models/auth_view_model.dart';
+import '../../../data/repositories/game_api.dart';
 import '../../../presentation/view_models/cat_view_model.dart';
 import '../../../presentation/view_models/inventory_view_model.dart';
 import '../../../presentation/view_models/player_view_model.dart';
@@ -16,8 +17,12 @@ import '../../theme/app_colors.dart';
 import '../../utils/app_notification.dart';
 import '../../widgets/cat/cat_widget.dart';
 import '../../widgets/common/rarity_badge.dart';
+import 'portail_repos.dart';
+import 'sequence_invocation.dart';
+import '../../widgets/pixel/pixel_ui.dart';
 
-/// Page invocation gacha : 50 cristaux ou 1 gratuit/24h.
+/// Page invocation gacha (Sprint 1) : payée en Sceaux (10, ou 90 pour 10),
+/// une invocation gratuite par jour, tirage et pity calculés par le serveur.
 class InvocationTab extends StatefulWidget {
   const InvocationTab({super.key});
 
@@ -27,16 +32,15 @@ class InvocationTab extends StatefulWidget {
 
 class _InvocationTabState extends State<InvocationTab>
     with TickerProviderStateMixin {
+  /// Horloge des animations du portail au repos (boucle de 4,8 s).
   late AnimationController _pulseController;
-  late AnimationController _revealController;
-  late Animation<double> _pulseAnim;
-  late Animation<double> _revealAnim;
 
-  Item? _lastItem;
   bool _isRevealing = false;
   final List<Item> _history = [];
-  List<Item>? _multiPullResults;
-  int _lastDupeRefund = 0;
+
+  /// Garanties anti-malchance renvoyées par le serveur après un tirage.
+  int? _epicIn;
+  int? _legendaryIn;
 
   /// Timer périodique qui rafraîchit l'affichage du compte à rebours du
   /// tirage gratuit. S'auto-annule dès que le tirage redevient disponible.
@@ -50,26 +54,21 @@ class _InvocationTabState extends State<InvocationTab>
     super.initState();
     _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
-
-    _revealController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-
-    _pulseAnim = Tween<double>(begin: 0.95, end: 1.05).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
-
-    _revealAnim = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 50),
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 50),
-    ]).animate(
-        CurvedAnimation(parent: _revealController, curve: Curves.easeInOut));
+      duration: const Duration(milliseconds: 4800),
+    )..repeat();
 
     _loadHistory();
     _startCountdownIfNeeded();
+    // La disponibilité du tirage gratuit vient du serveur : on relance le
+    // compte à rebours dès que l'état joueur est rafraîchi.
+    _playerVm = context.read<PlayerViewModel>()..addListener(_onPlayerChanged);
+  }
+
+  PlayerViewModel? _playerVm;
+
+  void _onPlayerChanged() {
+    if (!mounted) return;
+    if (!(_countdownTimer?.isActive ?? false)) _startCountdownIfNeeded();
   }
 
   /// Démarre un Timer.periodic d'1 seconde pour mettre à jour l'affichage
@@ -124,45 +123,18 @@ class _InvocationTabState extends State<InvocationTab>
     }
   }
 
-  static const _refundDailyCap = 200;
-  static const _refundDateKey = 'dupe_refund_date';
-  static const _refundAmountKey = 'dupe_refund_today';
+  /// Coûts en Sceaux, alignés sur `game_config.gacha.banners`.
+  static const _sealCost = 10;
+  static const _sealCostX10 = 90;
 
-  /// Récupère le total déjà refund aujourd'hui (reset à minuit).
-  int _todayRefundTotal() {
-    try {
-      final box = Hive.box('settings');
-      final dateStr = box.get(_refundDateKey) as String?;
-      final today = DateTime.now().toIso8601String().substring(0, 10);
-      if (dateStr != today) return 0;
-      return box.get(_refundAmountKey, defaultValue: 0) as int;
-    } catch (e) {
-      debugPrint('refund cap read error: $e');
-      return 0;
-    }
-  }
-
-  Future<void> _addRefundToToday(int amount) async {
-    try {
-      final box = Hive.box('settings');
-      final today = DateTime.now().toIso8601String().substring(0, 10);
-      final current = _todayRefundTotal();
-      await box.put(_refundDateKey, today);
-      await box.put(_refundAmountKey, current + amount);
-    } catch (e) {
-      debugPrint('refund cap write error: $e');
-    }
-  }
-
-  /// Détecte un cosmétique déjà possédé. Retourne le refund cristaux selon rareté.
-  /// Retourne 0 si pas un doublon OU si cap journalier atteint.
-  /// Items verrouillés non comptés comme doublons (utilisateur garde le dupe).
-  int _checkDupeRefund(Item item, InventoryViewModel inv) {
+  /// Remboursement indicatif d'un doublon cosmétique, selon la rareté.
+  /// Le serveur plafonne (TRANSITOIRE jusqu'au Sprint 3, Poussière d'étoile).
+  int _dupeRefundBase(Item item, InventoryViewModel inv) {
     if (item.type != ItemType.cosmetic) return 0;
     final exists = inv.items.any((i) =>
         i.type == ItemType.cosmetic && i.name == item.name && i.id != item.id);
     if (!exists) return 0;
-    final base = switch (item.rarity) {
+    return switch (item.rarity) {
       QuestRarity.common => 2,
       QuestRarity.uncommon => 5,
       QuestRarity.rare => 10,
@@ -170,35 +142,43 @@ class _InvocationTabState extends State<InvocationTab>
       QuestRarity.legendary => 50,
       QuestRarity.mythic => 100,
     };
-    final usedToday = _todayRefundTotal();
-    final remaining = (_refundDailyCap - usedToday).clamp(0, _refundDailyCap);
-    return base.clamp(0, remaining);
+  }
+
+  /// Demande le remboursement des doublons ; renvoie le montant accordé.
+  Future<int> _claimDupeRefund(PlayerViewModel player, int amount) async {
+    if (amount <= 0) return 0;
+    try {
+      return (await player.claimTransitionalReward('doublon', amount)).grantedInt;
+    } on GameApiException catch (e) {
+      debugPrint('InvocationTab: remboursement doublon refusé: $e');
+      return 0;
+    }
   }
 
   @override
   void dispose() {
+    _playerVm?.removeListener(_onPlayerChanged);
     _countdownTimer?.cancel();
     _pulseController.dispose();
-    _revealController.dispose();
     super.dispose();
   }
 
   Box get _settings => Hive.box('settings');
 
-  bool get _canUseFree {
-    final lastStr = _settings.get('lastFreePullAt') as String?;
-    if (lastStr == null) return true;
-    final last = DateTime.parse(lastStr);
-    return DateTime.now().difference(last).inHours >= 24;
+  /// Disponibilité du tirage gratuit, lue dans l'état serveur (un par jour
+  /// local du joueur).
+  bool get _canUseFree =>
+      context.read<PlayerViewModel>().gacha['objets']?.freeAvailable ?? true;
+
+  /// Temps restant avant minuit (renouvellement du tirage gratuit).
+  Duration get _freeTimeRemaining {
+    final now = DateTime.now();
+    final midnight = DateTime(now.year, now.month, now.day + 1);
+    return midnight.difference(now);
   }
 
-  Duration get _freeTimeRemaining {
-    final lastStr = _settings.get('lastFreePullAt') as String?;
-    if (lastStr == null) return Duration.zero;
-    final last = DateTime.parse(lastStr);
-    final elapsed = DateTime.now().difference(last);
-    final remaining = const Duration(hours: 24) - elapsed;
-    return remaining.isNegative ? Duration.zero : remaining;
+  void _showApiError(GameApiException e) {
+    AppNotification.show(context, message: e.userMessage, backgroundColor: AppColors.error);
   }
 
   Future<void> _pull({required bool isFree}) async {
@@ -206,54 +186,52 @@ class _InvocationTabState extends State<InvocationTab>
 
     final player = context.read<PlayerViewModel>();
     final inventory = context.read<InventoryViewModel>();
-    final auth = context.read<AuthViewModel>();
-    final userId = auth.userId ?? '';
 
-    if (!isFree) {
-      if ((player.stats?.crystals ?? 0) < 50) {
-        AppNotification.show(
-          context,
-          message: 'Pas assez de cristaux ! (50 requis)',
-          backgroundColor: AppColors.error,
-        );
-        return;
-      }
-      await player.spendCrystals(userId, 50);
-    } else {
-      await _settings.put('lastFreePullAt', DateTime.now().toIso8601String());
-      // Démarre le compte à rebours dès que lastFreePullAt est enregistré
-      _startCountdownIfNeeded();
+    if (!isFree && (player.stats?.seals ?? 0) < _sealCost) {
+      AppNotification.show(
+        context,
+        message: 'Pas assez de Sceaux ! ($_sealCost requis)',
+        backgroundColor: AppColors.error,
+      );
+      return;
     }
 
     setState(() => _isRevealing = true);
-    _revealController.reset();
 
-    final pityCount = player.stats?.pityCount ?? 0;
-    final pullResult = ItemFactory.rollGachaRarityWithPity(pityCount);
-    final item = ItemFactory.generateRandomItem(pullResult.rarity);
-
-    // Mise à jour du compteur pity (centralisé via pityTriggered)
-    if (pullResult.pityTriggered) {
-      await player.resetPity(userId);
-    } else {
-      await player.incrementPity(userId);
+    final InvokeResult result;
+    try {
+      result = await player.invoke('objets', useFree: isFree);
+    } on GameApiException catch (e) {
+      if (mounted) {
+        setState(() => _isRevealing = false);
+        _showApiError(e);
+      }
+      return;
     }
+    if (isFree) _startCountdownIfNeeded();
 
-    // Doublon cosmétique → refund cristaux au lieu d'ajouter à l'inventaire
-    final refund = _checkDupeRefund(item, inventory);
-    if (refund > 0) {
-      await player.addCrystals(userId, refund);
-      await _addRefundToToday(refund);
-    } else {
-      inventory.addItem(item);
+    // La rareté vient du serveur ; l'objet concret est encore généré
+    // localement (TRANSITOIRE jusqu'au Sprint 3).
+    final item = ItemFactory.generateRandomItem(result.results.first.rarity);
+    final refund = await _claimDupeRefund(player, _dupeRefundBase(item, inventory));
+    if (refund <= 0) inventory.addItem(item);
+
+    // Séquence plein écran (charge du portail puis révélation) ; le son de
+    // rareté est joué par la séquence au moment de la révélation.
+    if (mounted) {
+      await SequenceInvocation.afficher(
+        context,
+        objets: [item],
+        remboursement: refund,
+        epiqueDans: result.epicGuaranteedIn,
+        legendaireDans: result.legendaryGuaranteedIn,
+      );
     }
-
-    await _revealController.forward();
 
     if (mounted) {
       setState(() {
-        _lastItem = item;
-        _lastDupeRefund = refund;
+        _epicIn = result.epicGuaranteedIn;
+        _legendaryIn = result.legendaryGuaranteedIn;
         _isRevealing = false;
         _history.insert(0, item);
         if (_history.length > _historyMax) _history.removeLast();
@@ -266,59 +244,67 @@ class _InvocationTabState extends State<InvocationTab>
 
   Future<void> _pullMulti() async {
     if (_isRevealing) return;
-    const count = 10;
-    const cost = 450;
 
     final player = context.read<PlayerViewModel>();
     final inventory = context.read<InventoryViewModel>();
-    final auth = context.read<AuthViewModel>();
-    final userId = auth.userId ?? '';
 
-    if ((player.stats?.crystals ?? 0) < cost) {
-      if (!mounted) return;
+    if ((player.stats?.seals ?? 0) < _sealCostX10) {
       AppNotification.show(
         context,
-        message: 'Pas assez de cristaux ! (450 requis)',
+        message: 'Pas assez de Sceaux ! ($_sealCostX10 requis)',
         backgroundColor: AppColors.error,
       );
       return;
     }
-    await player.spendCrystals(userId, cost);
 
     setState(() => _isRevealing = true);
+    final InvokeResult result;
+    try {
+      result = await player.invoke('objets', count: 10);
+    } on GameApiException catch (e) {
+      if (mounted) {
+        setState(() => _isRevealing = false);
+        _showApiError(e);
+      }
+      return;
+    }
+
     final results = <Item>[];
-    int pityCount = player.stats?.pityCount ?? 0;
-    int totalRefund = 0;
-
-    for (int i = 0; i < count; i++) {
-      final pullResult = ItemFactory.rollGachaRarityWithPity(pityCount);
-      final item = ItemFactory.generateRandomItem(pullResult.rarity);
+    final dupes = <Item>[];
+    int dupeTotal = 0;
+    for (final pull in result.results) {
+      final item = ItemFactory.generateRandomItem(pull.rarity);
       results.add(item);
-
-      // Doublon cosmétique → refund au lieu d'ajout
-      final refund = _checkDupeRefund(item, inventory);
-      if (refund > 0) {
-        totalRefund += refund;
+      final base = _dupeRefundBase(item, inventory);
+      if (base > 0) {
+        dupes.add(item);
+        dupeTotal += base;
       } else {
         inventory.addItem(item);
       }
-
-      pityCount = pullResult.pityTriggered ? 0 : pityCount + 1;
+    }
+    // Doublons : convertis seulement si le serveur accorde un remboursement.
+    final totalRefund = await _claimDupeRefund(player, dupeTotal);
+    if (totalRefund <= 0) {
+      for (final item in dupes) {
+        inventory.addItem(item);
+      }
     }
 
-    // Sync pity final en une seule écriture
-    await player.setPity(userId, pityCount);
-
-    if (totalRefund > 0) {
-      await player.addCrystals(userId, totalRefund);
-      await _addRefundToToday(totalRefund);
+    if (mounted && results.isNotEmpty) {
+      await SequenceInvocation.afficher(
+        context,
+        objets: results,
+        remboursement: totalRefund,
+        epiqueDans: result.epicGuaranteedIn,
+        legendaireDans: result.legendaryGuaranteedIn,
+      );
     }
 
     if (mounted) {
       setState(() {
-        _multiPullResults = results;
-        _lastItem = results.last;
-        _lastDupeRefund = totalRefund;
+        _epicIn = result.epicGuaranteedIn;
+        _legendaryIn = result.legendaryGuaranteedIn;
         _isRevealing = false;
         for (final item in results) {
           _history.insert(0, item);
@@ -331,8 +317,6 @@ class _InvocationTabState extends State<InvocationTab>
     await _settings.put('gacha_multi_done', true);
   }
 
-  Color _rarityColor(QuestRarity r) => AppColors.getRarityColor(r.name);
-
   @override
   Widget build(BuildContext context) {
     // Pas de Scaffold/AppBar : ce widget est embarqué comme onglet du Portail,
@@ -343,15 +327,21 @@ class _InvocationTabState extends State<InvocationTab>
       child: Column(
         children: [
           Material(
-            color: AppColors.backgroundNightCosmos,
+            color: PixelCouleurs.nuit,
             child: TabBar(
-              labelColor: AppColors.primaryVioletLight,
-              unselectedLabelColor: AppColors.textMuted,
-              indicatorColor: AppColors.primaryVioletLight,
-              labelStyle: GoogleFonts.nunito(fontWeight: FontWeight.w700),
+              labelColor: PixelCouleurs.texte,
+              unselectedLabelColor: PixelCouleurs.texteDoux,
+              indicator: const BoxDecoration(
+                color: PixelCouleurs.violet,
+                border: Border(bottom: BorderSide(color: PixelCouleurs.violetClair, width: 3)),
+              ),
+              indicatorSize: TabBarIndicatorSize.tab,
+              dividerColor: PixelCouleurs.trait,
+              labelStyle: PixelTextes.corps(16, poids: FontWeight.w700),
+              unselectedLabelStyle: PixelTextes.corps(16, poids: FontWeight.w600),
               tabs: const [
-                Tab(text: '⚔️  Objets'),
-                Tab(text: '🐱  Chats'),
+                Tab(text: 'Objets'),
+                Tab(text: 'Chats'),
               ],
             ),
           ),
@@ -359,442 +349,7 @@ class _InvocationTabState extends State<InvocationTab>
             child: TabBarView(
               children: [
                 // ── Onglet Objets (gacha classique) ──
-                SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    children: [
-                      // Carte centrale
-                      SizedBox(
-                        height: 260,
-                        child: Center(
-                          child: AnimatedBuilder(
-                            animation:
-                                Listenable.merge([_pulseAnim, _revealAnim]),
-                            builder: (_, __) {
-                              final pulseScale =
-                                  _isRevealing ? 1.0 : _pulseAnim.value;
-                              final item = _lastItem;
-
-                              return Transform.scale(
-                                scale: pulseScale *
-                                    (_isRevealing ? _revealAnim.value : 1.0),
-                                child: Container(
-                                  width: 160,
-                                  height: 220,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: item != null
-                                          ? [
-                                              _rarityColor(item.rarity)
-                                                  .withValues(alpha: 0.3),
-                                              AppColors.backgroundDeepViolet,
-                                            ]
-                                          : [
-                                              AppColors.backgroundDeepViolet,
-                                              AppColors.primaryViolet
-                                                  .withValues(alpha: 0.3),
-                                            ],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                    ),
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: item != null
-                                          ? _rarityColor(item.rarity)
-                                          : AppColors.primaryViolet,
-                                      width: 2,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: (item != null
-                                                ? _rarityColor(item.rarity)
-                                                : AppColors.primaryViolet)
-                                            .withValues(alpha: 0.5),
-                                        blurRadius: 20,
-                                        spreadRadius: 2,
-                                      ),
-                                    ],
-                                  ),
-                                  child: item != null
-                                      ? Column(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Icon(item.getIcon(),
-                                                color:
-                                                    _rarityColor(item.rarity),
-                                                size: 48),
-                                            const SizedBox(height: 12),
-                                            Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 12),
-                                              child: Text(
-                                                item.name,
-                                                textAlign: TextAlign.center,
-                                                style: TextStyle(
-                                                  color:
-                                                      _rarityColor(item.rarity),
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 14,
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              item.rarity.name.toUpperCase(),
-                                              style: TextStyle(
-                                                color: _rarityColor(item.rarity)
-                                                    .withValues(alpha: 0.8),
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                            if (_lastDupeRefund > 0) ...[
-                                              const SizedBox(height: 6),
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                        horizontal: 8,
-                                                        vertical: 3),
-                                                decoration: BoxDecoration(
-                                                  color: AppColors.crystalBlue
-                                                      .withValues(alpha: 0.15),
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                  border: Border.all(
-                                                      color: AppColors
-                                                          .crystalBlue
-                                                          .withValues(
-                                                              alpha: 0.5)),
-                                                ),
-                                                child: Text(
-                                                  'Doublon · +$_lastDupeRefund 💎',
-                                                  style: const TextStyle(
-                                                    color:
-                                                        AppColors.crystalBlue,
-                                                    fontSize: 10,
-                                                    fontWeight: FontWeight.w700,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ],
-                                        )
-                                      : const Column(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Icon(Icons.auto_fix_high,
-                                                color: AppColors
-                                                    .primaryVioletLight,
-                                                size: 48),
-                                            SizedBox(height: 12),
-                                            Text(
-                                              'Invoquez un\nitem mystique',
-                                              textAlign: TextAlign.center,
-                                              style: TextStyle(
-                                                  color:
-                                                      AppColors.textSecondary,
-                                                  fontSize: 13),
-                                            ),
-                                          ],
-                                        ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Boutons
-                      Column(
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Consumer<PlayerViewModel>(
-                                  builder: (ctx, player, _) {
-                                    final crystals =
-                                        player.stats?.crystals ?? 0;
-                                    return FilledButton.icon(
-                                      style: FilledButton.styleFrom(
-                                        backgroundColor:
-                                            AppColors.primaryViolet,
-                                        disabledBackgroundColor: AppColors
-                                            .primaryViolet
-                                            .withValues(alpha: 0.3),
-                                      ),
-                                      onPressed:
-                                          (!_isRevealing && crystals >= 50)
-                                              ? () => _pull(isFree: false)
-                                              : null,
-                                      icon: const Icon(Icons.diamond, size: 16),
-                                      label: const Text('Invoquer (50 💎)'),
-                                    );
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                // Le Timer.periodic dans _startCountdownIfNeeded()
-                                // appelle setState() chaque seconde → ce widget
-                                // se reconstruit automatiquement sans StatefulBuilder.
-                                child: FilledButton.icon(
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: _canUseFree
-                                        ? AppColors.gold
-                                        : AppColors.gold.withValues(alpha: 0.3),
-                                  ),
-                                  onPressed: (!_isRevealing && _canUseFree)
-                                      ? () => _pull(isFree: true)
-                                      : null,
-                                  icon: const Icon(Icons.star,
-                                      size: 16,
-                                      color: AppColors.backgroundNightCosmos),
-                                  label: _canUseFree
-                                      ? const Text('Gratuit',
-                                          style: TextStyle(
-                                              color: AppColors
-                                                  .backgroundNightCosmos))
-                                      : Text(
-                                          _formatTimer(_freeTimeRemaining),
-                                          style: const TextStyle(
-                                              color: AppColors
-                                                  .backgroundNightCosmos,
-                                              fontSize: 11),
-                                        ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Consumer<PlayerViewModel>(
-                            builder: (ctx, player, _) {
-                              final crystals = player.stats?.crystals ?? 0;
-                              return SizedBox(
-                                width: double.infinity,
-                                child: OutlinedButton.icon(
-                                  style: OutlinedButton.styleFrom(
-                                    side: BorderSide(
-                                      color: (!_isRevealing && crystals >= 450)
-                                          ? AppColors.rarityEpic
-                                          : AppColors.rarityEpic
-                                              .withValues(alpha: 0.3),
-                                    ),
-                                    foregroundColor: AppColors.rarityEpic,
-                                  ),
-                                  onPressed: (!_isRevealing && crystals >= 450)
-                                      ? () {
-                                          setState(
-                                              () => _multiPullResults = null);
-                                          _pullMulti();
-                                        }
-                                      : null,
-                                  icon:
-                                      const Icon(Icons.auto_awesome, size: 16),
-                                  label: const Text('10× Invoquer (450 💎)'),
-                                ),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                      // Résultats 10× pull
-                      if (_multiPullResults != null) ...[
-                        const SizedBox(height: 24),
-                        Row(
-                          children: [
-                            const Text(
-                              'Résultats',
-                              style: TextStyle(
-                                  color: AppColors.primaryVioletLight,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15),
-                            ),
-                            const Spacer(),
-                            GestureDetector(
-                              onTap: () =>
-                                  setState(() => _multiPullResults = null),
-                              child: const Icon(Icons.close,
-                                  color: AppColors.textMuted, size: 18),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 5,
-                            crossAxisSpacing: 6,
-                            mainAxisSpacing: 6,
-                            childAspectRatio: 0.8,
-                          ),
-                          itemCount: _multiPullResults!.length,
-                          itemBuilder: (_, i) {
-                            final item = _multiPullResults![i];
-                            final color = _rarityColor(item.rarity);
-                            return Container(
-                              decoration: BoxDecoration(
-                                color: color.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                    color: color.withValues(alpha: 0.5)),
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(item.getIcon(), color: color, size: 24),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    item.name,
-                                    textAlign: TextAlign.center,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                        color: color,
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.w600),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-
-                      const SizedBox(height: 32),
-
-                      // Compteur pity
-                      Consumer<PlayerViewModel>(
-                        builder: (_, player, __) {
-                          final pity = player.stats?.pityCount ?? 0;
-                          final epicLeft = (20 - pity).clamp(0, 20);
-                          final legLeft = (80 - pity).clamp(0, 80);
-                          return Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: AppColors.backgroundDarkPanel,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                  color: AppColors.primaryViolet
-                                      .withValues(alpha: 0.3)),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    const Icon(Icons.shield_outlined,
-                                        color: AppColors.primaryVioletLight,
-                                        size: 14),
-                                    const SizedBox(width: 6),
-                                    const Text(
-                                      'Garanties Pity',
-                                      style: TextStyle(
-                                          color: AppColors.textSecondary,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600),
-                                    ),
-                                    const Spacer(),
-                                    Text(
-                                      epicLeft == 0
-                                          ? 'Épique garanti au prochain pull !'
-                                          : '$epicLeft pulls avant épique',
-                                      style: TextStyle(
-                                        color: epicLeft == 0
-                                            ? AppColors.rarityEpic
-                                            : AppColors.textMuted,
-                                        fontSize: 10,
-                                        fontWeight: epicLeft == 0
-                                            ? FontWeight.w700
-                                            : FontWeight.normal,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                _PityBar(
-                                  label: 'Épique garanti',
-                                  current: pity,
-                                  max: 20,
-                                  color: AppColors.rarityEpic,
-                                ),
-                                const SizedBox(height: 8),
-                                _PityBar(
-                                  label: 'Légendaire garanti',
-                                  current: pity,
-                                  max: 80,
-                                  color: AppColors.rarityLegendary,
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  legLeft == 0
-                                      ? '★ Légendaire garanti au prochain pull !'
-                                      : '$legLeft pulls avant légendaire garanti',
-                                  style: TextStyle(
-                                    color: legLeft == 0
-                                        ? AppColors.rarityLegendary
-                                        : AppColors.textMuted,
-                                    fontSize: 10,
-                                    fontWeight: legLeft == 0
-                                        ? FontWeight.w700
-                                        : FontWeight.normal,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Taux de drop
-                      const _DropRatesSection(),
-                      // Historique
-                      if (_history.isNotEmpty) ...[
-                        const Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Derniers pulls',
-                            style: TextStyle(
-                                color: AppColors.textSecondary,
-                                fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
-                          children: _history
-                              .map((item) => Chip(
-                                    avatar: Icon(item.getIcon(),
-                                        color: _rarityColor(item.rarity),
-                                        size: 14),
-                                    label: Text(
-                                      item.name,
-                                      style: TextStyle(
-                                          color: _rarityColor(item.rarity),
-                                          fontSize: 11),
-                                    ),
-                                    backgroundColor: _rarityColor(item.rarity)
-                                        .withValues(alpha: 0.15),
-                                    side: BorderSide(
-                                        color: _rarityColor(item.rarity)
-                                            .withValues(alpha: 0.5)),
-                                    padding: EdgeInsets.zero,
-                                    materialTapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                  ))
-                              .toList(),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
+                _ongletObjets(),
 
                 // ── Onglet Chats (gacha de compagnons) ──
                 const _CatInvocationTab(),
@@ -806,6 +361,81 @@ class _InvocationTabState extends State<InvocationTab>
     );
   }
 
+  /// Seuils de garantie affichés. Le serveur reste seul juge (pity dans
+  /// `game_config.gacha`) ; après un tirage, ses compteurs exacts priment.
+  static const _seuilEpique = 20;
+  static const _seuilLegendaire = 80;
+
+  /// Onglet Objets en pixel art (maquette « Portail (repos) »).
+  Widget _ongletObjets() {
+    return Consumer<PlayerViewModel>(
+      builder: (context, player, _) {
+        final banniere = player.gacha['objets'];
+        final seals = player.stats?.seals ?? 0;
+        final gratuit = _canUseFree;
+        final epique = _epicIn != null ? _seuilEpique - _epicIn! : (banniere?.sinceEpic ?? 0);
+        final legendaire =
+            _legendaryIn != null ? _seuilLegendaire - _legendaryIn! : (banniere?.sinceLegendary ?? 0);
+        return ColoredBox(
+          color: PixelCouleurs.nuit,
+          child: Stack(
+            children: [
+              const Positioned.fill(child: PixelFondPoints()),
+              SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(height: 300, child: Center(child: PortailRepos(horloge: _pulseController))),
+                    PixelCadre(
+                      child: Column(
+                        children: [
+                          JaugeGarantie(
+                              libelle: 'Épique garanti', actuel: epique, seuil: _seuilEpique, couleur: AppColors.rarityEpic),
+                          const SizedBox(height: 12),
+                          JaugeGarantie(
+                              libelle: 'Légendaire garanti',
+                              actuel: legendaire,
+                              seuil: _seuilLegendaire,
+                              couleur: PixelCouleurs.or),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    PixelBouton(
+                      libelle: gratuit ? 'Invoquer · Gratuit' : 'Invoquer · $_sealCost Sceaux',
+                      onPressed: _isRevealing || (!gratuit && seals < _sealCost)
+                          ? null
+                          : () => _pull(isFree: gratuit),
+                    ),
+                    if (!gratuit) ...[
+                      const SizedBox(height: 6),
+                      Text('Prochain tirage gratuit dans ${_formatTimer(_freeTimeRemaining)}',
+                          textAlign: TextAlign.center,
+                          style: PixelTextes.corps(14, couleur: PixelCouleurs.texteDoux)),
+                    ],
+                    const SizedBox(height: 12),
+                    PixelBouton(
+                      libelle: '10× Invoquer · $_sealCostX10 Sceaux',
+                      principal: false,
+                      onPressed: _isRevealing || seals < _sealCostX10 ? null : _pullMulti,
+                    ),
+                    const SizedBox(height: 24),
+                    if (_history.isNotEmpty) ...[
+                      DerniersTirages(objets: _history.take(10).toList()),
+                      const SizedBox(height: 24),
+                    ],
+                    const _DropRatesSection(),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   String _formatTimer(Duration d) {
     final h = d.inHours;
     final m = d.inMinutes % 60;
@@ -814,56 +444,6 @@ class _InvocationTabState extends State<InvocationTab>
   }
 }
 
-// ─────────────────────────────────────────────────────────────────
-// Barre pity
-// ─────────────────────────────────────────────────────────────────
-
-class _PityBar extends StatelessWidget {
-  final String label;
-  final int current;
-  final int max;
-  final Color color;
-
-  const _PityBar({
-    required this.label,
-    required this.current,
-    required this.max,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final ratio = (current / max).clamp(0.0, 1.0);
-    return Row(
-      children: [
-        SizedBox(
-          width: 120,
-          child: Text(
-            label,
-            style: TextStyle(color: color, fontSize: 11),
-          ),
-        ),
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: ratio,
-              backgroundColor: AppColors.backgroundNightCosmos,
-              valueColor: AlwaysStoppedAnimation<Color>(color),
-              minHeight: 7,
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          '$current/$max',
-          style: TextStyle(
-              color: color, fontSize: 11, fontWeight: FontWeight.bold),
-        ),
-      ],
-    );
-  }
-}
 
 // ─────────────────────────────────────────────────────────────────
 // Section taux de drop
@@ -887,7 +467,7 @@ class _CatInvocationTabState extends State<_CatInvocationTab>
   bool _isRevealing = false;
   CatStats? _lastCat;
 
-  static const _catCost = 100; // cristaux par invocation de chat
+  static const _catCost = 10; // Sceaux par invocation de chat (game_config)
 
   @override
   void initState() {
@@ -911,33 +491,34 @@ class _CatInvocationTabState extends State<_CatInvocationTab>
   Future<void> _pullCat() async {
     if (_isRevealing) return;
     final player = context.read<PlayerViewModel>();
-    final auth = context.read<AuthViewModel>();
     final catProvider = context.read<CatViewModel>();
-    final userId = auth.userId ?? '';
 
-    if ((player.stats?.crystals ?? 0) < _catCost) {
+    if ((player.stats?.seals ?? 0) < _catCost) {
       AppNotification.show(
         context,
-        message: 'Pas assez de cristaux ! (100 💎 requis)',
+        message: 'Pas assez de Sceaux ! ($_catCost requis)',
         backgroundColor: AppColors.error,
       );
       return;
     }
 
-    await player.spendCrystals(userId, _catCost);
     setState(() => _isRevealing = true);
     _revealCtrl.reset();
 
-    final catPityCount = player.stats?.catPityCount ?? 0;
-    final pullResult = ItemFactory.rollGachaRarityWithPity(catPityCount);
-
-    if (pullResult.pityTriggered) {
-      await player.resetCatPity(userId);
-    } else {
-      await player.incrementCatPity(userId);
+    // Tirage et pity côté serveur (bannière « compagnons »).
+    final InvokeResult result;
+    try {
+      result = await player.invoke('compagnons');
+    } on GameApiException catch (e) {
+      if (mounted) {
+        setState(() => _isRevealing = false);
+        AppNotification.show(context, message: e.userMessage, backgroundColor: AppColors.error);
+      }
+      return;
     }
 
-    final newCat = await catProvider.addRolledCat(pullResult.rarity);
+    unawaited(Sons.jouer(Sons.invocationPour(result.results.first.rarity.name)));
+    final newCat = await catProvider.addRolledCat(result.results.first.rarity);
     await _revealCtrl.forward();
 
     if (mounted) {
@@ -1039,8 +620,8 @@ class _CatInvocationTabState extends State<_CatInvocationTab>
           // Bouton invocation
           Consumer<PlayerViewModel>(
             builder: (_, player, __) {
-              final crystals = player.stats?.crystals ?? 0;
-              final canAfford = crystals >= _catCost;
+              final seals = player.stats?.seals ?? 0;
+              final canAfford = seals >= _catCost;
               return SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
@@ -1053,9 +634,9 @@ class _CatInvocationTabState extends State<_CatInvocationTab>
                         borderRadius: BorderRadius.circular(14)),
                   ),
                   onPressed: (!_isRevealing && canAfford) ? _pullCat : null,
-                  icon: const Icon(Icons.diamond, size: 18),
+                  icon: const Icon(Icons.auto_awesome, size: 18),
                   label: Text(
-                    'Invoquer un chat (100 💎)',
+                    'Invoquer un chat ($_catCost Sceaux)',
                     style: GoogleFonts.nunito(fontWeight: FontWeight.w700),
                   ),
                 ),
@@ -1179,85 +760,56 @@ class _DropRatesSection extends StatelessWidget {
     (rarity: 'Commune', rate: 60.0, color: AppColors.rarityCommon),
     (rarity: 'Peu commune', rate: 25.0, color: AppColors.rarityUncommon),
     (rarity: 'Rare', rate: 10.0, color: AppColors.rarityRare),
-    (rarity: 'Épique', rate: 4.9, color: AppColors.rarityEpic),
-    (rarity: 'Légendaire', rate: 0.9, color: AppColors.rarityLegendary),
-    (rarity: 'Mythique', rate: 0.1, color: AppColors.rarityMythic),
+    // Taux publiés, identiques à game_config.gacha.rates (bannière standard).
+    (rarity: 'Épique', rate: 4.0, color: AppColors.rarityEpic),
+    (rarity: 'Légendaire', rate: 1.0, color: AppColors.rarityLegendary),
+    (rarity: 'Mythique', rate: 0.0, color: AppColors.rarityMythic),
   ];
+
+  /// « 60 % », « 0,5 % » : virgule décimale et espace insécable à la française
+  /// (sur mobile, un double s'affichait « 60.0% »).
+  static String _taux(double t) =>
+      '${t == t.roundToDouble() ? t.toInt() : t.toString().replaceAll('.', ',')}\u00A0%';
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.backgroundDarkPanel,
-        borderRadius: BorderRadius.circular(12),
-        border:
-            Border.all(color: AppColors.primaryViolet.withValues(alpha: 0.3)),
-      ),
+    return PixelCadre(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Row(
-            children: [
-              Icon(Icons.bar_chart,
-                  color: AppColors.primaryVioletLight, size: 16),
-              SizedBox(width: 6),
-              Text(
-                'Taux d\'invocation',
-                style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13),
-              ),
-            ],
-          ),
+          Text('Taux d\'invocation', style: PixelTextes.chiffres(11, PixelCouleurs.texte)),
           const SizedBox(height: 12),
-          ..._rates.map((r) => Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 8,
+          for (final r in _rates)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 116,
+                    child: Text(r.rarity, style: PixelTextes.corps(15, couleur: r.color, poids: FontWeight.w600)),
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: SizedBox(
                       height: 8,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: r.color,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 90,
-                      child: Text(
-                        r.rarity,
-                        style: TextStyle(color: r.color, fontSize: 12),
-                      ),
-                    ),
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(3),
-                        child: LinearProgressIndicator(
-                          value: r.rate / 100,
-                          backgroundColor: AppColors.backgroundNightCosmos,
-                          valueColor: AlwaysStoppedAnimation<Color>(r.color),
-                          minHeight: 6,
+                      child: ColoredBox(
+                        color: PixelCouleurs.violetSombre,
+                        child: FractionallySizedBox(
+                          alignment: Alignment.centerLeft,
+                          widthFactor: r.rate / 100,
+                          child: ColoredBox(color: r.color),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 44,
-                      child: Text(
-                        '${r.rate}%',
-                        textAlign: TextAlign.right,
-                        style: TextStyle(
-                            color: r.color,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12),
-                      ),
-                    ),
-                  ],
-                ),
-              )),
+                  ),
+                  SizedBox(
+                    width: 64,
+                    child: Text(_taux(r.rate),
+                        textAlign: TextAlign.right, style: PixelTextes.chiffres(10, r.color)),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );

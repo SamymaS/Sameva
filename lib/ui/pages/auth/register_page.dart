@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../../core/router/app_router.dart';
 import 'package:provider/provider.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
 import '../../theme/app_colors.dart';
@@ -124,7 +126,7 @@ class _RegisterPageState extends State<RegisterPage> {
       );
       if (!mounted) return;
       if (auth.isAuthenticated) {
-        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+        context.go(Routes.accueil);
       } else {
         Navigator.of(context).pop();
       }
