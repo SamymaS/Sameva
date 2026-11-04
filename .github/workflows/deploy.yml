@@ -35,13 +35,17 @@ jobs:
       - name: Installer la CLI Supabase
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Version figée : la CLI 3.0 a rendu obligatoire la confirmation des
+          # déploiements en production. Monter la version volontairement.
+          version: 3.0.0
 
       - name: Déployer les cinq fonctions
         # stripe-webhook est déclarée sans vérification de JWT dans config.toml,
         # car Stripe appelle sans session Supabase : elle est authentifiée par
         # signature HMAC. Les autres fonctions exigent un JWT valide.
-        run: supabase functions deploy --project-ref "${{ steps.ref.outputs.value }}"
+        # CLI 3 : --project-ref est déprécié au profit de --remote, et toute
+        # modification hébergée exige --yes hors terminal interactif (CI).
+        run: supabase functions deploy --remote="${{ steps.ref.outputs.value }}" --yes
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
