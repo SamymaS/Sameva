@@ -1,271 +1,141 @@
 # Sameva
 
 [![CI](https://github.com/SamymaS/Sameva/actions/workflows/ci.yml/badge.svg)](https://github.com/SamymaS/Sameva/actions/workflows/ci.yml)
+[![Backend](https://github.com/SamymaS/Sameva/actions/workflows/backend.yml/badge.svg)](https://github.com/SamymaS/Sameva/actions/workflows/backend.yml)
 
-> Application mobile de gestion d'habitudes gamifiée. Les quêtes du quotidien deviennent des aventures RPG.
+> **Fais de vraies choses, ta progression sera réelle.**
 
-**Sameva** pousse l'utilisateur à réaliser des **actions réelles** en rendant la validation des tâches crédible, vérifiable et gratifiante. L'utilisateur crée des quêtes, soumet une preuve photo, et un validateur IA (MougiBot, propulsé par Claude Haiku Vision) analyse l'image pour produire un score sur 100. Au-dessus de 70, la récompense est complète (XP, gold, items). En dessous, une validation manuelle reste toujours disponible à demi-récompense : **l'application ne bloque jamais l'utilisateur**.
+Sameva transforme les tâches du quotidien en quêtes de jeu vidéo : on gagne de l'expérience, de l'or et des objets, on monte de niveau et on fait évoluer son personnage. Sa différence : une quête peut exiger une **preuve**. Une photo prise sur le moment dans l'application est analysée par **MougiBot**, notre validateur IA, qui dit si la tâche a vraiment été faite.
 
-Tout le reste (avatar, loot, compagnons, animations, gacha) existe pour servir cette boucle.
-
----
-
-## Démarrage rapide
-
-```bash
-git clone https://github.com/SamymaS/Sameva.git
-cd Sameva
-cp config/exemple.json config/dev.json   # Renseigner SUPABASE_URL, SUPABASE_ANON_KEY, GOOGLE_WEB_CLIENT_ID
-flutter pub get
-flutter run --dart-define-from-file=config/dev.json
-```
-
-> **Prérequis** : Flutter (canal stable, testé sur 3.41 / Dart 3.11) · Dart >= 3.3 · un projet [Supabase](https://supabase.com) configuré (voir plus bas).
-
-Tu veux juste essayer l'application sans rien installer ? L'APK de la dernière version est disponible dans la section [Releases](https://github.com/SamymaS/Sameva/releases), publié automatiquement par le pipeline.
+Sameva est une application mobile (Android, iOS) en développement actif, **destinée à être commercialisée**.
 
 ---
 
-## Stack technique
+## Où en est le projet
 
-| Couche       | Technologie                                     | Rôle                                                  |
-| ------------ | ----------------------------------------------- | ----------------------------------------------------- |
-| Client       | Flutter (Material Design 3)                     | Application cross-platform iOS / Android              |
-| Architecture | MVVM, Provider / ChangeNotifier                 | Séparation UI / logique / données                     |
-| Backend      | Supabase (PostgreSQL + Auth JWT + RLS)          | Base de données, authentification, sécurité           |
-| Cache local  | Hive                                            | Persistance offline-first (stats, inventaire, compagnons, jetons) |
-| IA           | Edge Function Supabase → Anthropic Claude Haiku | Validation de preuves visuelles et génération de quêtes |
-| Paiement     | Stripe (mode abonnement)                        | Offre premium et gestion de l'entitlement             |
-| CI/CD        | GitHub Actions (3 workflows)                    | Vérification, déploiement des fonctions, publication  |
+| Sujet | État |
+| --- | --- |
+| Application | Fonctionnelle sur Android et sur le web, en version de test |
+| Publication sur les stores | Pas encore : prévue une fois la direction artistique définitive en place |
+| Direction artistique | En cours de création ; le style pixel art actuel est **provisoire** |
+| Backend | Serveur autoritaire en place : règles du jeu, récompenses et économie calculées côté serveur |
+| Monétisation | Abonnement Premium (Stripe) intégré dans l'application |
 
 ---
 
-## Architecture
+## Ce qui rend Sameva différent
 
-```
-lib/
-├── main.dart                       # Initialisation : Supabase, Hive, dotenv, MultiProvider
-├── app.dart                        # Navigation : PageView + DockBar flottante
-│
-├── config/
-│   └── supabase_config.dart        # Lecture .env : URLs, clés
-│
-├── data/
-│   ├── models/                     # Quest, PlayerStats, Item, Cat, Character, CraftRecipe, LeaderboardEntry
-│   └── repositories/               # Auth, Quest, Player, User, ...
-│
-├── domain/
-│   └── services/                   # QuestRewardsCalculator, ValidationAIService (interface),
-│                                   # ClaudeValidationAIService, ClaudeQuestGeneratorService,
-│                                   # ItemFactory, CraftService, WeeklyBossService,
-│                                   # AchievementService, HealthRegenerationService,
-│                                   # CatMoodService, NotificationService, ActivityLogService
-│
-├── presentation/
-│   ├── view_models/                # Un ViewModel par fonctionnalité (ChangeNotifier)
-│   └── use_cases/                  # CompleteQuestUseCase, DailyResetUseCase
-│
-└── ui/
-    ├── pages/                      # auth, onboarding, home, quest, inventory, market, invocation,
-    │                               # cat, minigames, rewards, profile, settings, avatar, social
-    ├── theme/                      # AppTheme, AppColors
-    └── widgets/                    # common, cat, character
-```
-
-L'architecture suit un découpage en 4 couches avec une règle de dépendance stricte : `UI → Presentation → Domain → Data`. Les services métier sont abstraits (par exemple `ValidationAIService`, avec `MockValidationAIService` en développement et `ClaudeValidationAIService` en production) pour permettre le remplacement d'implémentation sans toucher au reste du code. Le cycle de vie d'authentification est uniformisé pour tous les ViewModels et services, décision consignée dans un enregistrement de décision d'architecture (voir `docs/adr/0001`).
-
-→ Détails complets : [documentation/ARCHITECTURE.md](documentation/ARCHITECTURE.md)
+- **Une progression crédible.** Dans une to-do list, on coche une case et personne ne vérifie. Dans Sameva, la récompense se mérite : une quête prouvée rapporte plus qu'une quête déclarée sur l'honneur.
+- **Une preuve difficile à truquer.** La photo est prise dans l'application (jamais depuis la galerie) et doit montrer un geste et un nombre manuscrit tirés au hasard par le serveur. MougiBot décrit l'image sans connaître le défi ; c'est le serveur qui compare.
+- **Une économie honnête.** Toutes les récompenses sont calculées et enregistrées côté serveur. Les invocations se paient en Sceaux, une monnaie qui se gagne en jouant et ne s'achète jamais : aucun achat ne donne d'avantage.
+- **Un ton bienveillant.** On encourage, on ne culpabilise pas : rater un jour est une pause, pas une faute.
 
 ---
 
 ## Fonctionnalités
 
-### Boucle principale
+**La boucle de base** : créer une quête, la faire, la prouver, être récompensé, progresser.
 
-- **Quêtes** : création, filtrage, tri, validation par preuve photo (IA) ou manuelle, génération assistée par IA.
-- **Récompenses** : XP, gold, cristaux, calculés selon la difficulté, la ponctualité et le streak.
-- **Progression RPG** : niveaux, seuils d'XP progressifs, HP avec régénération passive.
-
-### Systèmes secondaires
-
-- **Inventaire** : 50 emplacements, items stackables, système d'équipement par slots.
-- **Craft** : recettes de fabrication d'items.
-- **Gacha (Invocation)** : tirage avec raretés (Common à Mythic) et pity system.
-- **Marché** : boutique cosmétique, vente d'items, filtres par catégorie.
-- **Compagnons** : chats avec mécanique d'humeur liée à l'activité du joueur.
-- **Boss hebdomadaire** : objectif collectif ou individuel renouvelé chaque semaine.
-- **Achievements** : succès débloquables suivant la progression.
-- **Mini-jeux** : anagramme, mémoire, séquence, réaction, chiffres.
-- **Leaderboard** : classement entre joueurs.
-
-### Monétisation (freemium)
-
-- **Jetons de validation IA** : chaque analyse de preuve consomme un crédit, suivi par utilisateur.
-- **Premium** : abonnement Stripe qui lève les limites, avec rafraîchissement de l'entitlement fiabilisé et garde anti-rachat.
-
-### Conformité et infrastructure
-
-- **Auth** : trois voies d'entrée. Connexion anonyme pour démarrer sans inscription, email / mot de passe avec confirmation par mail, et connexion Google. Un compte invité peut être converti en compte identifié par liaison d'identité, qui préserve l'identifiant utilisateur et donc toute la progression accumulée.
-- **Suppression de compte RGPD** : Edge Function dédiée, garde JWT, suppression respectant les clés étrangères, purge locale déclenchée seulement après confirmation serveur.
-- **Offline-first** : les stats joueur, l'inventaire, les compagnons et le portefeuille de jetons sont lus depuis Hive et synchronisés vers Supabase en arrière-plan. Les quêtes sont, elles, servies directement par Supabase.
-- **Journal d'activité** : les 50 derniers événements du joueur (quêtes, niveaux, items, succès, séries) sont consignés localement et consultables depuis le profil.
-- **Notifications** : rappels quotidiens configurables.
-- **Thème** : clair / sombre / système, persisté en local.
+- **Quêtes** : création libre (catégorie, difficulté, répétition, échéance), quêtes toutes prêtes par thème, ou propositions générées par MougiBot.
+- **Validation** : preuve photo analysée par l'IA avec défi de capture, minuteur, lieu, ou déclaration sur l'honneur (récompense réduite).
+- **Progression** : niveaux, points de vie, moral, flamme (série de jours), succès, historique.
+- **Portail** : invocation d'objets et de compagnons avec garanties (épique tous les 20 tirages, légendaire au 80e), boutique, revente.
+- **Compagnons** : collection, personnalisation (chapeau, tenue, aura).
+- **Mini-jeux** : anagramme, mémoire, nombres, réflexes, séquence.
+- **Compte** : invité, e-mail ou Google ; un compte invité se convertit sans perdre sa progression ; suppression du compte conforme au RGPD.
 
 ---
 
-## Backend, Supabase
+## Feuille de route
 
-**Plan** : Free tier (500 MB DB, 1 GB storage, Edge Functions incluses).
+L'avatar du joueur devient le centre de l'expérience :
 
-### Tables
-
-| Table                  | Rôle                                                                      |
-| ---------------------- | ------------------------------------------------------------------------- |
-| `users`                | Profil joueur (level, XP, gold, HP, streak, achievements)                 |
-| `quests`               | Quêtes créées par les joueurs (titre, difficulté, statut, deadline, preuve) |
-| `items`                | Catalogue d'items disponibles dans le jeu                                 |
-| `user_inventory`       | Inventaire des joueurs (items possédés, quantité)                         |
-| `user_equipment`       | Équipement actuellement porté                                             |
-| `companions`           | Compagnons possédés par les joueurs                                       |
-| `transactions`         | Historique des transactions (achats, ventes, récompenses)                 |
-| `player_stats`         | Stats joueur synchronisées entre appareils (niveau, XP, or, HP, streak)   |
-| `ai_validation_credits`| Crédits de validation IA par utilisateur (freemium)                       |
-| `premium_subscriptions`| État de l'abonnement premium par utilisateur (Stripe)                     |
-| `quest_difficulty_audit`| Journal d'audit de la correction de difficulté historique                |
-
-Une vue, `leaderboard_view`, expose une projection publique restreinte pour le classement.
-
-**Sécurité** : Row Level Security activé sur toutes les tables, chaque utilisateur ne voit et ne modifie que ses propres données, JWT vérifié sur chaque requête. La vue de classement est isolée derrière une projection publique restreinte.
-
-→ Setup complet : [documentation/SUPABASE_SETUP.md](documentation/SUPABASE_SETUP.md)
-→ Schéma SQL : [documentation/supabase_schema.sql](documentation/supabase_schema.sql)
-
-### Edge Functions
-
-Cinq fonctions serverless (Deno / TypeScript), les clés sensibles restant côté serveur via les secrets Supabase :
-
-| Fonction                  | Rôle                                                                                   |
-| ------------------------- | -------------------------------------------------------------------------------------- |
-| `analyze-quest-proof`     | Valide une preuve photo via Claude Haiku Vision, renvoie un score 0 à 100 (seuil 70).  |
-| `suggest-quests`          | Génère des suggestions de quêtes via Claude.                                           |
-| `create-checkout-session` | Ouvre une session Stripe Checkout pour l'abonnement premium.                           |
-| `stripe-webhook`          | Traite les événements Stripe et met à jour l'entitlement premium.                      |
-| `delete-account`          | Supprime le compte de façon conforme au RGPD (garde JWT, ordre FK-safe, purge).        |
-
-→ Guide d'intégration IA : [documentation/IA_ANALYSE_IMAGE.md](documentation/IA_ANALYSE_IMAGE.md)
-→ Déploiement de l'Edge Function : [documentation/SUPABASE_EDGE_FUNCTION_IA.md](documentation/SUPABASE_EDGE_FUNCTION_IA.md)
+- **Un avatar personnalisable** présent dans chaque écran et chaque action.
+- **Un univers en 3D isométrique** : un village que le personnage parcourt (maison, tableau des quêtes, boutique, temple des invocations, observatoire de l'Oracle) à la place d'une navigation par onglets.
+- **L'anti-personnage** : le double sombre et râleur de l'avatar, qui remplace les rappels classiques par des notifications pleines d'humour.
+- **MougiBot en robot**, juge impartial des preuves.
+- **Social bienveillant** : amis, encouragements, défis à plusieurs, sans classement humiliant.
+- **Événements saisonniers**, plus de personnalisation, connexions avec des applications de sport, de langues ou de santé.
+- **Publication** sur le Google Play Store et l'App Store.
 
 ---
 
-## Tests
+## Modèle économique
 
-**505 tests automatisés** couvrant les quatre couches, exécutés en une vingtaine de secondes :
+Freemium, sans avantage payant :
 
-- **Domain** : QuestRewardsCalculator (récompenses, bonus de ponctualité, streak, pénalités), ItemFactory (raretés, gacha, marché), CraftService, WeeklyBossService, HealthRegenerationService (limites, plafonds, horodatages), ValidationAIService (parsing, erreurs HTTP, fallback).
-- **Data** : sérialisation aller-retour des modèles (`toSupabaseMap` et `fromSupabaseMap`), parsing d'enums avec fallback, CRUD des repositories via mocks.
-- **Presentation** : un fichier de test par ViewModel (Auth, QuestsList, Player, QuestValidation, Inventory, Leaderboard, ...).
+- **Gratuit** : toutes les fonctionnalités, avec un nombre limité de vérifications photo par MougiBot (l'énergie de l'Oracle).
+- **Premium** (abonnement) : vérifications illimitées.
+- **Jamais** d'achat de monnaie de jeu ni d'objet qui rende plus fort.
+
+---
+
+## Stack technique
+
+| Couche | Technologie |
+| --- | --- |
+| Application | Flutter (Android, iOS, web), navigation go_router, état Riverpod (Provider pour l'existant, en cours de migration) |
+| Backend | Supabase : PostgreSQL (fonctions RPC autoritaires, RLS, journal `economy_ledger` en ajout seul), Auth, Edge Functions Deno |
+| IA | Anthropic Claude (vision), appelé uniquement depuis les Edge Functions |
+| Paiement | Stripe (abonnement) |
+| Cache local | Hive (JSON, sans génération de code) |
+| Qualité | Tests Flutter, tests pgTAP de la base, tests Deno de l'Oracle, banc d'essai de bout en bout (Playwright) |
+| CI/CD | GitHub Actions |
+| Infra | Supabase managé en production ; NAS pour la préproduction, les sauvegardes chiffrées et la supervision |
+
+**Règle d'or : le serveur est l'unique autorité.** Le client lit l'état et envoie des intentions ; il n'écrit jamais l'XP, l'or, les Sceaux ou le résultat d'une invocation. Les clés d'API (Anthropic, Stripe) ne quittent jamais le serveur. Les choix structurants sont consignés dans des [enregistrements de décision d'architecture](docs/adr/).
+
+---
+
+## Pour les développeurs
+
+### Démarrage
 
 ```bash
-flutter test                       # Lancer tous les tests
-flutter test --coverage            # Avec rapport de couverture
+git clone https://github.com/SamymaS/Sameva.git
+cd Sameva
+cp config/exemple.json config/dev.json   # renseigner l'URL et la clé publique Supabase (voir config/README.md)
+flutter pub get
+flutter run --dart-define-from-file=config/dev.json
 ```
 
----
+Prérequis : Flutter (canal stable) et un projet Supabase avec les migrations de `supabase/migrations/`.
 
-## CI/CD
-
-Trois chaînes GitHub Actions couvrent la vérification, le déploiement backend et la publication.
-
-### `ci.yml` : vérification
-
-Déclenché sur chaque push vers `main` / `develop` et sur les pull requests.
-
-1. **Checkout** et setup Flutter (canal stable, avec cache).
-2. **Injection `.env`** via GitHub Secrets (les clés ne sont jamais dans le code).
-3. **`flutter pub get`** : installation des dépendances.
-4. **`flutter analyze`** : analyse statique Dart (0 issue exigée).
-5. **`flutter test --coverage`** : exécution des tests avec rapport de couverture.
-6. **Résumé lcov** : affichage du taux de couverture dans le récapitulatif de job.
-
-### `deploy.yml` : déploiement des fonctions serveur
-
-Déclenché sur toute modification de `supabase/functions/**`, ou manuellement.
-
-1. Déploiement des cinq Edge Functions.
-2. **Test de vivacité** sur `analyze-quest-proof` : le job échoue si la fonction ne répond pas. C'est le seul contrôle automatisé de disponibilité effective du backend.
-
-### `release.yml` : publication
-
-Déclenché sur la pose d'une étiquette `v*`, ou manuellement.
-
-1. `flutter analyze` et `flutter test` en porte bloquante.
-2. `flutter build apk --release`.
-3. Création d'une Release GitHub avec l'APK attaché.
-
-Aucune version ne peut donc être publiée sans avoir traversé l'analyse statique et l'intégralité de la suite de tests.
-
-### Secrets
-
-| Portée            | Secret              | Où la trouver                          |
-| ----------------- | ------------------- | -------------------------------------- |
-| CI (GitHub)       | `SUPABASE_URL`      | Dashboard Supabase, Settings, API      |
-| CI (GitHub)       | `SUPABASE_ANON_KEY` | Dashboard Supabase, Settings, API      |
-| Serveur (Supabase)| `ANTHROPIC_API_KEY` | Console Anthropic                      |
-| Serveur (Supabase)| Clés Stripe         | Dashboard Stripe                       |
-
-Les clés serveur (Anthropic, Stripe) ne sont jamais embarquées dans l'application : elles vivent dans les secrets Supabase et ne sont utilisées que par les Edge Functions.
-
----
-
-## Commandes utiles
+### Tests
 
 ```bash
-flutter pub get                    # Installer les dépendances
-flutter run                        # Lancer l'app (device par défaut)
-flutter run -d chrome              # Lancer sur Chrome
-flutter analyze                    # Analyse statique
-flutter test                       # Tests unitaires et widget
-flutter test --coverage            # Tests avec couverture
-flutter build apk --release        # Build Android (APK de production)
-flutter build web                  # Build Web
+tools/banc/tout_tester.sh   # tout : analyse, tests Flutter, pgTAP, Oracle, API, parcours joueur sur l'app web
+flutter analyze
+flutter test
+supabase test db            # règles du jeu et droits (pgTAP)
 ```
 
----
+Le banc d'essai lance un mini-Supabase local et pilote l'application comme un joueur : voir [tools/banc/README.md](tools/banc/README.md).
 
-## Documentation
+### CI/CD
 
-| Document                                                                 | Contenu                                                                    |
-| ------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
-| [ARCHITECTURE.md](documentation/ARCHITECTURE.md)                         | Architecture MVVM, 4 couches, conventions, règle de dépendance             |
-| [SUPABASE_SETUP.md](documentation/SUPABASE_SETUP.md)                     | Configuration Supabase, schéma, clés API, RLS                              |
-| [supabase_schema.sql](documentation/supabase_schema.sql)                 | Schéma SQL complet (tables, enums, triggers, RLS)                          |
-| [IA_ANALYSE_IMAGE.md](documentation/IA_ANALYSE_IMAGE.md)                 | Flux de validation par IA (Claude Haiku), format d'échange, intégration    |
-| [SUPABASE_EDGE_FUNCTION_IA.md](documentation/SUPABASE_EDGE_FUNCTION_IA.md)| Déploiement de l'Edge Function `analyze-quest-proof`                       |
-| [docs/adr/](docs/adr/)                                                    | Enregistrements de décisions d'architecture (ADR)                          |
-| [BACKLOG.md](BACKLOG.md)                                                  | Registre des anomalies et de la dette technique                            |
+| Workflow | Rôle |
+| --- | --- |
+| `ci.yml` | Analyse statique et tests Flutter à chaque push et pull request |
+| `backend.yml` | Tests pgTAP de la base et tests de l'Edge Function Oracle |
+| `deploy.yml` | Déploiement manuel des Edge Functions, **après** `supabase db push` |
+| `release.yml` | Compilation de l'APK et publication d'une Release, sur étiquette `v*` |
 
----
+### Documentation
 
-## Métriques du projet
-
-| Métrique                    | Valeur   |
-| --------------------------- | -------- |
-| Lignes de code Dart (lib)   | 29 218   |
-| Fichiers source (lib)       | 100      |
-| Tests automatisés           | 505      |
-| Commits sur `main`          | 269      |
-| Edge Functions              | 5        |
-| Tables Supabase             | 11 (+ 1 vue) |
-| Workflows CI/CD             | 3        |
-| Analyse statique            | 0 issue  |
-
-Relevé au 29 juillet 2026.
+| Document | Contenu |
+| --- | --- |
+| [CLAUDE.md](CLAUDE.md) | Vue d'ensemble technique à jour : architecture, règles, design system |
+| [docs/adr/](docs/adr/) | Décisions d'architecture (serveur autoritaire, défi de capture, socle client…) |
+| [docs/runbooks/](docs/runbooks/) | Procédures de déploiement et de test sur Android |
+| [docs/qa/constats.md](docs/qa/constats.md) | Constats d'usage (bugs, UX, accessibilité) |
+| [infra/nas/](infra/nas/) | Préproduction, sauvegardes et supervision |
+| [documentation/](documentation/) | Documentation historique (architecture initiale, Supabase, IA) |
 
 ---
 
 ## Licence
 
-Projet privé. © 2025-2026 Samy BOUDAOUD. Tous droits réservés.
+Logiciel propriétaire. © 2025-2026 Samy BOUDAOUD. Tous droits réservés.
 
-Développé dans le cadre de la certification **RNCP 39583, Expert en Développement Logiciel** (Niveau 7), YNOV Campus, promotion 2025-2026. Un dossier technique accompagne ce dépôt et documente la conception, la sécurisation, les tests et l'exploitation de l'application.
+Le code de ce dépôt est consultable, mais aucune licence n'est accordée : toute reproduction, modification, distribution ou utilisation commerciale, totale ou partielle, est interdite sans autorisation écrite.
