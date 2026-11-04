@@ -133,9 +133,19 @@ supabase db diff --linked   # doit être vide
 - **Baseline** : `tools/banc/baseline_reconstruite.sql` est désormais la photographie
   exacte de la production (énumérés, colonnes, contraintes, index, déclencheurs,
   politiques). Vérifié : après baseline + migrations déjà appliquées, le catalogue du
-  banc est identique à celui de la production. La conversion en migration
-  `20260101000000_baseline.sql` (étapes 3 et 4) reste à faire avec la CLI.
+  banc est identique à celui de la production.
 - **Correctif** : comparaisons et contraintes passées en `::text` dans
   `20261102000200` et `20261103000200` (fonctionne avec un énuméré comme avec du
   texte). Rejoué sur un clone de la production chargé avec ses données réelles :
   les cinq migrations passent, puis `reinitialiser_economie_recette.sql`.
+- **Mise en production** : `supabase db push` (CLI 3.0.0, `--remote --yes`) des
+  cinq migrations, `reinitialiser_economie_recette.sql`, Deploy backend, Release
+  `v1.1.0`.
+- **Étapes 3 et 4** : `20260101000000_baseline.sql` (schéma public de la prod
+  avant le Sprint 1), migrations de février à juin archivées, historique distant
+  réparé (8 versions `reverted`, baseline `applied`). Une base vierge construite
+  par les seules migrations est identique au catalogue de la production ;
+  `supabase db reset` puis `supabase test db` sur la pile locale : 190 tests verts.
+- **Étape 10** : `supabase db diff` ne liste que 13 fonctions dont le corps diffère
+  par les fins de ligne (CRLF du poste Windows contre LF en production), contenu
+  identique. `.gitattributes` force désormais le LF sur les fichiers SQL.

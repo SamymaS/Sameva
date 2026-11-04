@@ -1,0 +1,5 @@
+# Migrations et tests SQL en LF : sinon une poussée depuis Windows enregistre
+# des fins de ligne CRLF dans le corps des fonctions et `supabase db diff`
+# signale de fausses différences.
+supabase/**/*.sql text eol=lf
+supabase/**/*.psql text eol=lf
