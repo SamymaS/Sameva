@@ -14,7 +14,7 @@ VALUES (auth.uid(), 'Triche', 3, 'Maison', 'manual', 'completed', true, 99999, 9
 SELECT tests.logout();
 
 SELECT results_eq(
-  $$ SELECT status, is_completed, xp_reward, gold_reward, completed_at IS NULL, created_at = now()
+  $$ SELECT status::text, is_completed, xp_reward, gold_reward, completed_at IS NULL, created_at = now()
      FROM public.quests WHERE title = 'Triche' $$,
   $$ VALUES ('active'::text, false, 50, 70, true, true) $$,
   'insertion : statut, récompenses et date de création imposés par le serveur');
@@ -55,7 +55,7 @@ SELECT is((:'r1'::jsonb ->> 'gold')::int, 20, 'déclaratif diff 2 : 40 or × 0,5
 SELECT is((:'r1'::jsonb ->> 'seals')::int, 0, 'déclaratif : aucun Sceau');
 SELECT is((:'r1'::jsonb ->> 'streak')::int, 1, 'première quête : flamme à 1');
 SELECT results_eq(
-  $$ SELECT status, is_completed, validated_by, rewarded_at IS NOT NULL FROM public.quests WHERE id = $$ || quote_literal(:'q1') || $$::uuid $$,
+  $$ SELECT status::text, is_completed, validated_by, rewarded_at IS NOT NULL FROM public.quests WHERE id = $$ || quote_literal(:'q1') || $$::uuid $$,
   $$ VALUES ('completed'::text, true, 'declaratif'::text, true) $$,
   'déclaratif : la quête est close et marquée');
 SELECT results_eq(

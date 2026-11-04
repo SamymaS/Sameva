@@ -5,7 +5,7 @@ SELECT plan(2);
 SELECT tests.create_user('carla@test.fr') AS carla \gset
 SELECT tests.login(:'carla');
 SELECT throws_ok($$ INSERT INTO public.quests (user_id, title, difficulty, category, validation_type)
-  VALUES (auth.uid(), 'x', 1, 'Maison', 'ai') $$, '23514', NULL, 'type « ai » refusé');
+  VALUES (auth.uid(), 'x', 1, 'Maison', 'ai') $$, '22P02', NULL, 'type « ai » refusé (absent de l''énuméré validation_type)');
 SELECT lives_ok($$ INSERT INTO public.quests (user_id, title, difficulty, category, validation_type)
   VALUES (auth.uid(), 'y', 1, 'Maison', 'photo') $$, 'type « photo » accepté');
 SELECT tests.logout();

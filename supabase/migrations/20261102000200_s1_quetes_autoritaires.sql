@@ -23,14 +23,14 @@ ALTER TABLE public.quests
 DO $$
 BEGIN
   ALTER TABLE public.quests ADD CONSTRAINT quests_status_valid
-    CHECK (status IN ('active', 'completed', 'failed', 'archived'));
+    CHECK (status::text IN ('active', 'completed', 'failed', 'archived'));
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$
 BEGIN
   ALTER TABLE public.quests ADD CONSTRAINT quests_validation_type_valid
-    CHECK (validation_type IN ('manual', 'photo', 'timer', 'geolocation', 'ai'));
+    CHECK (validation_type::text IN ('manual', 'photo', 'timer', 'geolocation', 'ai'));
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
@@ -194,7 +194,7 @@ BEGIN
   END IF;
 
   -- Une quête à preuve ne redevient jamais déclarative.
-  IF OLD.validation_type IN ('photo', 'ai') AND NEW.validation_type NOT IN ('photo', 'ai') THEN
+  IF OLD.validation_type::text IN ('photo', 'ai') AND NEW.validation_type::text NOT IN ('photo', 'ai') THEN
     PERFORM private.fail('champ_verrouille', 'Une quête à preuve ne peut pas devenir déclarative.');
   END IF;
 
@@ -504,7 +504,7 @@ BEGIN
   IF v_q.status <> 'active' THEN
     PERFORM private.fail('quete_deja_cloturee');
   END IF;
-  IF v_q.validation_type IN ('photo', 'ai') THEN
+  IF v_q.validation_type::text IN ('photo', 'ai') THEN
     PERFORM private.fail('preuve_requise', 'Cette quête se valide uniquement par l''Oracle.');
   END IF;
   IF v_q.created_at > now() - make_interval(mins => private.cfg_num('quest.min_age_minutes_declaratif')::int) THEN

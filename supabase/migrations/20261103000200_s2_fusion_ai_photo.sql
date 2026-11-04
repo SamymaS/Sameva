@@ -5,9 +5,9 @@
 -- La garde de mise à jour fige validation_type : on la suspend le temps de la
 -- conversion (aucune autre colonne n'est touchée).
 ALTER TABLE public.quests DISABLE TRIGGER quests_guard_update;
-UPDATE public.quests SET validation_type = 'photo' WHERE validation_type = 'ai';
+UPDATE public.quests SET validation_type = 'photo' WHERE validation_type::text = 'ai';
 ALTER TABLE public.quests ENABLE TRIGGER quests_guard_update;
 
 ALTER TABLE public.quests DROP CONSTRAINT IF EXISTS quests_validation_type_valid;
 ALTER TABLE public.quests ADD CONSTRAINT quests_validation_type_valid
-  CHECK (validation_type IN ('manual', 'photo', 'timer', 'geolocation'));
+  CHECK (validation_type::text IN ('manual', 'photo', 'timer', 'geolocation'));

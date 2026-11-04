@@ -16,7 +16,9 @@ RETURNS uuid LANGUAGE plpgsql AS $$
 DECLARE v_id uuid := gen_random_uuid();
 BEGIN
   INSERT INTO auth.users (id, email) VALUES (v_id, p_email);
-  INSERT INTO public.users (id, username, display_name) VALUES (v_id, split_part(p_email, '@', 1), split_part(p_email, '@', 1));
+  -- En production, le déclencheur on_auth_user_created crée déjà le profil.
+  INSERT INTO public.users (id, username, display_name) VALUES (v_id, split_part(p_email, '@', 1), split_part(p_email, '@', 1))
+    ON CONFLICT (id) DO NOTHING;
   RETURN v_id;
 END $$;
 
@@ -62,7 +64,7 @@ RETURNS uuid LANGUAGE plpgsql AS $$
 DECLARE v_id uuid;
 BEGIN
   INSERT INTO public.quests (user_id, title, difficulty, validation_type, category, deadline, deadline_at_creation, created_at, status)
-  VALUES (p_user, 'Quête de test', p_difficulty, p_validation, p_category, p_deadline, p_deadline, now() - p_age, 'active')
+  VALUES (p_user, 'Quête de test', p_difficulty, p_validation::public.validation_type, p_category, p_deadline, p_deadline, now() - p_age, 'active')
   RETURNING id INTO v_id;
   RETURN v_id;
 END $$;
