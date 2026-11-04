@@ -31,10 +31,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # Une base vide ne peut rejouer les migrations qu'avec la baseline issue
-      # de `supabase db pull` (Sprint 0) : les tables créées depuis le dashboard
-      # n'ont pas de migration. Les étapes suivantes s'activent toutes seules
-      # dès que la baseline est versionnée.
+      # La baseline (20260101000000) décrit les tables créées depuis le
+      # dashboard : une base vide rejoue tout l'historique. Ce garde-fou reste
+      # au cas où la baseline serait retirée par erreur.
       - name: Baseline présente ?
         id: baseline
         run: |
@@ -47,7 +46,8 @@ jobs:
       - uses: supabase/setup-cli@v1
         if: steps.baseline.outputs.ok == 'true'
         with:
-          version: latest
+          # Même version que le déploiement (voir deploy.yml).
+          version: 3.0.0
       - name: Démarrer Postgres avec toutes les migrations
         if: steps.baseline.outputs.ok == 'true'
         run: supabase db start
