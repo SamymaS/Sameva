@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../../../core/audio/sons.dart';
+import '../../../core/evenements/evenements_jeu.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/router/app_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -76,7 +76,7 @@ class _SanctuaryPageState extends State<SanctuaryPage> {
     if (!mounted) return;
 
     if (result.penalties != null) {
-      unawaited(Sons.jouer(Son.degats));
+      BusJeu.emettre(TypeEvenement.degats);
       AppNotification.show(
         context,
         message:
@@ -993,7 +993,7 @@ class _DailyRewardDialog extends StatelessWidget {
             PixelBouton(
               libelle: 'Récupérer',
               onPressed: () {
-                unawaited(Sons.jouer(Son.piece));
+                BusJeu.emettre(TypeEvenement.pieceGagnee);
                 Navigator.of(context).pop();
               },
             ),

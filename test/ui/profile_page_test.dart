@@ -1,7 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sameva/core/providers.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:mocktail/mocktail.dart';
@@ -52,7 +54,9 @@ Widget _app({required bool invite}) {
   final questRepo = _MockQuestRepository();
   when(() => questRepo.loadQuests(any())).thenAnswer((_) async => <Quest>[]);
 
-  return MultiProvider(
+  return ProviderScope(
+    overrides: [currentUserIdProvider.overrideWith((ref) => Stream.value('u1'))],
+    child: MultiProvider(
     providers: [
       ChangeNotifierProvider<AuthViewModel>.value(value: AuthViewModel(authRepo)),
       Provider<PlayerRepository>.value(value: playerRepo),
@@ -64,6 +68,7 @@ Widget _app({required bool invite}) {
       ChangeNotifierProvider<AiValidationCreditsService>.value(value: AiValidationCreditsService(_boiteVide())),
     ],
     child: const MaterialApp(home: ProfilePage()),
+  ),
   );
 }
 

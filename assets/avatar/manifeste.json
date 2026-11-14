@@ -1,0 +1,34 @@
+{
+ "largeur": 400,
+ "hauteur": 800,
+ "angles": 8,
+ "buste": [
+  0.26,
+  0.1,
+  0.48,
+  0.24
+ ],
+ "couches": {
+  "corps_male": "corps_male.png",
+  "haut_male": "haut_male.png",
+  "bas_male": "bas_male.png",
+  "corps_female": "corps_female.png",
+  "haut_female": "haut_female.png",
+  "bas_female": "bas_female.png",
+  "chaussures": "chaussures.png",
+  "cheveux_short": "cheveux_short.png",
+  "cheveux_medium": "cheveux_medium.png",
+  "cheveux_long_male": "cheveux_long_male.png",
+  "cheveux_long_female": "cheveux_long_female.png",
+  "cheveux_ponytail_male": "cheveux_ponytail_male.png",
+  "cheveux_ponytail_female": "cheveux_ponytail_female.png",
+  "cheveux_bun": "cheveux_bun.png",
+  "cheveux_spiky": "cheveux_spiky.png",
+  "sourcils": "sourcils.png",
+  "chapeau_1": "chapeau_1.png",
+  "chapeau_2": "chapeau_2.png",
+  "chapeau_3": "chapeau_3.png",
+  "chapeau_4": "chapeau_4.png",
+  "visage": "visage.png"
+ }
+}

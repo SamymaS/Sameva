@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/visuels/visuels.dart';
 import '../../../data/models/item_model.dart';
 import '../../theme/app_colors.dart';
 
@@ -6,11 +7,7 @@ import '../../theme/app_colors.dart';
 ///
 /// Les objets déjà en inventaire gardent leur ancien chemin SVG
 /// (`assets/items/sword_rusty.svg`) : seul le nom compte, inutile de migrer.
-String? iconePixelPour(String? assetPath) {
-  if (assetPath == null || assetPath.isEmpty) return null;
-  final nom = assetPath.split('/').last.split('.').first;
-  return 'assets/sprites/objets/$nom.png';
-}
+String? iconePixelPour(String? assetPath) => Visuels.objet(assetPath)?.chemin;
 
 /// Widget d'icône d'item universel.
 ///
@@ -85,19 +82,9 @@ class ItemIcon extends StatelessWidget {
   }
 
   Widget _buildIcon(Color rarityColor) {
-    final pixel = iconePixelPour(item.assetPath);
-    if (pixel != null) {
-      return Image.asset(
-        pixel,
-        width: size,
-        height: size,
-        // Pixel art : agrandissement sans lissage.
-        filterQuality: FilterQuality.none,
-        isAntiAlias: false,
-        fit: BoxFit.contain,
-        semanticLabel: item.name,
-        errorBuilder: (_, __, ___) => _fallbackIcon(rarityColor),
-      );
+    final visuel = Visuels.objet(item.assetPath);
+    if (visuel != null) {
+      return ImageVisuel(visuel, cote: size, semanticLabel: item.name, repli: _fallbackIcon(rarityColor));
     }
     return _fallbackIcon(rarityColor);
   }

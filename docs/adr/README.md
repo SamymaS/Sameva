@@ -13,6 +13,7 @@ Un ADR n'est jamais réécrit une fois accepté : il est remplacé par un ADR ul
 | [0005](0005-serveur-autoritaire.md) | Le serveur est l'unique autorité sur l'économie et la progression | Proposé (implémenté au Sprint 1) |
 | [0006](0006-defi-de-capture.md) | Défi de capture : prouver qu'une photo vient d'être prise | Proposé (implémenté au Sprint 1) |
 | [0007](0007-socle-client-sprint2.md) | Socle client : go_router, Riverpod, Drift, configuration | Accepté (Sprint 2 en cours) |
+| [0008](0008-socle-visuels-evenements-avatar.md) | Socle pour la DA : catalogue des visuels, événements de jeu, avatar du joueur | Proposé (implémenté) |
 
 ## Statuts
 
@@ -31,7 +32,8 @@ Un ADR n'est jamais réécrit une fois accepté : il est remplacé par un ADR ul
 0003 (GameEventBus)           prérequis : 0001 ; parallélisable avec 0002
 0005 (serveur autoritaire)    prérequis : baseline Supabase (Sprint 0)
   └─> 0006 (défi de capture)  prérequis : 0005
-  └─> 0007 (socle client)     prérequis : 0005 déployé ; s'appuie sur 0003
+  └─> 0007 (socle client)     prérequis : 0005 déployé
+0008 (visuels, événements, avatar)  remplace 0002, 0003 et 0004 ; prérequis : 0007
 ```
 
 Chaque phase se termine par `flutter analyze` à zéro et une suite de tests verte.

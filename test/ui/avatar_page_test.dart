@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sameva/core/providers.dart';
+import 'package:sameva/data/models/character_model.dart';
+import 'package:sameva/ui/widgets/avatar/avatar_joueur.dart';
+import 'package:sameva/core/avatar/apparence_avatar.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:mocktail/mocktail.dart';
@@ -32,7 +37,9 @@ Widget _buildAvatar({
   PlayerViewModel? playerVm,
   EquipmentViewModel? equipVm,
 }) {
-  return MultiProvider(
+  return ProviderScope(
+    overrides: [currentUserIdProvider.overrideWith((ref) => Stream.value('uid-1'))],
+    child: MultiProvider(
     providers: [
       ChangeNotifierProvider<AuthViewModel>.value(
           value: authVm ?? _makeAuthVm()),
@@ -42,6 +49,7 @@ Widget _buildAvatar({
           value: equipVm ?? _makeEquipmentVm()),
     ],
     child: const MaterialApp(home: AvatarPage()),
+  ),
   );
 }
 
@@ -90,15 +98,15 @@ void main() {
       expect(find.text('Quêtes'), findsOneWidget);
     });
 
-    testWidgets('affiche ? comme initiale si pas d\'email', (tester) async {
+    testWidgets('affiche l\'avatar du joueur à la place de l\'initiale', (tester) async {
       await tester.pumpWidget(_buildAvatar());
       await tester.pump();
 
-      expect(find.text('?'), findsOneWidget);
+      expect(find.bySemanticsLabel('Ton personnage'), findsOneWidget);
+      expect(find.text('?'), findsNothing);
     });
 
-    testWidgets('affiche l\'initiale de l\'email si utilisateur connecté',
-        (tester) async {
+    testWidgets('affiche l\'e-mail si utilisateur connecté', (tester) async {
       final user = _MockUser();
       when(() => user.email).thenReturn('test@example.com');
       when(() => user.id).thenReturn('uid-1');
@@ -106,8 +114,55 @@ void main() {
       await tester.pumpWidget(_buildAvatar(authVm: _makeAuthVm(user: user)));
       await tester.pump();
 
-      expect(find.text('T'), findsOneWidget);
       expect(find.text('test@example.com'), findsOneWidget);
+    });
+
+    testWidgets('cabine : onglets, vignettes et choix enregistrés', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 2600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(_buildAvatar());
+      await tester.pump();
+
+      CharacterAppearance apparence() =>
+          ProviderScope.containerOf(tester.element(find.byType(AvatarPage))).read(apparenceAvatarProvider);
+      // Le grand personnage est le premier avatar de la page.
+      AvatarJoueur grand() => tester.widget<AvatarJoueur>(find.byType(AvatarJoueur).first);
+      expect(grand().apparence.hairStyle, HairStyle.medium);
+
+      await tester.tap(find.byKey(const Key('avatar_silhouette_female')));
+      await tester.tap(find.byKey(const Key('avatar_onglet_coiffure')));
+      await tester.pump();
+      expect(find.bySemanticsLabel('Chignon'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('avatar_coiffure_bun')));
+      await tester.tap(find.byKey(const Key('avatar_onglet_teint')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('avatar_teint_dark')));
+      await tester.pump();
+
+      expect(apparence().gender, CharacterGender.female);
+      expect(apparence().hairStyle, HairStyle.bun);
+      expect(apparence().skinTone, SkinTone.dark);
+      expect(grand().apparence.hairStyle, HairStyle.bun, reason: 'le grand personnage suit aussitôt');
+    });
+
+    testWidgets('cabine : flèches et planche des vues font tourner le personnage', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 2600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(_buildAvatar());
+      await tester.pump();
+
+      int angle() => tester.widget<AvatarJoueur>(find.byType(AvatarJoueur).first).angle;
+      expect(angle(), 0);
+      await tester.tap(find.bySemanticsLabel('Tourner vers la droite'));
+      await tester.pump();
+      expect(angle(), 1);
+      await tester.tap(find.bySemanticsLabel('Tourner vers la gauche'));
+      await tester.tap(find.bySemanticsLabel('Tourner vers la gauche'));
+      await tester.pump();
+      expect(angle(), 7);
+      await tester.tap(find.byKey(const Key('avatar_vue_4')));
+      await tester.pump();
+      expect(angle(), 4, reason: 'vue de dos');
     });
 
     testWidgets('affiche Niv. 1 par défaut sans stats', (tester) async {

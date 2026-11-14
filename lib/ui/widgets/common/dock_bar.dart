@@ -1,7 +1,6 @@
-import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../../../core/audio/sons.dart';
+import '../../../core/evenements/evenements_jeu.dart';
 import '../../theme/app_colors.dart';
 
 /// Barre de navigation flottante — 5 onglets principaux (périmètre MVP).
@@ -48,7 +47,7 @@ class DockBar extends StatelessWidget {
                     isActive: i == currentIndex,
                     badgeCount: badges[i] ?? 0,
                     onTap: () {
-                      unawaited(Sons.jouer(Son.toucher));
+                      BusJeu.emettre(TypeEvenement.toucher);
                       onTap(i);
                     },
                   ),

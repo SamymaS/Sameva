@@ -3,7 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../../../core/audio/sons.dart';
+import '../../../core/evenements/evenements_jeu.dart';
 import '../../../data/models/item_model.dart';
 import '../../../data/models/quest_model.dart';
 import '../../theme/app_colors.dart';
@@ -139,7 +139,7 @@ class _SequenceInvocationState extends State<SequenceInvocation> with TickerProv
       _revele.value = 1;
       return;
     }
-    unawaited(Sons.jouer(Sons.invocationPour(_meilleure.name)));
+    BusJeu.emettre(TypeEvenement.invocation, rarete: _meilleure.name);
     setState(() => _phase = _Phase.revelation);
     if (fin) {
       _revele.value = 1;
