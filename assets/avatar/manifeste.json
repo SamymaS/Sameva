@@ -1,7 +1,13 @@
 {
- "largeur": 320,
- "hauteur": 640,
+ "largeur": 400,
+ "hauteur": 800,
  "angles": 8,
+ "buste": [
+  0.26,
+  0.1,
+  0.48,
+  0.24
+ ],
  "couches": {
   "corps_male": "corps_male.png",
   "haut_male": "haut_male.png",

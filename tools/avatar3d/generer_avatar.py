@@ -19,21 +19,23 @@ import bpy  # avant bmesh et mathutils : le module bpy les installe
 import bmesh
 from mathutils import Matrix, Vector
 
-LARGEUR, HAUTEUR = 320, 640
+LARGEUR, HAUTEUR = 400, 800
 ANGLES = 8
 SILHOUETTES = {
     # épaules, taille, hanches (demi-largeurs), poitrine (profondeur ajoutée)
-    "male": dict(epaule=0.205, taille=0.150, hanche=0.150, poitrine=0.0),
-    "female": dict(epaule=0.172, taille=0.122, hanche=0.168, poitrine=0.028),
+    "male": dict(epaule=0.178, taille=0.128, hanche=0.132, poitrine=0.0),
+    "female": dict(epaule=0.15, taille=0.104, hanche=0.146, poitrine=0.026),
 }
 COIFFURES = ["short", "medium", "long", "ponytail", "bun", "spiky"]
 COIFFURES_LONGUES = ("cheveux_long", "cheveux_ponytail")
 CHAPEAUX = {1: "cone", 2: "couronne", 3: "bonnet", 4: "bandana"}
 TETE = Vector((0, 0, 1.555))
-# Proportions stylisées (grosse tête, corps ramassé) : le modèle est construit
-# en proportions réalistes puis le corps est tassé et la tête agrandie autour du cou.
+# Proportions adultes réalistes : environ sept têtes et demie de haut. La tête
+# est modelée en grand (plus de détail au maillage) puis réduite autour du cou.
 COU = Vector((0, 0, 1.43))
-TASSEMENT, GROSSEUR_TETE = 0.86, 1.42
+TASSEMENT, GROSSEUR_TETE, CARRURE = 1.0, 0.7, 1.0
+# Cadre de la tête dans l'image (gauche, haut, largeur, hauteur, en fractions) : vignettes et profil.
+BUSTE = (0.26, 0.1, 0.48, 0.24)
 
 
 # ── Outils de modelage ───────────────────────────────────────────────────────
@@ -120,60 +122,73 @@ def membres(s, gonfle=0.0, mains=True, jambes=True, bras=True, jusquau_poignet=T
     def f(bm):
         for c in (-1, 1):
             if bras:
-                epaule, coude = (c * ep, 0, 1.305), (c * (ep + 0.045), 0.005, 1.05)
-                poignet = (c * (ep + 0.062), -0.02, 0.82)
-                capsule(bm, epaule, coude, 0.062 + gonfle, 0.05 + gonfle)
-                capsule(bm, coude, poignet, 0.05 + gonfle, 0.04 + gonfle * (1.25 if jusquau_poignet else 1))
+                epaule, coude = (c * (ep + 0.006), 0, 1.29), (c * (ep + 0.04), 0.008, 1.04)
+                poignet = (c * (ep + 0.05), -0.022, 0.81)
+                capsule(bm, epaule, coude, 0.044 + gonfle, 0.038 + gonfle)
+                capsule(bm, coude, poignet, 0.038 + gonfle, 0.029 + gonfle * (1.2 if jusquau_poignet else 1))
                 if mains:
-                    ellipsoide(bm, (c * (ep + 0.068), -0.028, 0.745), (0.036, 0.045, 0.062))
+                    ellipsoide(bm, (c * (ep + 0.053), -0.027, 0.765), (0.017, 0.034, 0.045))  # paume
+                    ellipsoide(bm, (c * (ep + 0.051), -0.031, 0.712), (0.014, 0.03, 0.04))  # doigts
+                    capsule(bm, (c * (ep + 0.048), -0.052, 0.772), (c * (ep + 0.045), -0.062, 0.73), 0.011, 0.009)  # pouce
             if jambes:
-                hanche, genou, cheville = (c * 0.088, 0, 0.86), (c * 0.092, -0.005, 0.48), (c * 0.092, 0.005, 0.09)
-                capsule(bm, hanche, genou, 0.082 + gonfle, 0.06 + gonfle)
-                capsule(bm, genou, cheville, 0.06 + gonfle, 0.046 + gonfle)
+                hanche, genou, cheville = (c * 0.074, 0, 0.86), (c * 0.08, -0.005, 0.48), (c * 0.082, 0.005, 0.09)
+                capsule(bm, hanche, genou, 0.072 + gonfle, 0.05 + gonfle)
+                capsule(bm, genou, cheville, 0.05 + gonfle, 0.036 + gonfle)
+                ellipsoide(bm, (c * 0.082, 0.02, 0.34), (0.044 + gonfle, 0.05 + gonfle, 0.1))  # mollet
     return f
 
 
 def tronc(bm, s, gonfle=0.0):
-    g = 1 + gonfle * 6
-    ellipsoide(bm, (0, 0, 0.90), (s["hanche"] * g, 0.108 * g, 0.125))
-    ellipsoide(bm, (0, 0, 1.04), (s["taille"] * g, 0.098 * g, 0.15))
-    ellipsoide(bm, (0, -0.004, 1.2), (s["epaule"] * 0.86 * g, (0.112 + s["poitrine"] * 0.4) * g, 0.155))
+    g = 1 + gonfle * 5
+    ellipsoide(bm, (0, 0, 0.90), (s["hanche"] * g, 0.098 * g, 0.125))
+    ellipsoide(bm, (0, 0, 1.04), (s["taille"] * g, 0.086 * g, 0.15))
+    ellipsoide(bm, (0, -0.004, 1.2), (s["epaule"] * 0.9 * g, (0.098 + s["poitrine"] * 0.4) * g, 0.155))
+    if s["poitrine"]:
+        ellipsoide(bm, (0, -0.062, 1.205), (0.1 * g, 0.048 * g + s["poitrine"], 0.055 * g))
+    else:
+        ellipsoide(bm, (0, -0.04, 1.225), (0.135 * g, 0.062 * g, 0.07 * g))  # pectoraux
     for c in (-1, 1):
-        ellipsoide(bm, (c * s["epaule"] * 0.9, 0, 1.3), (0.062 * g, 0.064 * g, 0.058 * g))
+        ellipsoide(bm, (c * s["epaule"] * 0.95, 0, 1.305), (0.044 * g, 0.05 * g, 0.044 * g))
+        # Pente du cou vers l'épaule (trapèze) : évite l'épaule « en boule ».
+        capsule(bm, (c * 0.035, 0.012, 1.365), (c * s["epaule"] * 0.9, 0.004, 1.318), 0.034 + gonfle, 0.04 + gonfle)
 
 
 def corps(s):
     def f(bm):
         tronc(bm, s)
         membres(s)(bm)
-        capsule(bm, (0, 0.005, 1.33), (0, 0.0, 1.45), 0.05, 0.044)
+        capsule(bm, (0, 0.008, 1.33), (0, 0.0, 1.47), 0.054, 0.046)
         for c in (-1, 1):
-            ellipsoide(bm, (c * 0.092, -0.035, 0.045), (0.05, 0.1, 0.045))  # pieds
+            ellipsoide(bm, (c * 0.082, -0.035, 0.04), (0.04, 0.09, 0.04))  # pieds
     return f
 
 
 def tete(bm):
-    ellipsoide(bm, TETE, (0.16, 0.168, 0.172))
-    ellipsoide(bm, TETE + Vector((0, -0.01, -0.062)), (0.138, 0.146, 0.118))  # joues et menton
-    ellipsoide(bm, TETE + Vector((0, -0.166, -0.03)), (0.014, 0.016, 0.015))  # nez
+    ellipsoide(bm, TETE + Vector((0, 0.012, 0.02)), (0.152, 0.178, 0.16))  # crâne
+    ellipsoide(bm, TETE + Vector((0, -0.02, -0.07)), (0.128, 0.142, 0.13))  # joues
+    ellipsoide(bm, TETE + Vector((0, -0.062, -0.165)), (0.07, 0.078, 0.062))  # menton
+    capsule(bm, TETE + Vector((0, -0.158, 0.012)), TETE + Vector((0, -0.182, -0.062)), 0.014, 0.019)  # arête du nez
     for c in (-1, 1):
-        ellipsoide(bm, TETE + Vector((c * 0.158, 0.012, -0.012)), (0.02, 0.034, 0.045))  # oreilles
+        ellipsoide(bm, TETE + Vector((c * 0.02, -0.168, -0.072)), (0.016, 0.02, 0.014))  # narines
+        ellipsoide(bm, TETE + Vector((c * 0.152, 0.018, -0.03)), (0.016, 0.034, 0.052))  # oreilles
+        ellipsoide(bm, TETE + Vector((c * 0.062, -0.126, 0.058)), (0.05, 0.03, 0.02))  # arcades
 
 
 def haut(s):
     def f(bm):
-        tronc(bm, s, gonfle=0.011)
-        membres(s, gonfle=0.013, mains=False, jambes=False)(bm)
-        tore(bm, (0, 0.004, 1.372), 0.068, 0.02, aplati=0.9, incline=0.12)  # col
-        ellipsoide(bm, (0, 0.105, 1.34), (0.12, 0.062, 0.075))  # capuche repliée
+        tronc(bm, s, gonfle=0.012)
+        capsule(bm, (-0.085, 0.01, 1.32), (0.085, 0.01, 1.32), 0.042, 0.042)  # épaules du vêtement
+        membres(s, gonfle=0.009, mains=False, jambes=False)(bm)
+        tore(bm, (0, 0.004, 1.375), 0.06, 0.016, aplati=0.9, incline=0.12)  # col
+        ellipsoide(bm, (0, 0.085, 1.335), (0.1, 0.05, 0.06))  # capuche repliée
         couper(bm, (0, 0, 0.865), (0, 0, -1))  # ourlet
     return f
 
 
 def bas(s):
     def f(bm):
-        ellipsoide(bm, (0, 0, 0.9), (s["hanche"] * 1.07, 0.116, 0.128))
-        membres(s, gonfle=0.012, bras=False)(bm)
+        ellipsoide(bm, (0, 0, 0.9), (s["hanche"] * 1.07, 0.106, 0.128))
+        membres(s, gonfle=0.01, bras=False)(bm)
         couper(bm, (0, 0, 0.105), (0, 0, -1))
         couper(bm, (0, 0, 1.0), (0, 0, 1))
     return f
@@ -181,8 +196,8 @@ def bas(s):
 
 def chaussures(bm):
     for c in (-1, 1):
-        ellipsoide(bm, (c * 0.092, -0.045, 0.058), (0.062, 0.128, 0.062))
-        ellipsoide(bm, (c * 0.092, 0.005, 0.085), (0.056, 0.07, 0.06))
+        ellipsoide(bm, (c * 0.082, -0.055, 0.045), (0.046, 0.12, 0.045))
+        ellipsoide(bm, (c * 0.082, 0.01, 0.075), (0.044, 0.06, 0.058))
     couper(bm, (0, 0, 0.004), (0, 0, -1))
 
 
@@ -226,7 +241,7 @@ def coiffure(nom):
 
 def sourcils(bm):
     for c in (-1, 1):
-        capsule(bm, TETE + Vector((c * 0.034, -0.156, 0.07)), TETE + Vector((c * 0.09, -0.14, 0.066)), 0.0075, 0.0055)
+        capsule(bm, TETE + Vector((c * 0.026, -0.158, 0.04)), TETE + Vector((c * 0.092, -0.142, 0.046)), 0.0075, 0.0045)
 
 
 def chapeau(style):
@@ -254,14 +269,18 @@ def chapeau(style):
 
 
 def visage():
-    """Yeux et bouche : couleurs propres, non teintées par l'application."""
+    """Yeux et lèvres : couleurs propres, non teintées par l'application."""
     obs = []
     for c in (-1, 1):
-        centre = TETE + Vector((c * 0.062, -0.145, 0.004))
-        obs.append(("blanc", objet("oeil_blanc", lambda bm, p=centre: ellipsoide(bm, p, (0.034, 0.014, 0.04)), fondre=False)))
-        obs.append(("iris", objet("oeil_iris", lambda bm, p=centre: ellipsoide(bm, p + Vector((0, -0.009, -0.002)), (0.023, 0.008, 0.03)), fondre=False)))
-        obs.append(("blanc", objet("oeil_reflet", lambda bm, p=centre, c=c: ellipsoide(bm, p + Vector((0.008, -0.016, 0.012)), (0.008, 0.003, 0.009)), fondre=False)))
-    obs.append(("bouche", objet("bouche", lambda bm: tore(bm, TETE + Vector((0, -0.138, -0.066)), 0.03, 0.0065, incline=math.pi / 2 - 0.25), fondre=False)))
+        centre = TETE + Vector((c * 0.058, -0.136, 0.0))
+        obs.append(("blanc", objet("oeil_blanc", lambda bm, p=centre: ellipsoide(bm, p, (0.034, 0.016, 0.021)), fondre=False)))
+        obs.append(("iris", objet("oeil_iris", lambda bm, p=centre: ellipsoide(bm, p + Vector((0, -0.0095, 0.0005)), (0.017, 0.008, 0.019)), fondre=False)))
+        obs.append(("pupille", objet("oeil_pupille", lambda bm, p=centre: ellipsoide(bm, p + Vector((0, -0.0135, 0.0005)), (0.008, 0.005, 0.009)), fondre=False)))
+        obs.append(("blanc", objet("oeil_reflet", lambda bm, p=centre: ellipsoide(bm, p + Vector((0.005, -0.017, 0.005)), (0.004, 0.002, 0.004)), fondre=False)))
+        # Paupière supérieure : un trait sombre qui donne le regard.
+        obs.append(("cils", objet("cils", lambda bm, p=centre, c=c: capsule(bm, p + Vector((-c * 0.031, -0.004, 0.019)), p + Vector((c * 0.035, 0.004, 0.017)), 0.0045, 0.0035), fondre=False)))
+    obs.append(("levres", objet("levre_haut", lambda bm: ellipsoide(bm, TETE + Vector((0, -0.147, -0.108)), (0.04, 0.014, 0.0085)), fondre=False)))
+    obs.append(("levres", objet("levre_bas", lambda bm: ellipsoide(bm, TETE + Vector((0, -0.146, -0.121)), (0.033, 0.014, 0.0095)), fondre=False)))
     return obs
 
 
@@ -298,12 +317,12 @@ def preparer_scene(echantillons):
     sc.world = monde
 
     cam_d = bpy.data.cameras.new("camera")
-    cam_d.type, cam_d.ortho_scale = "ORTHO", 2.3
+    cam_d.type, cam_d.ortho_scale = "ORTHO", 2.1
     cam = bpy.data.objects.new("camera", cam_d)
     sc.collection.objects.link(cam)
     # Vue légèrement plongeante, comme dans un jeu en 2.5D.
     plongee = math.radians(9)
-    cible = Vector((0, 0, 1.06))
+    cible = Vector((0, 0, 0.96))
     cam.location = cible + Vector((0, -6 * math.cos(plongee), 6 * math.sin(plongee)))
     cam.rotation_euler = (math.radians(90) - plongee, 0, 0)
     sc.camera = cam
@@ -326,7 +345,7 @@ def construire():
     bpy.context.scene.collection.objects.link(pivot)
     couches = {}
 
-    m_corps = Matrix.Diagonal((1.04, 1.04, TASSEMENT, 1))
+    m_corps = Matrix.Diagonal((CARRURE, 1.02, TASSEMENT, 1))
     m_tete = (Matrix.Translation((0, 0, COU.z * TASSEMENT - COU.z)) @ Matrix.Translation(COU)
               @ Matrix.Diagonal((GROSSEUR_TETE,) * 3 + (1,)) @ Matrix.Translation(-COU))
 
@@ -349,8 +368,9 @@ def construire():
     ajouter("sourcils", objet("sourcils", sourcils, fondre=False), de_la_tete=True)
     for style, nom in CHAPEAUX.items():
         ajouter(f"chapeau_{style}", objet(f"chapeau_{nom}", chapeau(style), voxel=0.008, lissage=3), de_la_tete=True)
-    mats = {"blanc": matiere("oeil_blanc", (1, 1, 1), 0.3), "iris": matiere("iris", (0.05, 0.035, 0.03), 0.25),
-            "bouche": matiere("bouche", (0.42, 0.13, 0.13), 0.6)}
+    mats = {"blanc": matiere("oeil_blanc", (0.95, 0.95, 0.95), 0.3), "iris": matiere("iris", (0.16, 0.085, 0.04), 0.25),
+            "pupille": matiere("pupille", (0.01, 0.01, 0.01), 0.2), "cils": matiere("cils", (0.03, 0.02, 0.02), 0.6),
+            "levres": matiere("levres", (0.52, 0.24, 0.22), 0.5)}
     yeux = []
     for role, o in visage():
         o.data.materials.append(mats[role])
@@ -368,7 +388,7 @@ def rendre(sc, pivot, couches, sortie, angles):
     import numpy as np
     os.makedirs(sortie, exist_ok=True)
     tmp = os.path.join(sortie, "_tmp.png")
-    manifeste = {"largeur": LARGEUR, "hauteur": HAUTEUR, "angles": len(angles), "couches": {}}
+    manifeste = {"largeur": LARGEUR, "hauteur": HAUTEUR, "angles": len(angles), "buste": list(BUSTE), "couches": {}}
 
     def rendu(visible, masques, sortie_nom=None):
         for nom, obs in couches.items():

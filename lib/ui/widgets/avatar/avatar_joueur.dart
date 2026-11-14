@@ -55,12 +55,25 @@ class ManifesteAvatar {
       : largeur = json['largeur'] as int,
         hauteur = json['hauteur'] as int,
         angles = json['angles'] as int,
+        buste = _lireBuste(json['buste']),
         _couches = Map<String, String>.from(json['couches'] as Map);
 
   final String dossier;
   final int largeur;
   final int hauteur;
   final int angles;
+
+  /// Zone du buste (tête et épaules), en fractions de la vignette. Écrite par le
+  /// script de rendu : elle suit les proportions du modèle.
+  final Rect buste;
+
+  static Rect _lireBuste(Object? v) {
+    if (v is List && v.length == 4) {
+      final n = v.map((e) => (e as num).toDouble()).toList();
+      return Rect.fromLTWH(n[0], n[1], n[2], n[3]);
+    }
+    return const Rect.fromLTWH(0.14, 0.12, 0.72, 0.36);
+  }
   final Map<String, String> _couches;
 
   static final Map<String, Future<ManifesteAvatar>> _charges = {};
@@ -233,13 +246,12 @@ class _PeintreAvatar extends CustomPainter {
   final bool ombre;
 
   /// Zone de la tête dans une image du personnage (fractions de l'image).
-  static const _zoneBuste = Rect.fromLTWH(0.14, 0.12, 0.72, 0.36);
 
   @override
   void paint(Canvas canvas, Size size) {
     final l = manifeste.largeur.toDouble(), h = manifeste.hauteur.toDouble();
     final zone = buste
-        ? Rect.fromLTWH(_zoneBuste.left * l, _zoneBuste.top * h, _zoneBuste.width * l, _zoneBuste.height * h)
+        ? Rect.fromLTWH(manifeste.buste.left * l, manifeste.buste.top * h, manifeste.buste.width * l, manifeste.buste.height * h)
         : Rect.fromLTWH(0, 0, l, h);
     final src = zone.shift(Offset(angle * l, 0));
     final dst = Offset.zero & size;
