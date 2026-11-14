@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import '../../../core/audio/sons.dart';
+import '../../../core/evenements/evenements_jeu.dart';
 import '../../widgets/pixel/mougibot_sprite.dart';
 import '../../widgets/pixel/pixel_ui.dart';
 import 'package:go_router/go_router.dart';
@@ -232,7 +232,7 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
     }
 
     setState(() => _isAnalyzing = true);
-    unawaited(Sons.jouer(Son.oracleObserve));
+    BusJeu.emettre(TypeEvenement.oracleObserve);
     try {
       final verdict = await _api.submitProof(
         questId: questId,
@@ -246,7 +246,7 @@ class _QuestValidationPageState extends State<QuestValidationPage> {
         _challenge = null;
         _captureChallengeId = null;
       });
-      unawaited(Sons.jouer(verdict.accepted ? Son.oracleAccepte : Son.oracleRefuse));
+      BusJeu.emettre(verdict.accepted ? TypeEvenement.oracleAccepte : TypeEvenement.oracleRefuse);
       if (!verdict.accepted) unawaited(_loadChallenge());
       unawaited(credits.refresh());
       final rewards = verdict.rewards;

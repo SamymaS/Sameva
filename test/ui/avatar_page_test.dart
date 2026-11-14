@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sameva/core/providers.dart';
+import 'package:sameva/data/models/character_model.dart';
+import 'package:sameva/ui/widgets/avatar/avatar_joueur.dart';
+import 'package:sameva/ui/widgets/character/character_painter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:mocktail/mocktail.dart';
@@ -32,7 +37,9 @@ Widget _buildAvatar({
   PlayerViewModel? playerVm,
   EquipmentViewModel? equipVm,
 }) {
-  return MultiProvider(
+  return ProviderScope(
+    overrides: [currentUserIdProvider.overrideWith((ref) => Stream.value('uid-1'))],
+    child: MultiProvider(
     providers: [
       ChangeNotifierProvider<AuthViewModel>.value(
           value: authVm ?? _makeAuthVm()),
@@ -42,6 +49,7 @@ Widget _buildAvatar({
           value: equipVm ?? _makeEquipmentVm()),
     ],
     child: const MaterialApp(home: AvatarPage()),
+  ),
   );
 }
 
@@ -90,15 +98,15 @@ void main() {
       expect(find.text('Quêtes'), findsOneWidget);
     });
 
-    testWidgets('affiche ? comme initiale si pas d\'email', (tester) async {
+    testWidgets('affiche l\'avatar du joueur à la place de l\'initiale', (tester) async {
       await tester.pumpWidget(_buildAvatar());
       await tester.pump();
 
-      expect(find.text('?'), findsOneWidget);
+      expect(find.bySemanticsLabel('Ton personnage'), findsOneWidget);
+      expect(find.text('?'), findsNothing);
     });
 
-    testWidgets('affiche l\'initiale de l\'email si utilisateur connecté',
-        (tester) async {
+    testWidgets('affiche l\'e-mail si utilisateur connecté', (tester) async {
       final user = _MockUser();
       when(() => user.email).thenReturn('test@example.com');
       when(() => user.id).thenReturn('uid-1');
@@ -106,8 +114,30 @@ void main() {
       await tester.pumpWidget(_buildAvatar(authVm: _makeAuthVm(user: user)));
       await tester.pump();
 
-      expect(find.text('T'), findsOneWidget);
       expect(find.text('test@example.com'), findsOneWidget);
+    });
+
+    testWidgets('apparence : un choix modifie aussitôt l\'avatar', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 2400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(_buildAvatar());
+      await tester.pump();
+
+      CharacterPainter peintre() => tester
+          .widget<CustomPaint>(
+              find.descendant(of: find.byType(AvatarJoueur), matching: find.byType(CustomPaint)).first)
+          .painter! as CharacterPainter;
+      expect(peintre().appearance.hairStyle, HairStyle.medium);
+
+      await tester.tap(find.byKey(const Key('avatar_coiffure_bun')));
+      await tester.tap(find.byKey(const Key('avatar_teint_dark')));
+      await tester.tap(find.byKey(const Key('avatar_silhouette_female')));
+      await tester.pump();
+
+      expect(peintre().appearance.hairStyle, HairStyle.bun);
+      expect(peintre().appearance.skinTone, SkinTone.dark);
+      expect(peintre().appearance.gender, CharacterGender.female);
+      expect(find.bySemanticsLabel('Teint brune'), findsOneWidget);
     });
 
     testWidgets('affiche Niv. 1 par défaut sans stats', (tester) async {

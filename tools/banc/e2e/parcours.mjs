@@ -261,6 +261,34 @@ await parcours("écrans pixel : calendrier, MougiBot, chat, profil, boutique", a
   r.verifier("vente : inventaire vide expliqué", await attendre(page, "inventaire est vide", 10000).catch(() => false));
 });
 
+await parcours("avatar : fiche personnage et apparence", async (page) => {
+  await entrerCommeInvite(page);
+  await toucher(page, "Profil");
+  await attendre(page, "Mode invité", 10000).catch(() => false);
+  await toucher(page, "Fiche personnage");
+  r.verifier("fiche personnage : avatar affiché", await attendre(page, "Ton personnage", 10000).catch(() => false));
+  r.verifier("réglages d'apparence présents", (await voit(page, "Silhouette")) && (await voit(page, "Coiffure")));
+  await pause(600);
+  await capture(page, "avatar_defaut");
+  await toucher(page, "Féminin");
+  await toucher(page, "Chignon");
+  await toucher(page, "Teint brune");
+  await toucher(page, "Cheveux violet");
+  await pause(600);
+  await capture(page, "avatar_personnalise");
+  // L'apparence est conservée : on quitte la fiche et on y revient.
+  await page.goBack();
+  await attendre(page, "Fiche personnage", 10000).catch(() => false);
+  await pause(400);
+  await capture(page, "profil_avec_avatar");
+  await toucher(page, "Fiche personnage");
+  await attendre(page, "Ton personnage", 10000).catch(() => false);
+  // Flutter web expose l'option choisie d'un bouton par aria-current.
+  const choisis = await page.$$eval("flt-semantics[aria-current='true']", (els) =>
+    els.map((e) => (e.getAttribute("aria-label") || e.innerText || "").trim()));
+  r.verifier("apparence conservée après retour", choisis.some((t) => t.includes("Cheveux violet")) && choisis.some((t) => t.includes("Teint brune")), choisis);
+});
+
 await parcours("lien profond vers une quête", async (page) => {
   await entrerCommeInvite(page);
   // Une quête créée ailleurs (notification, partage) s'ouvre par son lien.
@@ -315,7 +343,9 @@ await parcours("invocation gratuite", async (page) => {
   r.verifier("serveur : aucun Sceau dépensé", etat?.stats?.seals === 1, etat?.stats);
   await toucher(page, "Continuer", { exact: true });
   await attendre(page, "Invoquer · 10 Sceaux", 10000);
-  r.verifier("la jauge épique avance d'un tirage", await voit(page, "Épique garanti dans 19 tirages"));
+  // Un tirage épique (rare) remet la jauge à zéro : on compare à l'état du serveur.
+  const restant = 20 - (etat?.gacha?.objets?.since_epic ?? 1);
+  r.verifier("la jauge épique suit l'état du serveur", await voit(page, `Épique garanti dans ${restant} tirages`), restant);
   r.verifier("retour au portail après la révélation", !(await voit(page, "Passer")));
 });
 

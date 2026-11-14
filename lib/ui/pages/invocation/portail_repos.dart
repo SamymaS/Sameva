@@ -1,3 +1,4 @@
+import '../../../core/visuels/visuels.dart';
 import 'package:flutter/material.dart';
 
 import '../../../data/models/item_model.dart';
@@ -54,9 +55,7 @@ class PortailRepos extends StatelessWidget {
               child: Semantics(
                 image: true,
                 label: 'Essence mystique au cœur du portail',
-                child: Image.asset('assets/sprites/objets/material_essence.png',
-                    width: 96, height: 96, fit: BoxFit.contain,
-                    filterQuality: FilterQuality.none, isAntiAlias: false),
+                child: ImageVisuel(Visuels.objet('material_essence')!, cote: 96),
               ),
             ),
           ],

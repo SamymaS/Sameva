@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/audio/sons.dart';
+import '../../../core/evenements/ambiance.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../domain/services/achievement_service.dart';
@@ -64,6 +65,7 @@ class _SettingsPageState extends State<SettingsPage> {
             _StreakNotifTile(),
             _DeadlineNotifTile(),
             const _SonsTile(),
+            const _VibrationsTile(),
             const Divider(height: 1, indent: 16, endIndent: 16),
             const _SectionHeader('Progression'),
             _AchievementsTile(),
@@ -304,6 +306,40 @@ class _SonsTileState extends State<_SonsTile> {
           setState(() => _actifs = v);
           await Sons.definirActifs(v);
           if (v) await Sons.jouer(Son.toucher);
+        },
+      ),
+    );
+  }
+}
+
+/// Vibrations de retour (quête validée, verdict de l'Oracle, invocation).
+class _VibrationsTile extends StatefulWidget {
+  const _VibrationsTile();
+
+  @override
+  State<_VibrationsTile> createState() => _VibrationsTileState();
+}
+
+class _VibrationsTileState extends State<_VibrationsTile> {
+  bool _actives = Ambiance.vibrationsActives;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      tileColor: AppColors.backgroundDarkPanel,
+      leading: const Icon(Icons.vibration, color: AppColors.primaryTurquoise),
+      title: const Text('Vibrations', style: TextStyle(color: AppColors.textPrimary)),
+      subtitle: const Text(
+        'Retour tactile sur les moments forts.',
+        style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+      ),
+      trailing: Switch(
+        value: _actives,
+        activeThumbColor: AppColors.primaryTurquoise,
+        onChanged: (v) async {
+          setState(() => _actives = v);
+          await Ambiance.definirVibrations(v);
+          if (v) await Ambiance.vibrer(Vibration.moyenne);
         },
       ),
     );

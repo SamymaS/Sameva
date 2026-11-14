@@ -1,6 +1,6 @@
 # 0003. GameEventBus : découplage entre logique métier et animations
 
-- **Statut** : Proposé
+- **Statut** : Remplacé par [0008](0008-socle-visuels-evenements-avatar.md) le 2026-11-14 (jamais implémenté)
 - **Date** : 2026-07-01
 
 ---

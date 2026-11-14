@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../../core/visuels/visuels.dart';
 import 'pixel_sprite.dart';
 
 /// États de MougiBot, l'esprit de l'Oracle (Paco en sweat sarcelle).
@@ -23,7 +24,8 @@ class MougiBotSprite extends StatelessWidget {
   Widget build(BuildContext context) => AvecManifeste(
         cote: cote,
         builder: (context, m) => PixelSprite(
-          feuille: 'assets/sprites/mougibot.png',
+          feuille: Visuels.mougibot.chemin,
+          lisse: !Visuels.mougibot.pixel,
           animation: m.animation('mougibot', etat.name),
           taille: m.taille('mougibot'),
           cote: cote,

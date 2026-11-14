@@ -1,6 +1,6 @@
 # 0002. AssetResolver : placeholders par défaut et contrat vers les assets définitifs
 
-- **Statut** : Proposé
+- **Statut** : Remplacé par [0008](0008-socle-visuels-evenements-avatar.md) le 2026-11-14 (jamais implémenté)
 - **Date** : 2026-07-01
 
 ---

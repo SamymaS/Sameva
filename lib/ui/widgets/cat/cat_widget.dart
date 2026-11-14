@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/visuels/visuels.dart';
 import '../../theme/app_colors.dart';
 import '../pixel/pixel_sprite.dart';
 
@@ -110,7 +111,8 @@ class _CatWidgetState extends State<CatWidget> with SingleTickerProviderStateMix
                     ),
                   ),
                 PixelSprite(
-                  feuille: 'assets/sprites/chat_$race.png',
+                  feuille: Visuels.chat(race).chemin,
+                  lisse: !Visuels.chat(race).pixel,
                   animation: m.animation('chat', animationPourHumeur(widget.mood)),
                   taille: m.taille('chat'),
                   cote: s,
@@ -119,16 +121,7 @@ class _CatWidgetState extends State<CatWidget> with SingleTickerProviderStateMix
                 if (chapeau != null)
                   Positioned(
                     top: s * 0.02,
-                    child: Image.asset(
-                      'assets/sprites/objets/$chapeau.png',
-                      width: s * 0.36,
-                      height: s * 0.36,
-                      // sans fit, une Image ne fait que réduire : l'icône 32 px resterait petite
-                      fit: BoxFit.contain,
-                      filterQuality: FilterQuality.none,
-                      isAntiAlias: false,
-                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                    ),
+                    child: ImageVisuel(Visuels.objet(chapeau)!, cote: s * 0.36, repli: const SizedBox.shrink()),
                   ),
               ],
             );

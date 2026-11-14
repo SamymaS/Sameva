@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide ChangeNotifierProvider, Consumer, Provider;
 import 'package:provider/provider.dart';
+import '../../../core/avatar/apparence_avatar.dart';
+import '../../../data/models/character_model.dart';
 import '../../../data/models/item_model.dart';
 import '../../../presentation/view_models/auth_view_model.dart';
 import '../../../presentation/view_models/equipment_view_model.dart';
 import '../../../presentation/view_models/player_view_model.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/avatar/avatar_joueur.dart';
+import '../../widgets/pixel/pixel_ui.dart';
 
 /// Fiche personnage — stats du joueur en un coup d'œil.
 class AvatarPage extends StatelessWidget {
@@ -28,7 +33,6 @@ class AvatarPage extends StatelessWidget {
     final crystals = stats?.crystals ?? 0;
     final totalQuests = stats?.totalQuestsCompleted ?? 0;
     final email = auth.user?.email ?? '';
-    final initials = email.isNotEmpty ? email[0].toUpperCase() : '?';
 
     return Scaffold(
       backgroundColor: AppColors.backgroundNightBlue,
@@ -46,7 +50,9 @@ class AvatarPage extends StatelessWidget {
         child: Column(
           children: [
             // Avatar + niveau
-            _AvatarHeader(initials: initials, level: level, email: email),
+            _AvatarHeader(level: level, email: email),
+            const SizedBox(height: 16),
+            const _SectionApparence(),
             const SizedBox(height: 24),
 
             // Barre XP
@@ -98,77 +104,147 @@ class AvatarPage extends StatelessWidget {
 // ─── Widgets internes ─────────────────────────────────────────────────────────
 
 class _AvatarHeader extends StatelessWidget {
-  final String initials;
   final int level;
   final String email;
 
-  const _AvatarHeader({
-    required this.initials,
-    required this.level,
-    required this.email,
-  });
+  const _AvatarHeader({required this.level, required this.email});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Stack(
-          alignment: Alignment.bottomRight,
-          children: [
-            Container(
-              width: 96,
-              height: 96,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [AppColors.primaryViolet, AppColors.primaryVioletLight],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primaryViolet.withValues(alpha: 0.5),
-                    blurRadius: 20,
-                    spreadRadius: 2,
-                  ),
-                ],
-              ),
-              child: Center(
-                child: Text(
-                  initials,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 36,
-                    fontWeight: FontWeight.bold,
-                  ),
+        PixelCadre(
+          bord: PixelCouleurs.violet,
+          fond: PixelCouleurs.panneauProfond,
+          padding: const EdgeInsets.fromLTRB(28, 16, 28, 10),
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.bottomRight,
+            children: [
+              const AvatarJoueurConnecte(hauteur: 190),
+              Positioned(
+                right: -40,
+                top: -8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  color: PixelCouleurs.or,
+                  child: Text('Niv. $level', style: PixelTextes.chiffres(9, PixelCouleurs.nuit)),
                 ),
               ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: AppColors.gold,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                'Niv. $level',
-                style: const TextStyle(
-                  color: AppColors.backgroundNightBlue,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
-        const SizedBox(height: 12),
-        Text(
-          email,
-          style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
-        ),
+        if (email.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Text(email, style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
+        ],
       ],
     );
   }
+}
+
+/// Personnalisation de l'avatar : silhouette, teint, coiffure, couleur des cheveux.
+class _SectionApparence extends ConsumerWidget {
+  const _SectionApparence();
+
+  static const _nomsCouleurs = [
+    'noir', 'brun foncé', 'brun', 'blond doré', 'blond clair',
+    'rouge', 'violet', 'turquoise', 'gris', 'blanc',
+  ];
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final a = ref.watch(apparenceAvatarProvider);
+    final notifier = ref.read(apparenceAvatarProvider.notifier);
+
+    Widget titre(String t) => Padding(
+          padding: const EdgeInsets.only(top: 12, bottom: 6),
+          child: Text(t, style: PixelTextes.corps(15, couleur: PixelCouleurs.texteDoux, poids: FontWeight.w700)),
+        );
+
+    return PixelCadre(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Apparence', style: PixelTextes.chiffres(11, PixelCouleurs.orClair)),
+          titre('Silhouette'),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            for (final g in CharacterGender.values)
+              PixelChoix(
+                key: Key('avatar_silhouette_${g.name}'),
+                libelle: g.label,
+                choisi: a.gender == g,
+                onTap: () => notifier.modifier((v) => v.copyWith(gender: g)),
+              ),
+          ]),
+          titre('Teint'),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            for (final t in SkinTone.values)
+              _Pastille(
+                key: Key('avatar_teint_${t.name}'),
+                couleur: t.color,
+                libelle: 'Teint ${t.label.toLowerCase()}',
+                choisi: a.skinTone == t,
+                onTap: () => notifier.modifier((v) => v.copyWith(skinTone: t)),
+              ),
+          ]),
+          titre('Coiffure'),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            for (final h in HairStyle.values)
+              PixelChoix(
+                key: Key('avatar_coiffure_${h.name}'),
+                libelle: h.label,
+                choisi: a.hairStyle == h,
+                onTap: () => notifier.modifier((v) => v.copyWith(hairStyle: h)),
+              ),
+          ]),
+          titre('Couleur des cheveux'),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            for (var i = 0; i < kHairColors.length; i++)
+              _Pastille(
+                key: Key('avatar_cheveux_$i'),
+                couleur: kHairColors[i],
+                libelle: 'Cheveux ${_nomsCouleurs[i]}',
+                choisi: a.hairColor.toARGB32() == kHairColors[i].toARGB32(),
+                onTap: () => notifier.modifier((v) => v.copyWith(hairColor: kHairColors[i])),
+              ),
+          ]),
+        ],
+      ),
+    );
+  }
+}
+
+/// Pastille de couleur carrée (48 px : cible tactile confortable).
+class _Pastille extends StatelessWidget {
+  const _Pastille({super.key, required this.couleur, required this.libelle, required this.choisi, required this.onTap});
+
+  final Color couleur;
+  final String libelle;
+  final bool choisi;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        container: true,
+        button: true,
+        selected: choisi,
+        label: libelle,
+        excludeSemantics: true,
+        child: GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            width: 48,
+            height: 48,
+            padding: const EdgeInsets.all(5),
+            decoration: BoxDecoration(
+              border: Border.all(color: choisi ? PixelCouleurs.orClair : PixelCouleurs.trait, width: choisi ? 4 : 2),
+            ),
+            child: ColoredBox(color: couleur),
+          ),
+        ),
+      );
 }
 
 class _StatBar extends StatelessWidget {

@@ -546,8 +546,17 @@ class CharacterPainter extends CustomPainter {
       ..quadraticBezierTo(cx, innerBottom, cx - r * 0.66, sideBottom)
       ..quadraticBezierTo(cx - r * 0.92, hc.dy + r * 0.68, cx - r * 1.05, hc.dy + r * 0.3)
       ..close();
-    canvas.drawPath(path, _fill(hair));
-    canvas.drawPath(path, _stroke(hairDark));
+    // La chevelure encadre le visage : on y découpe l'ovale du visage, sinon
+    // elle recouvrait toute la tête (personnage « masqué »).
+    final visage = Path()
+      ..addOval(Rect.fromCenter(
+        center: Offset(cx, hc.dy + r * 0.2),
+        width: r * (isFemale ? 1.56 : 1.66),
+        height: r * 1.8,
+      ));
+    final chevelure = Path.combine(PathOperation.difference, path, visage);
+    canvas.drawPath(chevelure, _fill(hair));
+    canvas.drawPath(chevelure, _stroke(hairDark));
   }
 
   void _drawBangs(Canvas canvas, double cx, Offset hc, double r, Color hair,

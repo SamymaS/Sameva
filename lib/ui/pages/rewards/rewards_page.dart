@@ -1,7 +1,6 @@
-import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import '../../../core/audio/sons.dart';
+import '../../../core/evenements/evenements_jeu.dart';
 import '../../../core/router/app_router.dart';
 import 'package:provider/provider.dart';
 import '../../../data/models/item_model.dart';
@@ -87,7 +86,7 @@ class _RewardsPageState extends State<RewardsPage>
           ModalRoute.of(context)?.settings.arguments as RewardsArgs?;
       if (_args != null) {
         _countCtrl.forward();
-        unawaited(Sons.jouer(_args!.leveledUp ? Son.niveauSuperieur : Son.queteAccomplie));
+        BusJeu.emettre(_args!.leveledUp ? TypeEvenement.niveauSuperieur : TypeEvenement.queteAccomplie);
       }
       setState(() {});
     });

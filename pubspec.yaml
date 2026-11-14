@@ -69,6 +69,8 @@ flutter:
     - assets/sprites/
     - assets/sprites/objets/
     - assets/sfx/
+    # Direction artistique définitive : prioritaire sur le pixel art (voir assets/da/README.md).
+    - assets/da/
 
   fonts:
     - family: MedievalSharp

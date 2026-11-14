@@ -22,6 +22,7 @@ import '../../../presentation/view_models/profile_view_model.dart';
 import '../../../presentation/view_models/quest_view_model.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/app_notification.dart';
+import '../../widgets/avatar/avatar_joueur.dart';
 import '../../widgets/cat/cat_widget.dart';
 import '../../widgets/common/item_icon.dart';
 import '../../widgets/pixel/pixel_ui.dart';
@@ -267,7 +268,18 @@ class _HeroHeader extends StatelessWidget {
                     bottom: BorderSide(color: PixelCouleurs.violet, width: 6),
                   ),
                 ),
-                child: const Icon(Icons.person, color: PixelCouleurs.texte, size: 40),
+                // Buste de l'avatar : le personnage entier, cadré sur le haut.
+                child: const ClipRect(
+                  child: OverflowBox(
+                    alignment: Alignment.topCenter,
+                    minHeight: 0,
+                    maxHeight: 150,
+                    child: Padding(
+                      padding: EdgeInsets.only(top: 6),
+                      child: AvatarJoueurConnecte(hauteur: 140, anime: false, semanticLabel: null),
+                    ),
+                  ),
+                ),
               ),
             ),
           ),

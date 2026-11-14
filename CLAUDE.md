@@ -123,6 +123,15 @@ d'usage (bugs, UX, accessibilité) vont dans `docs/qa/constats.md`.
   coin arrondi. Invocation : `SequenceInvocation.afficher` (charge du portail dont la couleur annonce la rareté,
   « Passer », révélation d'un objet ou de dix cartes, meilleure en dernier ; respecte « réduire les animations »).
 
+- **Socle pour la future DA (ADR 0008)** : le pixel art est provisoire, la direction artistique définitive
+  arrive par `assets/da/` (voir son README).
+  - Visuels et sons : toujours passer par `Visuels` (`lib/core/visuels/visuels.dart` : `objet`, `chat`,
+    `mougibot`, `avatar`, `son`) et `ImageVisuel`. Jamais de chemin `assets/...` en dur dans un écran.
+  - Retours (sons, vibrations) : `BusJeu.emettre(TypeEvenement.x)` (`lib/core/evenements/`), jamais
+    `Sons.jouer` depuis un écran. Les tables de correspondance sont dans `Ambiance`.
+  - Avatar du joueur : `AvatarJoueurConnecte` (`lib/ui/widgets/avatar/avatar_joueur.dart`), apparence dans
+    `apparenceAvatarProvider`. Tout écran qui le montre doit être sous un `ProviderScope` (tests compris).
+
 ## Key Domain Rules (serveur)
 
 - Récompense : `R = base(difficulté) × validation (Oracle 1,0 / déclaratif 0,5) × planification × flamme ×

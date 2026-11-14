@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import '../../../core/audio/sons.dart';
+import '../../../core/evenements/evenements_jeu.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
@@ -517,7 +517,7 @@ class _CatInvocationTabState extends State<_CatInvocationTab>
       return;
     }
 
-    unawaited(Sons.jouer(Sons.invocationPour(result.results.first.rarity.name)));
+    BusJeu.emettre(TypeEvenement.invocation, rarete: result.results.first.rarity.name);
     final newCat = await catProvider.addRolledCat(result.results.first.rarity);
     await _revealCtrl.forward();
 

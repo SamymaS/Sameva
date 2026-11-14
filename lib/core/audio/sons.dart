@@ -2,6 +2,8 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
+import '../visuels/visuels.dart';
+
 /// Effets sonores chiptune de Sameva (assets/sfx, générés par tools/pixel).
 enum Son {
   toucher('ui_toucher'),
@@ -67,7 +69,7 @@ class Sons {
         if (!kIsWeb) await lecteur.setPlayerMode(PlayerMode.lowLatency);
       }
       await lecteur.stop();
-      await lecteur.play(AssetSource('sfx/${son.fichier}.wav'), volume: 0.7);
+      await lecteur.play(AssetSource(Visuels.son(son.fichier)), volume: 0.7);
     } catch (e) {
       debugPrint('Sons: lecture impossible (${son.fichier}) : $e');
     }

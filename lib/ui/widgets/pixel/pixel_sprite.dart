@@ -98,6 +98,7 @@ class PixelSprite extends StatefulWidget {
     this.taille = 32,
     required this.cote,
     this.semanticLabel,
+    this.lisse = false,
   });
 
   /// Chemin de la feuille (une ligne d'images carrées de [taille] px).
@@ -111,6 +112,10 @@ class PixelSprite extends StatefulWidget {
   /// Côté du widget en pixels logiques.
   final double cote;
   final String? semanticLabel;
+
+  /// Feuille non pixel art (illustration, rendu 3D) : agrandissement lissé,
+  /// à la taille exacte du widget.
+  final bool lisse;
 
   @override
   State<PixelSprite> createState() => _PixelSpriteState();
@@ -183,7 +188,8 @@ class _PixelSpriteState extends State<PixelSprite> with TickerProviderStateMixin
       child: f == null
           ? null
           : CustomPaint(
-              painter: _PeintreSprite(f, _image, widget.taille, MediaQuery.maybeDevicePixelRatioOf(context) ?? 1.0)),
+              painter: _PeintreSprite(f, _image, widget.taille, MediaQuery.maybeDevicePixelRatioOf(context) ?? 1.0,
+                  lisse: widget.lisse)),
     );
     return widget.semanticLabel == null
         ? ExcludeSemantics(child: enfant)
@@ -192,7 +198,8 @@ class _PixelSpriteState extends State<PixelSprite> with TickerProviderStateMixin
 }
 
 class _PeintreSprite extends CustomPainter {
-  _PeintreSprite(this.feuille, this.image, this.taille, this.dpr);
+  _PeintreSprite(this.feuille, this.image, this.taille, this.dpr, {this.lisse = false});
+  final bool lisse;
   final ui.Image feuille;
   final int image;
   final int taille;
@@ -204,17 +211,19 @@ class _PeintreSprite extends CustomPainter {
     // Agrandissement entier dès x2 (pixels réguliers) ; en dessous, le sprite
     // remplit sa place quitte à avoir des pixels inégaux (petites vignettes).
     final brut = physique / taille;
-    final facteur = brut >= 2 ? brut.floorToDouble() : brut;
+    final facteur = (brut >= 2 && !lisse) ? brut.floorToDouble() : brut;
     final cote = facteur * taille / dpr;
     final dx = (size.width - cote) / 2, dy = (size.height - cote) / 2;
     final src = Rect.fromLTWH((image * taille).toDouble(), 0, taille.toDouble(), taille.toDouble());
     final dst = Rect.fromLTWH(dx, dy, cote, cote);
-    canvas.drawImageRect(feuille, src, dst, Paint()..filterQuality = FilterQuality.none..isAntiAlias = false);
+    canvas.drawImageRect(feuille, src, dst, Paint()
+          ..filterQuality = lisse ? FilterQuality.medium : FilterQuality.none
+          ..isAntiAlias = lisse);
   }
 
   @override
   bool shouldRepaint(_PeintreSprite old) =>
-      old.image != image || old.feuille != feuille || old.dpr != dpr;
+      old.image != image || old.feuille != feuille || old.dpr != dpr || old.lisse != lisse;
 }
 
 /// Charge le manifeste puis construit [builder] (rien tant qu'il n'est pas prêt).

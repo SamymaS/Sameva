@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'core/evenements/ambiance.dart';
+import 'core/visuels/visuels.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
 import 'package:provider/provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -155,6 +157,11 @@ void main() async {
   // Session déjà ouverte au démarrage (y compris par un lien profond qui
   // n'affiche pas le Sanctuaire) : les soldes sont lus tout de suite, sinon
   // l'énergie s'affichait à 0 et bloquait la validation (constat Q22).
+  // Direction artistique livrée (prioritaire sur le pixel art) et ambiance
+  // sonore branchée sur les événements de jeu (ADR 0008).
+  await Visuels.charger();
+  Ambiance.demarrer();
+
   final sessionUid = supabase.auth.currentUser?.id;
   if (sessionUid != null) {
     unawaited(playerViewModel.loadPlayerStats(sessionUid));
