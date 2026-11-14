@@ -50,9 +50,11 @@ class AvatarPage extends StatelessWidget {
         child: Column(
           children: [
             // Avatar + niveau
-            _AvatarHeader(level: level, email: email),
-            const SizedBox(height: 16),
-            const _SectionApparence(),
+            _Cabine(level: level),
+            if (email.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(email, style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
+            ],
             const SizedBox(height: 24),
 
             // Barre XP
@@ -103,145 +105,294 @@ class AvatarPage extends StatelessWidget {
 
 // ─── Widgets internes ─────────────────────────────────────────────────────────
 
-class _AvatarHeader extends StatelessWidget {
-  final int level;
-  final String email;
+/// Cabine d'essayage : le personnage en grand, qu'on fait tourner, la planche
+/// de ses angles de vue, et les réglages d'apparence illustrés par des vignettes.
+class _Cabine extends ConsumerStatefulWidget {
+  const _Cabine({required this.level});
 
-  const _AvatarHeader({required this.level, required this.email});
+  final int level;
 
   @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        PixelCadre(
-          bord: PixelCouleurs.violet,
-          fond: PixelCouleurs.panneauProfond,
-          padding: const EdgeInsets.fromLTRB(28, 16, 28, 10),
-          child: Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.bottomRight,
-            children: [
-              const AvatarJoueurConnecte(hauteur: 190),
-              Positioned(
-                right: -40,
-                top: -8,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  color: PixelCouleurs.or,
-                  child: Text('Niv. $level', style: PixelTextes.chiffres(9, PixelCouleurs.nuit)),
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (email.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          Text(email, style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
-        ],
-      ],
-    );
-  }
+  ConsumerState<_Cabine> createState() => _CabineState();
 }
 
-/// Personnalisation de l'avatar : silhouette, teint, coiffure, couleur des cheveux.
-class _SectionApparence extends ConsumerWidget {
-  const _SectionApparence();
+enum _Onglet {
+  silhouette('Corps'),
+  teint('Teint'),
+  coiffure('Coiffure'),
+  couleur('Couleur');
 
+  const _Onglet(this.libelle);
+  final String libelle;
+}
+
+class _CabineState extends ConsumerState<_Cabine> {
+  static const _vues = ['Face', 'Trois quarts', 'Profil', 'Trois quarts dos', 'Dos'];
   static const _nomsCouleurs = [
     'noir', 'brun foncé', 'brun', 'blond doré', 'blond clair',
     'rouge', 'violet', 'turquoise', 'gris', 'blanc',
   ];
 
+  int _angle = 0;
+  double _glisse = 0;
+  _Onglet _onglet = _Onglet.silhouette;
+
+  void _tourner(int pas) => setState(() => _angle = (_angle + pas) % 8);
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final a = ref.watch(apparenceAvatarProvider);
     final notifier = ref.read(apparenceAvatarProvider.notifier);
+    final equipement = context.watch<EquipmentViewModel>();
+    final tenue = TenueAvatar.depuisCosmetiques(equipement.getCosmeticSlot);
 
-    Widget titre(String t) => Padding(
-          padding: const EdgeInsets.only(top: 12, bottom: 6),
-          child: Text(t, style: PixelTextes.corps(15, couleur: PixelCouleurs.texteDoux, poids: FontWeight.w700)),
+    Widget fleche(IconData icone, String libelle, int pas) => Semantics(
+          container: true,
+          button: true,
+          label: libelle,
+          excludeSemantics: true,
+          child: GestureDetector(
+            onTap: () => _tourner(pas),
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: PixelCouleurs.panneau,
+                border: Border.all(color: PixelCouleurs.violet, width: 2),
+              ),
+              child: Icon(icone, color: PixelCouleurs.texte),
+            ),
+          ),
         );
 
-    return PixelCadre(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Apparence', style: PixelTextes.chiffres(11, PixelCouleurs.orClair)),
-          titre('Silhouette'),
-          Wrap(spacing: 8, runSpacing: 8, children: [
-            for (final g in CharacterGender.values)
-              PixelChoix(
-                key: Key('avatar_silhouette_${g.name}'),
-                libelle: g.label,
-                choisi: a.gender == g,
-                onTap: () => notifier.modifier((v) => v.copyWith(gender: g)),
-              ),
-          ]),
-          titre('Teint'),
-          Wrap(spacing: 8, runSpacing: 8, children: [
-            for (final t in SkinTone.values)
-              _Pastille(
-                key: Key('avatar_teint_${t.name}'),
-                couleur: t.color,
-                libelle: 'Teint ${t.label.toLowerCase()}',
-                choisi: a.skinTone == t,
-                onTap: () => notifier.modifier((v) => v.copyWith(skinTone: t)),
-              ),
-          ]),
-          titre('Coiffure'),
-          Wrap(spacing: 8, runSpacing: 8, children: [
-            for (final h in HairStyle.values)
-              PixelChoix(
-                key: Key('avatar_coiffure_${h.name}'),
-                libelle: h.label,
-                choisi: a.hairStyle == h,
-                onTap: () => notifier.modifier((v) => v.copyWith(hairStyle: h)),
-              ),
-          ]),
-          titre('Couleur des cheveux'),
-          Wrap(spacing: 8, runSpacing: 8, children: [
-            for (var i = 0; i < kHairColors.length; i++)
-              _Pastille(
-                key: Key('avatar_cheveux_$i'),
-                couleur: kHairColors[i],
-                libelle: 'Cheveux ${_nomsCouleurs[i]}',
-                choisi: a.hairColor.toARGB32() == kHairColors[i].toARGB32(),
-                onTap: () => notifier.modifier((v) => v.copyWith(hairColor: kHairColors[i])),
-              ),
-          ]),
+    Widget vignette({
+      required Key key,
+      required String libelle,
+      required String semantique,
+      required bool choisi,
+      required CharacterAppearance apercu,
+      required VoidCallback onTap,
+      bool entier = false,
+    }) =>
+        _Vignette(
+          key: key,
+          libelle: libelle,
+          semantique: semantique,
+          choisi: choisi,
+          onTap: onTap,
+          child: AvatarJoueur(
+            apparence: apercu,
+            tenue: tenue,
+            hauteur: entier ? 104 : 64,
+            cadrage: entier ? CadrageAvatar.entier : CadrageAvatar.buste,
+            ombre: false,
+            semanticLabel: null,
+          ),
+        );
+
+    final options = switch (_onglet) {
+      _Onglet.silhouette => [
+          for (final g in CharacterGender.values)
+            vignette(
+              key: Key('avatar_silhouette_${g.name}'),
+              libelle: g.label,
+              semantique: g.label,
+              choisi: a.gender == g,
+              apercu: a.copyWith(gender: g),
+              entier: true,
+              onTap: () => notifier.modifier((v) => v.copyWith(gender: g)),
+            ),
         ],
-      ),
+      _Onglet.teint => [
+          for (final t in SkinTone.values)
+            vignette(
+              key: Key('avatar_teint_${t.name}'),
+              libelle: t.label,
+              semantique: 'Teint ${t.label.toLowerCase()}',
+              choisi: a.skinTone == t,
+              apercu: a.copyWith(skinTone: t),
+              onTap: () => notifier.modifier((v) => v.copyWith(skinTone: t)),
+            ),
+        ],
+      _Onglet.coiffure => [
+          for (final h in HairStyle.values)
+            vignette(
+              key: Key('avatar_coiffure_${h.name}'),
+              libelle: h.label,
+              semantique: h.label,
+              choisi: a.hairStyle == h,
+              apercu: a.copyWith(hairStyle: h),
+              onTap: () => notifier.modifier((v) => v.copyWith(hairStyle: h)),
+            ),
+        ],
+      _Onglet.couleur => [
+          for (var i = 0; i < kHairColors.length; i++)
+            vignette(
+              key: Key('avatar_cheveux_$i'),
+              libelle: _nomsCouleurs[i],
+              semantique: 'Cheveux ${_nomsCouleurs[i]}',
+              choisi: a.hairColor.toARGB32() == kHairColors[i].toARGB32(),
+              apercu: a.copyWith(hairColor: kHairColors[i]),
+              onTap: () => notifier.modifier((v) => v.copyWith(hairColor: kHairColors[i])),
+            ),
+        ],
+    };
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // ── Le personnage, sur son podium ──
+        PixelCadre(
+          bord: PixelCouleurs.violet,
+          fond: PixelCouleurs.panneauProfond,
+          padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onHorizontalDragUpdate: (d) {
+                  _glisse += d.delta.dx;
+                  if (_glisse.abs() >= 28) {
+                    _tourner(_glisse > 0 ? 1 : 7);
+                    _glisse = 0;
+                  }
+                },
+                onHorizontalDragEnd: (_) => _glisse = 0,
+                child: SizedBox(
+                  height: 300,
+                  child: Center(
+                    child: AvatarJoueur(apparence: a, tenue: tenue, hauteur: 300, angle: _angle),
+                  ),
+                ),
+              ),
+              Positioned(left: 0, bottom: 0, child: fleche(Icons.rotate_left, 'Tourner vers la gauche', 7)),
+              Positioned(right: 0, bottom: 0, child: fleche(Icons.rotate_right, 'Tourner vers la droite', 1)),
+              Positioned(
+                right: 0,
+                top: 0,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  color: PixelCouleurs.or,
+                  child: Text('Niv. ${widget.level}', style: PixelTextes.chiffres(9, PixelCouleurs.nuit)),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        // ── Planche des angles de vue ──
+        Row(
+          children: [
+            for (var i = 0; i < _vues.length; i++)
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(left: i == 0 ? 0 : 6),
+                  child: Semantics(
+                    container: true,
+                    button: true,
+                    selected: _angle == i,
+                    label: 'Vue ${_vues[i].toLowerCase()}',
+                    excludeSemantics: true,
+                    child: GestureDetector(
+                      key: Key('avatar_vue_$i'),
+                      onTap: () => setState(() => _angle = i),
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        decoration: BoxDecoration(
+                          color: PixelCouleurs.panneau,
+                          border: Border.all(
+                              color: _angle == i ? PixelCouleurs.orClair : PixelCouleurs.trait,
+                              width: _angle == i ? 3 : 2),
+                        ),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: AvatarJoueur(
+                              apparence: a, tenue: tenue, hauteur: 92, angle: i, ombre: false, semanticLabel: null),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        // ── Réglages d'apparence ──
+        PixelCadre(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Apparence', style: PixelTextes.chiffres(11, PixelCouleurs.orClair)),
+              const SizedBox(height: 10),
+              Wrap(spacing: 6, runSpacing: 6, children: [
+                for (final o in _Onglet.values)
+                  PixelChoix(
+                    key: Key('avatar_onglet_${o.name}'),
+                    libelle: o.libelle,
+                    choisi: _onglet == o,
+                    onTap: () => setState(() => _onglet = o),
+                  ),
+              ]),
+              const SizedBox(height: 12),
+              Wrap(spacing: 8, runSpacing: 8, children: options),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
 
-/// Pastille de couleur carrée (48 px : cible tactile confortable).
-class _Pastille extends StatelessWidget {
-  const _Pastille({super.key, required this.couleur, required this.libelle, required this.choisi, required this.onTap});
+/// Vignette d'une option : l'aperçu du personnage et son nom.
+class _Vignette extends StatelessWidget {
+  const _Vignette({
+    super.key,
+    required this.libelle,
+    required this.semantique,
+    required this.choisi,
+    required this.onTap,
+    required this.child,
+  });
 
-  final Color couleur;
   final String libelle;
+  final String semantique;
   final bool choisi;
   final VoidCallback onTap;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) => Semantics(
         container: true,
         button: true,
         selected: choisi,
-        label: libelle,
+        label: semantique,
         excludeSemantics: true,
         child: GestureDetector(
           onTap: onTap,
           behavior: HitTestBehavior.opaque,
           child: Container(
-            width: 48,
-            height: 48,
-            padding: const EdgeInsets.all(5),
+            width: 84,
+            padding: const EdgeInsets.fromLTRB(4, 6, 4, 4),
             decoration: BoxDecoration(
-              border: Border.all(color: choisi ? PixelCouleurs.orClair : PixelCouleurs.trait, width: choisi ? 4 : 2),
+              color: choisi ? PixelCouleurs.violetSombre : PixelCouleurs.panneauProfond,
+              border: Border.all(color: choisi ? PixelCouleurs.orClair : PixelCouleurs.trait, width: choisi ? 3 : 2),
             ),
-            child: ColoredBox(color: couleur),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                child,
+                const SizedBox(height: 4),
+                Text(
+                  libelle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: PixelTextes.corps(13, couleur: choisi ? PixelCouleurs.texte : PixelCouleurs.texteDoux),
+                ),
+              ],
+            ),
           ),
         ),
       );

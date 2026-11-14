@@ -90,11 +90,12 @@ class Visuels {
     return v is String && v.isNotEmpty ? Visuel(v, pixel: _daEnPixel) : const Visuel('assets/sprites/mougibot.png');
   }
 
-  /// Illustration de l'avatar du joueur livrée par la DA, ou null : l'avatar
-  /// provisoire dessiné par le code est alors utilisé.
-  static Visuel? get avatar {
+  /// Dossier des couches de l'avatar du joueur (un `manifeste.json` et une
+  /// feuille par couche, produits par `tools/avatar3d/generer_avatar.py`).
+  /// La DA le remplace en livrant son propre modèle rendu avec le même script.
+  static String get dossierAvatar {
     final v = _da['avatar'];
-    return v is String && v.isNotEmpty ? Visuel(v, pixel: _daEnPixel) : null;
+    return v is String && v.isNotEmpty ? v : 'assets/avatar';
   }
 
   /// Fichier d'un son (chemin relatif à `assets/`, attendu par audioplayers).

@@ -129,8 +129,11 @@ d'usage (bugs, UX, accessibilité) vont dans `docs/qa/constats.md`.
     `mougibot`, `avatar`, `son`) et `ImageVisuel`. Jamais de chemin `assets/...` en dur dans un écran.
   - Retours (sons, vibrations) : `BusJeu.emettre(TypeEvenement.x)` (`lib/core/evenements/`), jamais
     `Sons.jouer` depuis un écran. Les tables de correspondance sont dans `Ambiance`.
-  - Avatar du joueur : `AvatarJoueurConnecte` (`lib/ui/widgets/avatar/avatar_joueur.dart`), apparence dans
-    `apparenceAvatarProvider`. Tout écran qui le montre doit être sous un `ProviderScope` (tests compris).
+  - Avatar du joueur en 2.5D : `AvatarJoueurConnecte` / `AvatarJoueur` (`lib/ui/widgets/avatar/avatar_joueur.dart`,
+    paramètres `angle` 0 à 7 et `cadrage` entier ou buste), apparence dans `apparenceAvatarProvider`. Tout écran qui
+    le montre doit être sous un `ProviderScope` (tests compris). Les images (`assets/avatar/`, couches blanches
+    teintées par l'app) sont rendues par Blender : `tools/avatar3d/generer_avatar.py` (voir son README). Ne jamais
+    les retoucher à la main : modifier le script et régénérer.
 
 ## Key Domain Rules (serveur)
 

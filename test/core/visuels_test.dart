@@ -19,7 +19,7 @@ void main() {
       expect(Visuels.chat('lune'), const Visuel('assets/sprites/chat_lune.png'));
       expect(Visuels.mougibot.chemin, 'assets/sprites/mougibot.png');
       expect(Visuels.mougibot.pixel, isTrue);
-      expect(Visuels.avatar, isNull, reason: 'avatar provisoire dessiné par le code');
+      expect(Visuels.dossierAvatar, 'assets/avatar', reason: 'avatar provisoire rendu par Blender');
       expect(Visuels.son('quete_accomplie'), 'sfx/quete_accomplie.wav');
     });
   });
@@ -30,7 +30,7 @@ void main() {
           'objets': {'sword_rusty': 'assets/da/objets/epee.png'},
           'chats': {'lune': 'assets/da/chats/lune.png'},
           'mougibot': 'assets/da/robot.png',
-          'avatar': 'assets/da/avatar.png',
+          'avatar': 'assets/da/avatar',
           'sons': {'quete_accomplie': 'assets/da/sfx/victoire.ogg'},
         }));
 
@@ -40,7 +40,7 @@ void main() {
       expect(epee.pixel, isFalse);
       expect(Visuels.chat('lune').chemin, 'assets/da/chats/lune.png');
       expect(Visuels.mougibot.chemin, 'assets/da/robot.png');
-      expect(Visuels.avatar!.chemin, 'assets/da/avatar.png');
+      expect(Visuels.dossierAvatar, 'assets/da/avatar');
       expect(Visuels.son('quete_accomplie'), 'da/sfx/victoire.ogg');
     });
 
@@ -56,8 +56,8 @@ void main() {
     final m = jsonDecode(File(Visuels.cheminManifeste).readAsStringSync()) as Map<String, dynamic>;
     final chemins = <String>[
       for (final section in ['objets', 'chats', 'sons']) ...((m[section] as Map?)?.values.cast<String>() ?? const []),
-      for (final cle in ['mougibot', 'avatar'])
-        if ((m[cle] as String?)?.isNotEmpty ?? false) m[cle] as String,
+      if ((m['mougibot'] as String?)?.isNotEmpty ?? false) m['mougibot'] as String,
+      if ((m['avatar'] as String?)?.isNotEmpty ?? false) '${m['avatar']}/manifeste.json',
     ];
     for (final c in chemins) {
       expect(File(c).existsSync(), isTrue, reason: '$c est cité dans le manifeste mais absent');

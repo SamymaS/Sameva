@@ -25,8 +25,8 @@ Constat dans le code avant cette décision :
   `mougibot.png`, `objets/$nom.png`, `sfx/$nom.wav`) ;
 - 9 appels directs à `Sons.jouer` dans les écrans : changer ou ajouter un retour
   (son, vibration, animation) oblige à modifier chaque écran ;
-- un personnage humain en couches (`CharacterPainter`, `CharacterAppearance`)
-  écrit puis jamais affiché ; la fiche personnage montre l'initiale de l'e-mail.
+- un modèle d'apparence (`CharacterAppearance`) et un dessin de personnage écrits
+  puis jamais affichés ; la fiche personnage montre l'initiale de l'e-mail.
 
 ## Décision
 
@@ -59,20 +59,28 @@ de deux tables. Les vibrations sont nouvelles, coupables dans les réglages
 - Les futures réactions (animations de l'avatar, de l'anti-personnage) s'abonneront
   au même flux, sans retoucher les écrans.
 
-### 3. Avatar du joueur (`lib/ui/widgets/avatar/avatar_joueur.dart`)
+### 3. Avatar du joueur en 2.5D (`lib/ui/widgets/avatar/avatar_joueur.dart`)
 
-`AvatarJoueur` affiche le personnage du joueur. Provisoirement, il est dessiné par
-le code (`CharacterPainter`, enfin utilisé) à partir d'une apparence (silhouette,
-teint, coiffure, couleur des cheveux) et d'une tenue en couches lue dans les
-cosmétiques équipés. Si le manifeste fournit `avatar`, c'est le visuel de la DA
-qui s'affiche.
+`AvatarJoueur` affiche le personnage du joueur. C'est un modèle **3D pré-rendu** :
+un personnage construit dans Blender (`tools/avatar3d/generer_avatar.py`), rendu
+en **couches blanches** sous 8 angles (corps, haut, bas, chaussures, visage,
+sourcils, coiffures, chapeaux), chaque couche étant masquée par les autres pièces
+au rendu. L'application empile les couches et les teinte (peau, cheveux,
+cosmétiques équipés) : une seule série d'images couvre toutes les combinaisons,
+sans moteur 3D embarqué.
 
-- L'apparence est un état Riverpod (`apparenceAvatarProvider`), enregistré par
-  compte dans la boîte Hive `settings`.
-- La fiche personnage affiche l'avatar et permet de le personnaliser ; le profil
-  montre son buste.
+- L'apparence (silhouette, teint, coiffure, couleur des cheveux) est un état
+  Riverpod (`apparenceAvatarProvider`), enregistré par compte dans Hive `settings`.
+- La fiche personnage devient une cabine d'essayage : personnage en grand que l'on
+  fait tourner (glisser, flèches), planche de ses angles de vue, onglets et
+  vignettes illustrées. Le profil montre son buste.
+- Le modèle est provisoire (formes simples générées par le script). La DA le
+  remplace en livrant son propre dossier de couches (`avatar` dans le manifeste) :
+  mêmes noms de couches, mêmes angles, aucun écran modifié.
 - Le Sanctuaire garde le chat tant que la DA n'a pas tranché la place de l'avatar,
   du compagnon et de la navigation (carte, village).
+- Le premier jet, un personnage 2D dessiné par le code (`CharacterPainter`), a été
+  jugé trop pauvre et supprimé.
 
 ## Alternatives écartées
 
@@ -102,9 +110,10 @@ qui s'affiche.
 **Négatif et dette acceptée**
 
 - L'apparence n'est pas synchronisée entre appareils avant le Sprint 3.
-- Les animations (manifeste `animations.json`) restent au format des feuilles de
-  sprites pixel : un personnage 3D ou squeletté demandera un autre moteur de rendu
-  (prototype Flutter Scene, à part).
+- L'avatar est immobile (une pose, 8 angles) : marche, saut et expressions
+  demanderont soit plus de rendus par couche, soit un vrai moteur 3D (prototype
+  Flutter Scene, à part).
+- Les images de l'avatar pèsent quelques mégaoctets dans l'application.
 - `AppNotification` et les animations locales aux pages ne passent pas encore par
   le bus : migration au fil de l'eau.
 

@@ -69,6 +69,8 @@ flutter:
     - assets/sprites/
     - assets/sprites/objets/
     - assets/sfx/
+    # Avatar 2.5D : couches rendues par Blender (tools/avatar3d/).
+    - assets/avatar/
     # Direction artistique définitive : prioritaire sur le pixel art (voir assets/da/README.md).
     - assets/da/
 

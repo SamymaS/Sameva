@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sameva/core/providers.dart';
 import 'package:sameva/data/models/character_model.dart';
 import 'package:sameva/ui/widgets/avatar/avatar_joueur.dart';
-import 'package:sameva/ui/widgets/character/character_painter.dart';
+import 'package:sameva/core/avatar/apparence_avatar.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:mocktail/mocktail.dart';
@@ -117,27 +117,52 @@ void main() {
       expect(find.text('test@example.com'), findsOneWidget);
     });
 
-    testWidgets('apparence : un choix modifie aussitôt l\'avatar', (tester) async {
-      await tester.binding.setSurfaceSize(const Size(412, 2400));
+    testWidgets('cabine : onglets, vignettes et choix enregistrés', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 2600));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       await tester.pumpWidget(_buildAvatar());
       await tester.pump();
 
-      CharacterPainter peintre() => tester
-          .widget<CustomPaint>(
-              find.descendant(of: find.byType(AvatarJoueur), matching: find.byType(CustomPaint)).first)
-          .painter! as CharacterPainter;
-      expect(peintre().appearance.hairStyle, HairStyle.medium);
+      CharacterAppearance apparence() =>
+          ProviderScope.containerOf(tester.element(find.byType(AvatarPage))).read(apparenceAvatarProvider);
+      // Le grand personnage est le premier avatar de la page.
+      AvatarJoueur grand() => tester.widget<AvatarJoueur>(find.byType(AvatarJoueur).first);
+      expect(grand().apparence.hairStyle, HairStyle.medium);
 
-      await tester.tap(find.byKey(const Key('avatar_coiffure_bun')));
-      await tester.tap(find.byKey(const Key('avatar_teint_dark')));
       await tester.tap(find.byKey(const Key('avatar_silhouette_female')));
+      await tester.tap(find.byKey(const Key('avatar_onglet_coiffure')));
+      await tester.pump();
+      expect(find.bySemanticsLabel('Chignon'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('avatar_coiffure_bun')));
+      await tester.tap(find.byKey(const Key('avatar_onglet_teint')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('avatar_teint_dark')));
       await tester.pump();
 
-      expect(peintre().appearance.hairStyle, HairStyle.bun);
-      expect(peintre().appearance.skinTone, SkinTone.dark);
-      expect(peintre().appearance.gender, CharacterGender.female);
-      expect(find.bySemanticsLabel('Teint brune'), findsOneWidget);
+      expect(apparence().gender, CharacterGender.female);
+      expect(apparence().hairStyle, HairStyle.bun);
+      expect(apparence().skinTone, SkinTone.dark);
+      expect(grand().apparence.hairStyle, HairStyle.bun, reason: 'le grand personnage suit aussitôt');
+    });
+
+    testWidgets('cabine : flèches et planche des vues font tourner le personnage', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 2600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(_buildAvatar());
+      await tester.pump();
+
+      int angle() => tester.widget<AvatarJoueur>(find.byType(AvatarJoueur).first).angle;
+      expect(angle(), 0);
+      await tester.tap(find.bySemanticsLabel('Tourner vers la droite'));
+      await tester.pump();
+      expect(angle(), 1);
+      await tester.tap(find.bySemanticsLabel('Tourner vers la gauche'));
+      await tester.tap(find.bySemanticsLabel('Tourner vers la gauche'));
+      await tester.pump();
+      expect(angle(), 7);
+      await tester.tap(find.byKey(const Key('avatar_vue_4')));
+      await tester.pump();
+      expect(angle(), 4, reason: 'vue de dos');
     });
 
     testWidgets('affiche Niv. 1 par défaut sans stats', (tester) async {

@@ -267,15 +267,22 @@ await parcours("avatar : fiche personnage et apparence", async (page) => {
   await attendre(page, "Mode invité", 10000).catch(() => false);
   await toucher(page, "Fiche personnage");
   r.verifier("fiche personnage : avatar affiché", await attendre(page, "Ton personnage", 10000).catch(() => false));
-  r.verifier("réglages d'apparence présents", (await voit(page, "Silhouette")) && (await voit(page, "Coiffure")));
-  await pause(600);
+  r.verifier("réglages d'apparence présents", (await voit(page, "Corps")) && (await voit(page, "Coiffure")));
+  await pause(1200);
   await capture(page, "avatar_defaut");
   await toucher(page, "Féminin");
+  await toucher(page, "Coiffure", { exact: true });
   await toucher(page, "Chignon");
+  await toucher(page, "Teint", { exact: true });
   await toucher(page, "Teint brune");
+  await toucher(page, "Couleur", { exact: true });
   await toucher(page, "Cheveux violet");
-  await pause(600);
+  await toucher(page, "Tourner vers la droite");
+  await pause(800);
   await capture(page, "avatar_personnalise");
+  await toucher(page, "Vue dos");
+  await pause(600);
+  await capture(page, "avatar_de_dos");
   // L'apparence est conservée : on quitte la fiche et on y revient.
   await page.goBack();
   await attendre(page, "Fiche personnage", 10000).catch(() => false);
@@ -286,7 +293,11 @@ await parcours("avatar : fiche personnage et apparence", async (page) => {
   // Flutter web expose l'option choisie d'un bouton par aria-current.
   const choisis = await page.$$eval("flt-semantics[aria-current='true']", (els) =>
     els.map((e) => (e.getAttribute("aria-label") || e.innerText || "").trim()));
-  r.verifier("apparence conservée après retour", choisis.some((t) => t.includes("Cheveux violet")) && choisis.some((t) => t.includes("Teint brune")), choisis);
+  await toucher(page, "Couleur", { exact: true });
+  await pause(400);
+  const choisis2 = await page.$$eval("flt-semantics[aria-current='true']", (els) =>
+    els.map((e) => (e.getAttribute("aria-label") || e.innerText || "").trim()));
+  r.verifier("apparence conservée après retour", choisis.includes("Féminin") && choisis2.some((t) => t.includes("Cheveux violet")), [choisis, choisis2]);
 });
 
 await parcours("lien profond vers une quête", async (page) => {

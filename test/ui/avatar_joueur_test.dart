@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -6,16 +7,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:sameva/core/avatar/apparence_avatar.dart';
 import 'package:sameva/core/providers.dart';
-import 'package:sameva/core/visuels/visuels.dart';
 import 'package:sameva/data/models/character_model.dart';
 import 'package:sameva/data/models/item_model.dart';
 import 'package:sameva/data/models/quest_model.dart';
 import 'package:sameva/ui/widgets/avatar/avatar_joueur.dart';
-import 'package:sameva/ui/widgets/character/character_painter.dart';
-
-CharacterPainter _peintre(WidgetTester tester) => tester
-    .widget<CustomPaint>(find.descendant(of: find.byType(AvatarJoueur), matching: find.byType(CustomPaint)).first)
-    .painter! as CharacterPainter;
 
 Item _cosmetique(String id, {required int couleur, int? style}) => Item(
       id: id,
@@ -29,49 +24,81 @@ Item _cosmetique(String id, {required int couleur, int? style}) => Item(
     );
 
 void main() {
-  tearDown(() => Visuels.definirManifeste(const {}));
+  // Le vrai manifeste du dépôt, produit par tools/avatar3d/generer_avatar.py.
+  final json = jsonDecode(File('assets/avatar/manifeste.json').readAsStringSync()) as Map<String, dynamic>;
+  final manifeste = ManifesteAvatar('assets/avatar', json);
 
-  testWidgets('avatar provisoire : dessiné par le code, annoncé aux lecteurs d\'écran', (tester) async {
+  group('couches rendues par Blender', () {
+    test('toutes les combinaisons d\'apparence ont leurs images', () {
+      for (final g in CharacterGender.values) {
+        for (final h in HairStyle.values) {
+          final noms = manifeste
+              .couches(CharacterAppearance(gender: g, hairStyle: h), const TenueAvatar())
+              .map((c) => c.nom)
+              .toList();
+          expect(noms.first, 'corps_${g.name}');
+          expect(noms, containsAll(['bas_${g.name}', 'haut_${g.name}', 'chaussures', 'visage', 'sourcils']));
+          expect(noms.where((n) => n.startsWith('cheveux_${h.name}')), hasLength(1), reason: '$g $h');
+        }
+      }
+    });
+
+    test('chaque feuille citée existe, avec 8 angles de la bonne taille', () {
+      expect(manifeste.angles, 8);
+      for (final fichier in (json['couches'] as Map).values) {
+        final f = File('assets/avatar/$fichier');
+        expect(f.existsSync(), isTrue, reason: '$fichier');
+        // En-tête PNG : largeur et hauteur sur 4 octets chacun à partir du 16e.
+        final o = f.readAsBytesSync();
+        int entier(int i) => (o[i] << 24) | (o[i + 1] << 16) | (o[i + 2] << 8) | o[i + 3];
+        expect(entier(16), manifeste.largeur * manifeste.angles, reason: '$fichier largeur');
+        expect(entier(20), manifeste.hauteur, reason: '$fichier hauteur');
+      }
+    });
+
+    test('les coiffures longues suivent la silhouette (elles tombent sur les épaules)', () {
+      String cheveux(CharacterGender g) => manifeste
+          .couches(CharacterAppearance(gender: g, hairStyle: HairStyle.long), const TenueAvatar())
+          .firstWhere((c) => c.nom.startsWith('cheveux_'))
+          .nom;
+      expect(cheveux(CharacterGender.male), 'cheveux_long_male');
+      expect(cheveux(CharacterGender.female), 'cheveux_long_female');
+    });
+
+    test('teintes : peau, cheveux et sourcils suivent l\'apparence, le visage n\'est pas teinté', () {
+      const a = CharacterAppearance(skinTone: SkinTone.dark, hairColor: Color(0xFF8B008B));
+      final c = {for (final x in manifeste.couches(a, const TenueAvatar())) x.nom: x.teinte};
+      expect(c['corps_male'], SkinTone.dark.color);
+      expect(c['cheveux_medium'], const Color(0xFF8B008B));
+      expect(c['sourcils'], const Color(0xFF8B008B));
+      expect(c['visage'], isNull);
+    });
+
+    test('la tenue vient des cosmétiques équipés, le chapeau se pose en dernier', () {
+      final equipes = {
+        'outfit': _cosmetique('haut', couleur: 0xFFAA0000),
+        'hat': _cosmetique('chapeau', couleur: 0xFF00AA00, style: 2),
+      };
+      final couches = manifeste.couches(const CharacterAppearance(), TenueAvatar.depuisCosmetiques((e) => equipes[e]));
+      expect(couches.firstWhere((c) => c.nom == 'haut_male').teinte, const Color(0xFFAA0000));
+      expect(couches.last.nom, 'chapeau_2');
+      expect(couches.last.teinte, const Color(0xFF00AA00));
+      expect(manifeste.couches(const CharacterAppearance(), const TenueAvatar()).any((c) => c.nom.startsWith('chapeau')),
+          isFalse);
+    });
+  });
+
+  testWidgets('personnage entier en 1 : 2, buste carré, annoncé aux lecteurs d\'écran', (tester) async {
     await tester.pumpWidget(const MaterialApp(
-      home: Center(child: AvatarJoueur(apparence: CharacterAppearance(skinTone: SkinTone.dark), hauteur: 200)),
+      home: Column(children: [
+        AvatarJoueur(apparence: CharacterAppearance(), hauteur: 200),
+        AvatarJoueur(
+            apparence: CharacterAppearance(), hauteur: 60, cadrage: CadrageAvatar.buste, semanticLabel: null),
+      ]),
     ));
     expect(find.bySemanticsLabel('Ton personnage'), findsOneWidget);
-    expect(_peintre(tester).appearance.skinTone, SkinTone.dark);
-    expect(tester.getSize(find.byType(AvatarJoueur)).height, 200);
-  });
-
-  testWidgets('la tenue vient des cosmétiques équipés', (tester) async {
-    final equipes = {
-      'outfit': _cosmetique('haut', couleur: 0xFFAA0000),
-      'hat': _cosmetique('chapeau', couleur: 0xFF00AA00, style: 2),
-    };
-    await tester.pumpWidget(MaterialApp(
-      home: AvatarJoueur(
-        apparence: const CharacterAppearance(),
-        tenue: TenueAvatar.depuisCosmetiques((e) => equipes[e]),
-      ),
-    ));
-    final p = _peintre(tester);
-    expect(p.outfitColor, const Color(0xFFAA0000));
-    expect(p.hatStyle, 2);
-    expect(p.hatColor, const Color(0xFF00AA00));
-    expect(p.auraColor, isNull);
-  });
-
-  testWidgets('« réduire les animations » : l\'avatar ne bouge pas', (tester) async {
-    await tester.pumpWidget(const MediaQuery(
-      data: MediaQueryData(disableAnimations: true),
-      child: MaterialApp(home: AvatarJoueur(apparence: CharacterAppearance())),
-    ));
-    expect(tester.hasRunningAnimations, isFalse);
-  });
-
-  testWidgets('un avatar livré par la DA remplace le dessin provisoire', (tester) async {
-    Visuels.definirManifeste({'avatar': 'assets/da/avatar.png'});
-    await tester.pumpWidget(const MaterialApp(home: AvatarJoueur(apparence: CharacterAppearance(), anime: false)));
-    expect(find.descendant(of: find.byType(AvatarJoueur), matching: find.byType(Image)), findsOneWidget);
-    expect(find.descendant(of: find.byType(AvatarJoueur), matching: find.byType(CustomPaint)), findsNothing);
-    tester.takeException(); // le fichier n'existe pas dans le bundle de test
+    expect(tester.getSize(find.byType(AvatarJoueur).first), const Size(100, 200));
+    expect(tester.getSize(find.byType(AvatarJoueur).last), const Size(60, 60));
   });
 
   group('apparence enregistrée', () {

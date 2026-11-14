@@ -13,7 +13,7 @@ modification du code : un fichier et une ligne dans `manifeste.json`.
   "objets": { "sword_rusty": "assets/da/objets/sword_rusty.png" },
   "chats": { "lune": "assets/da/chats/lune.png" },
   "mougibot": "assets/da/mougibot.png",
-  "avatar": "assets/da/avatar.png",
+  "avatar": "assets/da/avatar",
   "sons": { "quete_accomplie": "assets/da/sfx/quete_accomplie.ogg" }
 }
 ```
@@ -24,7 +24,7 @@ modification du code : un fichier et une ligne dans `manifeste.json`.
 | `objets` | Une icône carrée par objet | Les noms sont ceux de `assets/sprites/objets/` |
 | `chats` | Une feuille de sprites par race | Même découpage que `assets/sprites/animations.json` |
 | `mougibot` | La feuille de sprites de MougiBot | Même découpage que le manifeste des animations |
-| `avatar` | L'illustration de l'avatar du joueur | Vide : avatar provisoire dessiné par le code |
+| `avatar` | Le dossier des couches de l'avatar (son `manifeste.json` et une feuille par couche) | Produit par `tools/avatar3d/generer_avatar.py` depuis le modèle Blender ; vide : avatar provisoire |
 | `sons` | Un fichier par son | Les noms sont ceux de `assets/sfx/` |
 
 Une clé absente ou vide garde le visuel provisoire.

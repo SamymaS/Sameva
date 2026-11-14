@@ -268,18 +268,7 @@ class _HeroHeader extends StatelessWidget {
                     bottom: BorderSide(color: PixelCouleurs.violet, width: 6),
                   ),
                 ),
-                // Buste de l'avatar : le personnage entier, cadré sur le haut.
-                child: const ClipRect(
-                  child: OverflowBox(
-                    alignment: Alignment.topCenter,
-                    minHeight: 0,
-                    maxHeight: 150,
-                    child: Padding(
-                      padding: EdgeInsets.only(top: 6),
-                      child: AvatarJoueurConnecte(hauteur: 140, anime: false, semanticLabel: null),
-                    ),
-                  ),
-                ),
+                child: const AvatarJoueurConnecte(hauteur: 60, cadrage: CadrageAvatar.buste, semanticLabel: null),
               ),
             ),
           ),
